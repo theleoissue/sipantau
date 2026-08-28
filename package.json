@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "uji": "node supabase/tests/jalankan.mjs && node supabase/tests/uji-rls.mjs && node supabase/tests/uji-penugasan.mjs && node supabase/tests/uji-rute.mjs"
+    "uji": "node supabase/tests/jalankan.mjs && node supabase/tests/uji-rls.mjs && node supabase/tests/uji-penugasan.mjs && node supabase/tests/uji-laporan.mjs && node supabase/tests/uji-rute.mjs"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.2.5",

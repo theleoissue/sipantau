@@ -55,6 +55,10 @@ sendiri-sendiri, jangan digabung.
 | 7 | `0007_tabel_penugasan.sql` | Tabel SPT beserta anaknya |
 | 8 | `0008_rls_penugasan.sql` | Hak akses SPT |
 | 9 | `0009_penjaga_kolom_pelaksana.sql` | Penjaga kolom pelaksana dan tanda terima |
+| 10 | `0010_tabel_laporan.sql` | Tabel laporan harian, catatan, foto (kerangka) |
+| 11 | `0011_fungsi_pemicu_laporan.sql` | Perhitungan lokasi PostGIS, penguncian, larangan tinjau sendiri |
+| 12 | `0012_rls_laporan.sql` | Hak akses laporan, tampilan Belum Melapor & rekap tim |
+| 13 | `0013_storage_dokumentasi.sql` | Kebijakan unggah foto ke wadah penyimpanan |
 
 Setiap berkas harus menjawab **Success. No rows returned**. Kalau ada
 yang merah, **berhenti** dan kirimkan pesan galatnya — jangan lanjut ke

@@ -142,8 +142,13 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   { pola: /^\/lapor(\/.*)?$/,                         peran: ['anggota', 'panit', 'kanit'] },
   { pola: /^\/riwayat(\/.*)?$/,                       peran: ['anggota', 'panit', 'kanit'] },
 
-  // Meninjau laporan: bukan urusan Anggota (matriks §2.3).
-  { pola: /^\/laporan(\/.*)?$/,                       peran: ['kasubdit', 'kanit', 'panit'] },
+  // Daftar peninjauan: bukan urusan Anggota (matriks §2.3). Rincian
+  // SATU laporan (/laporan/<id>) terbuka bagi keempat peran — Anggota
+  // membuka miliknya sendiri lewat tautan dari Riwayat Laporan, dan
+  // lingkupnya tetap ditegakkan RLS (pelapor_id = auth.uid()), bukan
+  // oleh penjaga rute ini.
+  { pola: /^\/laporan\/?$/,                           peran: ['kasubdit', 'kanit', 'panit'] },
+  { pola: /^\/laporan\/[^/]+$/,                       peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
 
   // Personel: Anggota hanya melihat dirinya, tidak punya halaman ini.
   { pola: /^\/personel(\/.*)?$/,                      peran: ['kasubdit', 'kanit'] },

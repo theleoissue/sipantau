@@ -47,8 +47,10 @@ cek('U-RUTE-17','Panit DAPAT membuka Sesi Tugas', boleh('/tugas','panit'))
 cek('U-RUTE-18','Kanit DAPAT membuka Sesi Tugas (keputusan 6.2 ronde 3)', boleh('/tugas','kanit'))
 
 // --- peninjauan laporan bukan urusan Anggota ---
-cek('U-RUTE-19','Anggota TIDAK dapat membuka /laporan (peninjauan)', !boleh('/laporan','anggota'))
-cek('U-RUTE-20','Anggota TIDAK dapat membuka /laporan/abc (sub-rute)', !boleh('/laporan/abc','anggota'))
+cek('U-RUTE-19','Anggota TIDAK dapat membuka daftar peninjauan /laporan', !boleh('/laporan','anggota'))
+// U-RUTE-20 lama ("Anggota TIDAK dapat /laporan/abc") sudah tidak
+// berlaku sejak /laporan dipecah dua: rincian satu laporan kini
+// terbuka bagi Anggota untuk miliknya sendiri — lihat U-RUTE-25.
 cek('U-RUTE-21','Panit DAPAT meninjau laporan', boleh('/laporan','panit'))
 
 // --- halaman pemeliharaan tertutup bagi keempat peran ---
