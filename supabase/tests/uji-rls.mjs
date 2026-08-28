@@ -105,8 +105,13 @@ await sebagai(ID.anggota1, async () => {
 })
 
 await sebagai(ID.kanit1, async () => {
-  periksa('U-RLS-04', 'Kanit membaca seluruh pengguna di unitnya',
-    await jumlah(`select count(*) n from public.users where unit_id = $1`, [UNIT.satu]) === 4)
+  // 3, bukan 4: Panit dan Anggota di unitnya, TIDAK termasuk Kasubdit
+  // meski unit_id-nya kebetulan sama (migrasi 0014, docs/00-fondasi §2.4).
+  periksa('U-RLS-04', 'Kanit membaca Panit dan Anggota di unitnya (bukan Kasubdit)',
+    await jumlah(`select count(*) n from public.users where unit_id = $1`, [UNIT.satu]) === 3)
+
+  periksa('U-RLS-04B', 'Kanit TIDAK membaca baris Kasubdit meski unit_id sama (migrasi 0014)',
+    await jumlah(`select count(*) n from public.users where id = $1`, [ID.kasubdit]) === 0)
 
   periksa('U-RLS-05', 'Kanit TIDAK membaca pengguna unit lain',
     await jumlah(`select count(*) n from public.users where unit_id = $1`, [UNIT.dua]) === 0)

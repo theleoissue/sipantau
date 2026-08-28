@@ -1,100 +1,155 @@
+import Link from 'next/link'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
-import { klienServer } from '@/lib/supabase/server'
-import { LABEL_PERAN } from '@/lib/supabase/types'
+import { daftarPenugasan } from '@/lib/penugasan/kueri'
+import { statDashboard, aktivitasTerbaru } from '@/lib/dashboard/kueri'
+import { KartuSpt } from '@/components/sipantau/kartu-spt'
 import { Ikon } from '@/components/sipantau/ikon'
 
 export const metadata = { title: 'Beranda — Si PANTAU' }
 
+const SAPA: Record<string, (nama: string) => string> = {
+  anggota: nama => `Selamat bertugas, ${nama}`,
+  panit: nama => `Selamat bertugas, ${nama}`,
+  kanit: nama => `Selamat datang, ${nama}`,
+  kasubdit: nama => `Selamat datang, ${nama}`,
+  pemeliharaan: nama => `Selamat datang, ${nama}`,
+}
+
+const SUB: Record<string, string> = {
+  kasubdit: 'Ringkasan kegiatan penyelidikan lapangan pada seluruh unit Subdit IV.',
+  kanit: 'Ringkasan kegiatan penyelidikan lapangan pada unit Anda.',
+  panit: 'Penugasan yang Anda tanggungjawabi beserta perkembangannya.',
+  anggota: 'Tugas dan laporan Anda hari ini.',
+  pemeliharaan: 'Akun teknis untuk pemulihan akses dan pendampingan.',
+}
+
+function waktu(iso: string): string {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+  }).format(new Date(iso))
+}
+
 /**
  * Beranda berbeda isi untuk tiap peran, mengikuti lingkup data pada
- * matriks §2.3. Server Component: seluruh angka di sini tidak berubah
- * selama halaman terbuka (docs/CLAUDE.md §6.1).
+ * matriks §2.3 (docs/00-fondasi.md §6.5, BR-11). Server Component:
+ * seluruh angka di sini tidak berubah selama halaman terbuka
+ * (docs/CLAUDE.md §6.1).
  *
- * Kartu statistik masih menghitung dari tabel yang sudah ada. Angka
- * penugasan dan laporan menyusul bersama modulnya masing-masing —
- * SENGAJA tidak diisi angka karangan, karena angka yang salah pada
- * dashboard pimpinan lebih berbahaya daripada angka yang belum ada.
+ * "Pelacakan berjalan" dan kartu Sesi Tugas pada mockup SENGAJA belum
+ * diporting — keduanya menyandarkan diri pada Modul 6.4 (GPS) yang
+ * belum dibangun. Menambahkannya sekarang berarti kartu kosong yang
+ * tidak pernah terisi, dan itu sendiri menyesatkan.
  */
 export default async function Beranda() {
   const pengguna = await wajibkanSudahSiap()
-  const supabase = await klienServer()
 
-  const sapa =
-    pengguna.peran === 'anggota' || pengguna.peran === 'panit'
-      ? `Selamat bertugas, ${pengguna.nama}`
-      : `Selamat datang, ${pengguna.nama}`
-
-  const sub: Record<string, string> = {
-    kasubdit: 'Ringkasan kegiatan penyelidikan lapangan pada seluruh unit Subdit IV.',
-    kanit: 'Ringkasan kegiatan penyelidikan lapangan pada unit Anda.',
-    panit: 'Penugasan yang Anda tanggungjawabi beserta perkembangannya.',
-    anggota: 'Tugas dan laporan Anda hari ini.',
-    pemeliharaan: 'Akun teknis untuk pemulihan akses dan pendampingan.',
+  // Akun Pemeliharaan tidak pernah sampai ke halaman ini — berandanya
+  // /pemeliharaan (KP-6.1-40) — tapi TypeScript tidak tahu itu, jadi
+  // dijaga di sini juga.
+  if (pengguna.peran === 'pemeliharaan') {
+    return (
+      <div className="kh"><div><h1>Akun Pemeliharaan</h1></div></div>
+    )
   }
 
-  // Lingkupnya sudah disaring aturan akses baris; kueri ini tidak perlu
-  // menambahkan penyaring unit sendiri. Kalau ia perlu, berarti ada
-  // kebijakan RLS yang kurang — dan itu yang wajib diperbaiki, bukan
-  // ditambal di sini.
-  const { count: jumlahPersonel } = await supabase
-    .from('users')
-    .select('id', { count: 'exact', head: true })
-    .eq('aktif', true)
-    .neq('peran', 'pemeliharaan')
+  const [stat, aktivitas, penugasanAktif] = await Promise.all([
+    statDashboard(pengguna.peran),
+    aktivitasTerbaru(),
+    daftarPenugasan({ status: ['baru', 'berjalan', 'bermasalah'] }),
+  ])
 
-  const { count: jumlahUnit } = await supabase
-    .from('unit')
-    .select('id', { count: 'exact', head: true })
-    .eq('aktif', true)
+  const daftarTerbatas = penugasanAktif.slice(0, 4)
 
   return (
     <>
       <div className="kh">
         <div>
-          <h1>{sapa}</h1>
-          <p>{sub[pengguna.peran]}</p>
+          <h1>{SAPA[pengguna.peran](pengguna.nama)}</h1>
+          <p className="sub">{SUB[pengguna.peran]}</p>
+        </div>
+
+        {/* BR-11: tombol aksi utama hanya muncul sesuai kewenangan peran. */}
+        <div className="kh-aksi">
+          {pengguna.peran === 'kasubdit' && (
+            <Link href="/rekap" className="btn btn-o">
+              <Ikon nama="unduh" />Rekap lintas unit
+            </Link>
+          )}
+          {pengguna.peran === 'kanit' && (
+            <Link href="/penugasan/terbitkan" className="btn btn-g">
+              <Ikon nama="tambah" />Terbitkan penugasan
+            </Link>
+          )}
+          {pengguna.peran === 'anggota' && (
+            <Link href="/lapor" className="btn btn-g">
+              <Ikon nama="lapor" />Kirim laporan
+            </Link>
+          )}
+          {pengguna.peran === 'panit' && (
+            <Link href="/laporan" className="btn btn-o">
+              <Ikon nama="masuk_kotak" />Tinjau laporan
+            </Link>
+          )}
         </div>
       </div>
 
-      <div className="k-stat">
-        <div className="stat">
-          <div className="lb">Peran Anda</div>
-          <div className="vl" style={{ fontSize: 26 }}>
-            {LABEL_PERAN[pengguna.peran]}
+      <div className="k-stat" style={{ marginBottom: 16 }}>
+        {stat.map(s => (
+          <div className="stat" key={s.label} style={{ '--aksen': s.warna } as React.CSSProperties}>
+            <div className="lb">{s.label}</div>
+            <div className="vl">{s.nilai}</div>
+            <div className="tr fl"><span className="lalu">{s.keterangan}</span></div>
           </div>
-          <div className="ket">NRP {pengguna.nrp}</div>
-        </div>
-
-        <div className="stat">
-          <div className="lb">Personel terdaftar</div>
-          <div className="vl">{jumlahPersonel ?? 0}</div>
-          <div className="ket">dalam lingkup Anda</div>
-        </div>
-
-        {(pengguna.peran === 'kasubdit') && (
-          <div className="stat">
-            <div className="lb">Unit aktif</div>
-            <div className="vl">{jumlahUnit ?? 0}</div>
-            <div className="ket">di bawah Subdit IV</div>
-          </div>
-        )}
+        ))}
       </div>
 
-      <div className="kartu" style={{ marginTop: 22 }}>
-        <div className="kartu-h">
-          <h3>Yang sedang dibangun</h3>
-        </div>
-        <div className="kartu-b">
-          <div className="kosong" style={{ padding: '18px 0' }}>
-            <Ikon nama="spt" />
-            <h3>Modul penugasan menyusul</h3>
-            <p>
-              Autentikasi, peran, dan lingkup data sudah berjalan. Daftar
-              penugasan, pelaporan, dan peta lapangan dibangun berikutnya
-              di atas fondasi ini.
-            </p>
+      <div className="kisi k-2">
+        <section className="kartu">
+          <div className="kartu-h">
+            <h3>{pengguna.peran === 'anggota' ? 'Tugas berjalan' : 'Penugasan aktif'}</h3>
+            <Link href="/penugasan" className="btn btn-o btn-sm">Lihat semua</Link>
           </div>
-        </div>
+          <div className="kartu-b">
+            {daftarTerbatas.length > 0 ? (
+              <div className="kisi k-kartu">
+                {daftarTerbatas.map(spt => <KartuSpt key={spt.id} spt={spt} />)}
+              </div>
+            ) : (
+              <div className="kosong">
+                <Ikon nama="spt" />
+                <h3>Tidak ada penugasan aktif</h3>
+                <p>Penugasan baru akan tampil di sini begitu diterbitkan.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="kartu">
+          <div className="kartu-h">
+            <h3>Aktivitas terbaru</h3>
+          </div>
+          <div className="kartu-b rata umpan">
+            {aktivitas.length > 0 ? aktivitas.map(a => (
+              <Link href={`/laporan/${a.id}`} className="ui" key={a.id} style={{ textDecoration: 'none' }}>
+                <div className="ic" style={{ background: 'var(--blue-bg)', color: 'var(--blue)' }}>
+                  <Ikon nama="masuk_kotak" />
+                </div>
+                <div className="tx">
+                  <p><b>{a.pelapor_nama}</b> — {a.uraian.slice(0, 70)}{a.uraian.length > 70 ? '…' : ''}</p>
+                  <div className="t">
+                    {a.nomor_spt && <span className="spt-id">{a.nomor_spt}</span>} · {waktu(a.dikirim_pada)}
+                  </div>
+                </div>
+              </Link>
+            )) : (
+              <div className="kosong">
+                <Ikon nama="masuk_kotak" />
+                <h3>Belum ada aktivitas</h3>
+                <p>Kabar tentang laporan lapangan akan muncul di sini.</p>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </>
   )
