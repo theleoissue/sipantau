@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+*.pem
+npm-debug.log*
+.env
+.env.local
+.env*.local
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Ekspor project Claude.ai — percakapan pribadi, termasuk proyek klien
+# lain. Jangan pernah masuk repo ini.
+conversations-000.zip
+feedback-000.zip
+light_metadata-000.zip
+memories-000.zip
+projects-000.zip

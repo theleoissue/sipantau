@@ -1,0 +1,455 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import Link from 'next/link'
+import { simpanPenugasan } from '../aksi'
+import { Ikon } from '@/components/sipantau/ikon'
+
+const LANGKAH = [
+  'Keterangan Penugasan',
+  'Dasar Penugasan',
+  'Titik Lokasi',
+  'Susunan Tim',
+] as const
+
+const JENIS_DASAR = [
+  ['laporan_informasi', 'Laporan Informasi'],
+  ['laporan_polisi', 'Laporan Polisi'],
+  ['laporan_pengaduan', 'Laporan Pengaduan'],
+  ['surat_perintah_terdahulu', 'Surat Perintah Terdahulu'],
+  ['disposisi_pimpinan', 'Disposisi Pimpinan'],
+  ['lainnya', 'Lainnya'],
+] as const
+
+const BULAN_ROMAWI = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII']
+
+interface Personel { id: string; nama: string; pangkat: string | null; peran: string }
+
+type Dasar = { jenis: string; nomor: string; tanggal: string; keterangan: string }
+type Lokasi = { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }
+
+export function WizardTerbitkan({
+  personel,
+  kodeKlasifikasi,
+  namaUnit,
+}: {
+  personel: Personel[]
+  kodeKlasifikasi: string | null
+  namaUnit: string
+}) {
+  const [n, setN] = useState(1)
+  const [galat, setGalat] = useState<string | null>(null)
+  const [menyimpan, mulai] = useTransition()
+
+  const [judul, setJudul] = useState('')
+  const [jenisKegiatan, setJenisKegiatan] = useState('penyelidikan')
+  const [nomorSpt, setNomorSpt] = useState('')
+  const [objek, setObjek] = useState('')
+  const [sasaran, setSasaran] = useState('')
+  const [uraian, setUraian] = useState('')
+  const [nomorLp, setNomorLp] = useState('')
+  const [sumber, setSumber] = useState('')
+  const [prioritas, setPrioritas] = useState('normal')
+  const [mulaiTgl, setMulaiTgl] = useState('')
+  const [batasTgl, setBatasTgl] = useState('')
+
+  const [dasar, setDasar] = useState<Dasar[]>([
+    { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' },
+  ])
+  const [lokasi, setLokasi] = useState<Lokasi[]>([
+    { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' },
+  ])
+  const [panit, setPanit] = useState<string[]>([])
+  const [pelaksana, setPelaksana] = useState<string[]>([])
+
+  /**
+   * Kerangka nomor SPT yang disodorkan sistem. Nomor agendanya sengaja
+   * dibiarkan sebagai tanda tanya — ia berasal dari buku agenda
+   * administrasi di luar sistem, dan SiPANTAU tidak pernah
+   * membangkitkannya sendiri (BR-23).
+   */
+  function sodorkanNomor() {
+    const kini = new Date()
+    const bulan = BULAN_ROMAWI[kini.getMonth()]
+    const tahun = kini.getFullYear()
+    const kode = kodeKlasifikasi ?? 'RES.__'
+    setNomorSpt(`SP.Gas.Lidik/____/${bulan}/${kode}/${tahun}/Ditreskrimsus`)
+  }
+
+  const calonPanit = personel.filter(p => p.peran === 'panit')
+  const calonPelaksana = personel
+
+  function simpan(terbitkan: boolean) {
+    setGalat(null)
+    mulai(async () => {
+      const hasil = await simpanPenugasan({
+        judul, jenis_kegiatan: jenisKegiatan,
+        nomor_spt: nomorSpt || null,
+        objek: objek || null, sasaran: sasaran || null,
+        uraian_tugas: uraian || null,
+        nomor_lp: nomorLp || null, sumber_informasi: sumber || null,
+        prioritas,
+        tanggal_mulai: mulaiTgl || null, tanggal_batas: batasTgl || null,
+        dasar: dasar.filter(d => d.nomor.trim() || d.keterangan.trim()),
+        lokasi: lokasi.filter(l => l.nama.trim()),
+        panit, pelaksana, terbitkan,
+      })
+      if (hasil?.galat) setGalat(hasil.galat)
+    })
+  }
+
+  function togglePilih(daftar: string[], set: (v: string[]) => void, id: string) {
+    set(daftar.includes(id) ? daftar.filter(x => x !== id) : [...daftar, id])
+  }
+
+  return (
+    <>
+      <Link
+        href="/penugasan"
+        className="back-link"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
+                 color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
+      >
+        <Ikon nama="silang" />
+        Batalkan penerbitan
+      </Link>
+
+      <div className="kh">
+        <div>
+          <h1>Terbitkan penugasan</h1>
+          <p className="sub">Surat perintah tugas untuk {namaUnit}.</p>
+        </div>
+      </div>
+
+      <div className="wiz-steps">
+        {LANGKAH.map((lb, i) => (
+          <button
+            key={lb}
+            type="button"
+            className={`wiz-s ${n === i + 1 ? 'on' : n > i + 1 ? 'done' : ''}`}
+            onClick={() => setN(i + 1)}
+          >
+            <span className="no">{n > i + 1 ? '✓' : i + 1}</span>
+            {lb}
+          </button>
+        ))}
+      </div>
+
+      {galat && (
+        <div
+          role="alert"
+          className="kartu"
+          style={{ marginBottom: 16, borderLeft: '3px solid var(--red)' }}
+        >
+          <div className="kartu-b" style={{ color: 'var(--red)', fontSize: 13, lineHeight: 1.6 }}>
+            {galat}
+          </div>
+        </div>
+      )}
+
+      <section className="kartu">
+        <div className="kartu-b">
+
+          {/* ───────────── 1. Keterangan ───────────── */}
+          {n === 1 && (
+            <>
+              <div className="fg">
+                <label>Nomor SPT</label>
+                <input
+                  value={nomorSpt}
+                  onChange={e => setNomorSpt(e.target.value)}
+                  style={{ fontFamily: 'var(--mono)' }}
+                  placeholder="SP.Gas.Lidik/…"
+                />
+                <div className="bantu">
+                  Kerangka nomor disodorkan sistem — nomor agenda tetap
+                  diketik dari buku agenda administrasi.{' '}
+                  <button type="button" onClick={sodorkanNomor}
+                          style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                    Sodorkan kerangka
+                  </button>
+                </div>
+              </div>
+
+              <div className="f2">
+                <div className="fg">
+                  <label>Jenis kegiatan</label>
+                  <select value={jenisKegiatan} onChange={e => setJenisKegiatan(e.target.value)}>
+                    <option value="penyelidikan">Penyelidikan</option>
+                    <option value="pulbaket">Pulbaket</option>
+                    <option value="pengamanan">Pengamanan</option>
+                  </select>
+                </div>
+                <div className="fg">
+                  <label>Prioritas</label>
+                  <select value={prioritas} onChange={e => setPrioritas(e.target.value)}>
+                    <option value="normal">Normal</option>
+                    <option value="penting">Penting</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="fg">
+                <label>Judul penugasan <span className="wajib">*</span></label>
+                <input value={judul} onChange={e => setJudul(e.target.value)}
+                       placeholder="Judul singkat penugasan" />
+              </div>
+
+              <div className="f2">
+                <div className="fg">
+                  <label>Objek</label>
+                  <input value={objek} onChange={e => setObjek(e.target.value)} />
+                </div>
+                <div className="fg">
+                  <label>Sasaran</label>
+                  <input value={sasaran} onChange={e => setSasaran(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="fg">
+                <label>Uraian tugas</label>
+                <textarea rows={4} value={uraian} onChange={e => setUraian(e.target.value)}
+                          placeholder="Uraian naratif tugas yang diperintahkan" />
+              </div>
+
+              <div className="f2">
+                <div className="fg">
+                  <label>Nomor Laporan Polisi</label>
+                  <input value={nomorLp} onChange={e => setNomorLp(e.target.value)} />
+                  <div className="bantu">Boleh kosong — pulbaket awal kerap belum memilikinya.</div>
+                </div>
+                <div className="fg">
+                  <label>Sumber informasi</label>
+                  <input value={sumber} onChange={e => setSumber(e.target.value)} />
+                  <div className="bantu">Boleh kosong.</div>
+                </div>
+              </div>
+
+              <div className="f2">
+                <div className="fg">
+                  <label>Tanggal mulai</label>
+                  <input type="date" value={mulaiTgl} onChange={e => setMulaiTgl(e.target.value)} />
+                </div>
+                <div className="fg">
+                  <label>Batas waktu</label>
+                  <input type="date" value={batasTgl} onChange={e => setBatasTgl(e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ───────────── 2. Dasar ───────────── */}
+          {n === 2 && (
+            <>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 16, lineHeight: 1.6 }}>
+                Landasan terbitnya surat perintah. Sekurang-kurangnya satu
+                dasar wajib ada sebelum penugasan dapat diterbitkan.
+              </p>
+
+              {dasar.map((d, i) => (
+                <div key={i} className="baris-dasar">
+                  <div className="f2">
+                    <div className="fg">
+                      <label>Jenis</label>
+                      <select
+                        value={d.jenis}
+                        onChange={e => setDasar(dasar.map((x, j) =>
+                          j === i ? { ...x, jenis: e.target.value } : x))}
+                      >
+                        {JENIS_DASAR.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div className="fg">
+                      <label>Nomor</label>
+                      <input value={d.nomor}
+                             onChange={e => setDasar(dasar.map((x, j) =>
+                               j === i ? { ...x, nomor: e.target.value } : x))} />
+                    </div>
+                  </div>
+                  <div className="f2">
+                    <div className="fg">
+                      <label>Tanggal</label>
+                      <input type="date" value={d.tanggal}
+                             onChange={e => setDasar(dasar.map((x, j) =>
+                               j === i ? { ...x, tanggal: e.target.value } : x))} />
+                    </div>
+                    <div className="fg">
+                      <label>
+                        Keterangan
+                        {d.jenis === 'lainnya' && <span className="wajib"> *</span>}
+                      </label>
+                      <input value={d.keterangan}
+                             onChange={e => setDasar(dasar.map((x, j) =>
+                               j === i ? { ...x, keterangan: e.target.value } : x))} />
+                    </div>
+                  </div>
+                  {dasar.length > 1 && (
+                    <button type="button" className="btn btn-o btn-sm"
+                            onClick={() => setDasar(dasar.filter((_, j) => j !== i))}>
+                      Hapus dasar {i + 1}
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button type="button" className="tambah-baris"
+                      onClick={() => setDasar([...dasar,
+                        { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' }])}>
+                <Ikon nama="tambah" /> Tambah dasar penugasan
+              </button>
+            </>
+          )}
+
+          {/* ───────────── 3. Titik lokasi ───────────── */}
+          {n === 3 && (
+            <>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 16, lineHeight: 1.6 }}>
+                Tempat-tempat yang tercantum pada surat, berurutan.
+                Sekurang-kurangnya satu titik wajib berkoordinat — tanpa itu
+                sistem tidak punya pembanding untuk menetapkan status lokasi
+                laporan. Titik tanpa koordinat tetap boleh ada dan bukan
+                kekurangan data.
+              </p>
+
+              {lokasi.map((l, i) => (
+                <div key={i} className="baris-lokasi">
+                  <div className="fg">
+                    <label>Titik {i + 1} — nama tempat <span className="wajib">*</span></label>
+                    <input value={l.nama}
+                           onChange={e => setLokasi(lokasi.map((x, j) =>
+                             j === i ? { ...x, nama: e.target.value } : x))}
+                           placeholder="Contoh: Bandara Internasional Kertajati" />
+                  </div>
+                  <div className="fg">
+                    <label>Alamat</label>
+                    <input value={l.alamat}
+                           onChange={e => setLokasi(lokasi.map((x, j) =>
+                             j === i ? { ...x, alamat: e.target.value } : x))} />
+                  </div>
+                  <div className="f2">
+                    <div className="fg">
+                      <label>Lintang (lat)</label>
+                      <input value={l.lat} inputMode="decimal" placeholder="-6.6489"
+                             onChange={e => setLokasi(lokasi.map((x, j) =>
+                               j === i ? { ...x, lat: e.target.value } : x))} />
+                    </div>
+                    <div className="fg">
+                      <label>Bujur (lng)</label>
+                      <input value={l.lng} inputMode="decimal" placeholder="108.1689"
+                             onChange={e => setLokasi(lokasi.map((x, j) =>
+                               j === i ? { ...x, lng: e.target.value } : x))} />
+                    </div>
+                  </div>
+                  <div className="f2">
+                    <div className="fg">
+                      <label>Radius (meter)</label>
+                      <input type="number" min={100} max={2000} value={l.radius}
+                             onChange={e => setLokasi(lokasi.map((x, j) =>
+                               j === i ? { ...x, radius: e.target.value } : x))} />
+                      <div className="bantu">Antara 100 dan 2000 meter.</div>
+                    </div>
+                    <div className="fg">
+                      <label>Peran titik ini</label>
+                      <input value={l.keterangan} placeholder="lokasi pemeriksaan, lokasi transaksi"
+                             onChange={e => setLokasi(lokasi.map((x, j) =>
+                               j === i ? { ...x, keterangan: e.target.value } : x))} />
+                    </div>
+                  </div>
+                  {lokasi.length > 1 && (
+                    <button type="button" className="btn btn-o btn-sm"
+                            onClick={() => setLokasi(lokasi.filter((_, j) => j !== i))}>
+                      Hapus titik {i + 1}
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button type="button" className="tambah-baris"
+                      onClick={() => setLokasi([...lokasi,
+                        { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' }])}>
+                <Ikon nama="tambah" /> Tambah titik lokasi
+              </button>
+            </>
+          )}
+
+          {/* ───────────── 4. Susunan tim ───────────── */}
+          {n === 4 && (
+            <>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 16, lineHeight: 1.6 }}>
+                Tim melekat pada surat perintah ini, bukan pada unit, dan
+                disusun ulang setiap kali surat baru diterbitkan.
+              </p>
+
+              <div className="fg">
+                <label>Panit Penanggung Jawab <span className="wajib">*</span></label>
+                <div className="pilih-orang-box">
+                  {calonPanit.length === 0 && (
+                    <div style={{ padding: 12, fontSize: 13, color: 'var(--ink-3)' }}>
+                      Belum ada Panit di unit ini.
+                    </div>
+                  )}
+                  {calonPanit.map(p => (
+                    <label key={p.id} className="pilih-orang-i">
+                      <input type="checkbox" checked={panit.includes(p.id)}
+                             onChange={() => togglePilih(panit, setPanit, p.id)} />
+                      <span>{p.pangkat ? `${p.pangkat} ` : ''}{p.nama}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="fg">
+                <label>Pelaksana <span className="wajib">*</span></label>
+                <div className="pilih-orang-box">
+                  {calonPelaksana.map(p => (
+                    <label key={p.id} className="pilih-orang-i">
+                      <input type="checkbox" checked={pelaksana.includes(p.id)}
+                             onChange={() => togglePilih(pelaksana, setPelaksana, p.id)} />
+                      <span>
+                        {p.pangkat ? `${p.pangkat} ` : ''}{p.nama}
+                        <small style={{ color: 'var(--ink-3)', marginLeft: 6 }}>{p.peran}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="bantu">
+                  Kanit dan Panit boleh dicantumkan sebagai pelaksana, dan
+                  memperoleh kemampuan membuka Sesi Tugas serta mengirim
+                  laporan pada penugasan ini saja.
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="wiz-nav">
+            <button type="button" className="btn btn-o"
+                    onClick={() => setN(Math.max(1, n - 1))}
+                    disabled={n === 1 || menyimpan}>
+              Sebelumnya
+            </button>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn btn-o"
+                      onClick={() => simpan(false)} disabled={menyimpan}>
+                Simpan sebagai draf
+              </button>
+
+              {n < 4 ? (
+                <button type="button" className="btn btn-p"
+                        onClick={() => setN(n + 1)} disabled={menyimpan}>
+                  Berikutnya
+                </button>
+              ) : (
+                <button type="button" className="btn btn-g"
+                        onClick={() => simpan(true)} disabled={menyimpan}>
+                  {menyimpan ? 'Menerbitkan…' : 'Terbitkan penugasan'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+}
