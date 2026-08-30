@@ -22,10 +22,19 @@ export interface HasilAksi {
  *  membuka rinciannya. dasar/waktuKegiatan/tempatKegiatan sudah
  *  diformat pemanggil (halaman rincian SPT) dari data yang sudah ada —
  *  boleh kosong bila sumbernya tidak tersedia (docs/00-fondasi.md §8.7,
- *  mis. Sesi Tugas belum pernah dibuka). */
+ *  mis. Sesi Tugas belum pernah dibuka).
+ *
+ * kronologisAwal (bila ada) diisikan lewat UPDATE terpisah SETELAH baris
+ * dibuat — mulai_lhp() (migrasi 0030) tidak menerima kolom ini di
+ * parameternya, dan menambah parameter baru berarti migrasi baru pula.
+ * Update susulan ini sah lewat RLS lhp_ubah_penyusun yang sama (baris
+ * baru itu miliknya sendiri, masih berstatus draf). Laporan Harian
+ * disebut PRD sebagai "bahan utama" LHP (docs/30-modul-6.3-pelaporan.md
+ * baris 442) — ini penerapannya: draf awal Kronologis, tetap bisa
+ * disunting penuh sebelum difinalkan. */
 export async function mulaiLhpAksi(
   penugasanId: string,
-  autoisi: { dasar?: string; waktuKegiatan?: string; tempatKegiatan?: string },
+  autoisi: { dasar?: string; waktuKegiatan?: string; tempatKegiatan?: string; kronologisAwal?: string },
 ): Promise<HasilAksi> {
   const supabase = await klienServer()
   const { data, error } = await supabase.rpc('mulai_lhp', {
@@ -39,6 +48,10 @@ export async function mulaiLhpAksi(
     if (error.message.includes('BUKAN_ANGGOTA')) return { galat: 'Hanya Anggota yang dapat menyusun LHP Ringkas.' }
     if (error.message.includes('BUKAN_PELAKSANA')) return { galat: 'Anda bukan pelaksana aktif pada penugasan ini.' }
     return { galat: `Gagal membuat draf LHP: ${error.message}` }
+  }
+
+  if (autoisi.kronologisAwal) {
+    await supabase.from('lhp').update({ kronologis: autoisi.kronologisAwal }).eq('id', data as string)
   }
 
   revalidatePath('/lhp')

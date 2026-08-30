@@ -4,6 +4,7 @@ import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { satuPenugasan, lewatBatas, hariTerlampaui, riwayatPerpanjangan, bolehHapusPermanen } from '@/lib/penugasan/kueri'
 import { ruteSptDenganTitik } from '@/lib/gps/kueri'
 import { daftarLhp } from '@/lib/lhp/kueri'
+import { riwayatLaporanSaya } from '@/lib/laporan/kueri'
 import { catatTandaTerima } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { RuteSpt } from '@/components/sipantau/rute-spt'
@@ -81,11 +82,12 @@ export default async function RincianPenugasan({
     p => p.panit_id === pengguna.id && !p.dicabut_pada)
   const akuKanitPemilik = pengguna.peran === 'kanit' && spt.unit_id === pengguna.unit_id
 
-  const [riwayatPerpanjang, bolehHapus, personel, lhpSpt] = await Promise.all([
+  const [riwayatPerpanjang, bolehHapus, personel, lhpSpt, laporanSaya] = await Promise.all([
     riwayatPerpanjangan(id),
     akuKanitPemilik ? bolehHapusPermanen(id) : Promise.resolve(false),
     akuKanitPemilik ? daftarPersonel() : Promise.resolve([]),
     daftarLhp({ penugasanId: id }),
+    akuPelaksana ? riwayatLaporanSaya(pengguna.id) : Promise.resolve([]),
   ])
   const bolehUbahTim = akuKanitPemilik && !['selesai', 'dibatalkan'].includes(spt.status)
 
@@ -101,6 +103,15 @@ export default async function RincianPenugasan({
     : ''
   const tempatKegiatanOtomatis = lokasi.map(l => l.nama).join(', ')
   const dasarOtomatis = spt.nomor_spt ? `Surat Perintah Tugas Nomor: ${spt.nomor_spt}` : ''
+
+  // Laporan Harian sebagai "bahan utama" LHP (docs/30-modul-6.3-pelaporan.md
+  // baris 442) — draf awal Kronologis, bukan versi final. Hanya laporan
+  // pada SPT INI, milik pengguna sendiri, diurutkan waktu kirim.
+  const kronologisOtomatis = laporanSaya
+    .filter(l => l.penugasan_id === id)
+    .sort((a, b) => new Date(a.dikirim_pada).getTime() - new Date(b.dikirim_pada).getTime())
+    .map(l => `${new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(l.dikirim_pada))} WIB — ${l.uraian}`)
+    .join('\n\n')
 
   return (
     <>
@@ -265,6 +276,7 @@ export default async function RincianPenugasan({
                     dasar={dasarOtomatis}
                     waktuKegiatan={waktuKegiatanOtomatis}
                     tempatKegiatan={tempatKegiatanOtomatis}
+                    kronologisAwal={kronologisOtomatis}
                   />
                 </div>
               )}

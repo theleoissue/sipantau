@@ -16,11 +16,13 @@ export function TombolSusunLhp({
   dasar,
   waktuKegiatan,
   tempatKegiatan,
+  kronologisAwal,
 }: {
   penugasanId: string
   dasar: string
   waktuKegiatan: string
   tempatKegiatan: string
+  kronologisAwal?: string
 }) {
   const [, mulai] = useTransition()
   const [galat, setGalat] = useState<string | null>(null)
@@ -30,7 +32,7 @@ export function TombolSusunLhp({
       <button
         className="btn btn-p btn-sm"
         onClick={() => mulai(async () => {
-          const r = await mulaiLhpAksi(penugasanId, { dasar, waktuKegiatan, tempatKegiatan })
+          const r = await mulaiLhpAksi(penugasanId, { dasar, waktuKegiatan, tempatKegiatan, kronologisAwal })
           if (r?.galat) setGalat(r.galat)
         })}
       >

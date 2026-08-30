@@ -4,6 +4,7 @@ import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { satuLhp } from '@/lib/lhp/kueri'
 import { daftarPersonel } from '@/lib/personel/kueri'
 import { FormulirLhp } from '@/components/sipantau/formulir-lhp'
+import { TombolBagikanWa } from '@/components/sipantau/tombol-bagikan-wa'
 import { Ikon } from '@/components/sipantau/ikon'
 
 export const metadata = { title: 'LHP Ringkas — Si PANTAU' }
@@ -47,6 +48,7 @@ export default async function RincianLhp({
         </div>
         <div className="kh-aksi">
           <Link href="/lhp" className="btn btn-o">Kembali</Link>
+          <TombolBagikanWa lhp={lhp} />
           {lhp.penugasan_id && (
             <Link href={`/penugasan/${lhp.penugasan_id}`} className="btn btn-o">
               <Ikon nama="spt" /> Lihat Penugasan
