@@ -34,7 +34,9 @@ await db.waitReady
 await db.exec(readFileSync(join(import.meta.dirname, 'stub.sql'), 'utf8'))
 for (const f of readdirSync(MIGRASI).filter(f => f.endsWith('.sql')).sort()) {
   await db.exec(readFileSync(join(MIGRASI, f), 'utf8')
-    .replace(/create extension if not exists (postgis|pg_cron)[^;]*;/gi, ''))
+    .replace(/create extension if not exists (postgis|pg_cron)[^;]*;/gi, '')
+    .replace(/extensions\.geography\(Point,\s*4326\)/gi, 'extensions.geography')
+    .replace(/create index if not exists idx_location_logs_geom[\s\S]*?;/i, ''))
 }
 
 await db.exec(`
@@ -151,6 +153,19 @@ await sebagai(ID.pemel, async () => {
     await n(`select count(*) n from public.penugasan where id='${SPT.draf}'`) === 0)
 })
 
+// Penjaga BR-33 (migrasi 0024) sekarang menolak mencabut Panit atau
+// pelaksana ber-Anggota TERAKHIR pada SPT yang sudah terbit — SPT.terbit
+// sebelum baris ini hanya punya satu Panit (panit1) dan satu pelaksana
+// ber-Anggota (anggota1). Ditambah satu cadangan masing-masing supaya
+// pencabutan di bawah (yang menguji BR-21/BR-27, bukan BR-33) tidak
+// tertahan penjaga yang justru bekerja benar.
+await db.exec(`
+  insert into public.penugasan_panit (penugasan_id,panit_id,ditunjuk_oleh)
+  values ('${SPT.terbit}','${ID.panitLain}','${ID.kanit1}');
+  insert into public.penugasan_pelaksana (penugasan_id,pelaksana_id,urutan,ditugaskan_pada)
+  values ('${SPT.terbit}','${ID.anggota2}',3,now());
+`)
+
 // ---- pencabutan dilakukan Kanit, sebagaimana di aplikasi sungguhan
 await db.exec('begin')
 await db.query(`select set_config('request.jwt.claims',$1,true)`,
@@ -248,19 +263,25 @@ try {
 cek('U-SPT-24', 'Koordinat wajib berpasangan (lat tanpa lng ditolak)', ditolak)
 
 // ---- BR-24 satu sesi aktif per orang
-await db.query(`insert into public.sesi_tugas (penugasan_id,pengguna_id)
-                values ('${SPT.terbit}','${ID.anggota1}')`)
+// penanda_perangkat wajib terisi sejak bentuk [FINAL] Modul 6.4
+// (docs/40-modul-6.4-gps.md P-09) — kolom ini tidak ada lagi pada
+// bentuk [KERANGKA] yang berlaku saat berkas uji ini pertama ditulis.
+await db.query(`insert into public.sesi_tugas (penugasan_id,pengguna_id,penanda_perangkat)
+                values ('${SPT.terbit}','${ID.anggota1}','android-uji')`)
 ditolak = false
 try {
-  await db.query(`insert into public.sesi_tugas (penugasan_id,pengguna_id)
-                  values ('${SPT.unit2}','${ID.anggota1}')`)
+  await db.query(`insert into public.sesi_tugas (penugasan_id,pengguna_id,penanda_perangkat)
+                  values ('${SPT.unit2}','${ID.anggota1}','android-uji')`)
 } catch { ditolak = true }
 cek('U-SPT-25', 'Satu Sesi Tugas aktif per orang lintas SPT (BR-24)', ditolak)
 
+// U-SPT-26 diperbarui: Modul 6.4 sudah berdiri (migrasi 0017) dan
+// memberi sesi_tugas grant select + kebijakan RLS sungguhan — baris ini
+// SEBELUMNYA menguji bahwa tabel tertutup total "sampai Modul 6.4"
+// (komentar aslinya sendiri menandai ini sementara).
 await sebagai(ID.anggota1, async () => {
-  let bergalat = false
-  try { await n(`select count(*) n from public.sesi_tugas`) } catch { bergalat = true }
-  cek('U-SPT-26', 'sesi_tugas tertutup total sampai Modul 6.4', bergalat)
+  cek('U-SPT-26', 'sesi_tugas terbaca sesuai lingkup sejak Modul 6.4 (bukan lagi tertutup total)',
+    await n(`select count(*) n from public.sesi_tugas where pengguna_id='${ID.anggota1}'`) === 1)
 })
 
 

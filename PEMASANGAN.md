@@ -59,6 +59,19 @@ sendiri-sendiri, jangan digabung.
 | 11 | `0011_fungsi_pemicu_laporan.sql` | Perhitungan lokasi PostGIS, penguncian, larangan tinjau sendiri |
 | 12 | `0012_rls_laporan.sql` | Hak akses laporan, tampilan Belum Melapor & rekap tim |
 | 13 | `0013_storage_dokumentasi.sql` | Kebijakan unggah foto ke wadah penyimpanan |
+| 14 | `0014_perbaiki_lingkup_baca_users.sql` | Perbaikan: Kanit tidak lagi melihat baris Kasubdit |
+| 15 | `0015_tabel_gps.sql` | Bentuk akhir sesi_tugas, tabel location_logs/posisi_terkini/titik_penanda |
+| 16 | `0016_fungsi_gps.sql` | Buka/tutup Sesi Tugas, pengiriman Titik, penutupan otomatis |
+| 17 | `0017_rls_gps.sql` | Hak akses GPS, publikasi Realtime posisi_terkini |
+| 18 | `0018_kerja_gps.sql` | Penutup Sesi Menggantung dan penyusutan Titik berjadwal |
+| 19 | `0019_tabel_notifikasi.sql` | Tabel notifikasi (bentuk akhir), langganan_dorong |
+| 20 | `0020_fungsi_notifikasi.sql` | Fungsi pusat buat_notifikasi dan penentu penerima |
+| 21 | `0021_sambung_notifikasi.sql` | Penyambungan pemicu notifikasi ke Modul 6.2/6.3/6.4 |
+| 22 | `0022_kerja_notifikasi.sql` | Penyusutan pemberitahuan dan langganan mati berjadwal |
+| 23 | `0023_lengkapi_penugasan.sql` | Kolom bermasalah, riwayat perpanjangan, tampilan penugasan_tampil (BR-64) |
+| 24 | `0024_penjaga_siklus_spt.sql` | Penjaga transisi status, syarat terbit, anti-race pencabutan |
+| 25 | `0025_fungsi_siklus_spt.sql` | Fungsi tutup/batal/buka-kembali/bermasalah/perpanjang/kelola tim |
+| 26 | `0026_kerja_lewat_batas.sql` | Penanda Lewat Batas berjadwal, penjaga keaktifan project |
 
 Setiap berkas harus menjawab **Success. No rows returned**. Kalau ada
 yang merah, **berhenti** dan kirimkan pesan galatnya — jangan lanjut ke

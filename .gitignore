@@ -12,6 +12,9 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Berkas cache CLI Supabase — spesifik mesin, tanpa nilai bagi repo.
+supabase/.temp/
+
 # Ekspor project Claude.ai — percakapan pribadi, termasuk proyek klien
 # lain. Jangan pernah masuk repo ini.
 conversations-000.zip

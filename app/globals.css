@@ -293,7 +293,13 @@ tbody tr.bisa-klik{cursor:pointer}
 .gk .tanda{position:absolute;top:5px;left:5px}
 
 /* ═══════════════ PETA ═══════════════ */
-#peta-wadah{height:calc(100vh - 34px - var(--hd) - 52px);min-height:420px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);position:relative;box-shadow:var(--sh)}
+/* isolation:isolate WAJIB: kontrol Leaflet memakai z-index bawaannya
+   sendiri sampai 1000 (lihat leaflet.css), jauh melebihi #sb (100).
+   Tanpa membuka konteks susun baru di sini, peta melukis DI ATAS bilah
+   samping/laci saat dibuka di layar telepon — bukan salah urutan CSS,
+   position:relative tanpa z-index tidak membuka konteks susun apa pun,
+   jadi z-index Leaflet dibandingkan langsung terhadap #sb. */
+#peta-wadah{height:calc(100vh - 34px - var(--hd) - 52px);min-height:420px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);position:relative;isolation:isolate;box-shadow:var(--sh)}
 #peta{height:100%;width:100%}
 .leaflet-container{font-family:var(--body)}
 .peta-filter-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm)}
@@ -386,6 +392,13 @@ tbody tr.bisa-klik{cursor:pointer}
 .kosong{padding:52px 24px;text-align:center}
 .kosong .ic{width:60px;height:60px;border-radius:16px;background:var(--bg);display:grid;place-items:center;margin:0 auto 16px}
 .kosong .ic svg{width:28px;height:28px;color:var(--ink-3);stroke-width:1.5}
+/* Setiap kondisi kosong sungguhan di aplikasi merender <Ikon> langsung
+   sebagai anak .kosong (tanpa pembungkus .ic) dan memakai <h3>, bukan
+   <h4> — aturan di atas karena itu tidak pernah menyala di mana pun,
+   dan SVG tanpa ukuran jatuh ke bawaan peramban 300x150 raksasa.
+   Baris ini menjadikan pola yang SUNGGUH dipakai yang berlaku. */
+.kosong > svg{width:28px;height:28px;color:var(--ink-3);stroke-width:1.5;margin:0 auto 16px;display:block}
+.kosong h3{font-size:15px;font-weight:650;margin-bottom:6px}
 .kosong h4{font-size:15px;font-weight:650;margin-bottom:6px}
 .kosong p{font-size:13px;color:var(--ink-2);max-width:40ch;margin:0 auto 18px;line-height:1.6}
 
@@ -419,6 +432,13 @@ tbody tr.bisa-klik{cursor:pointer}
 .baris-lokasi{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;transition:all var(--t)}
 .baris-lokasi.aktif{border-color:var(--gold);background:rgba(245,166,35,.06)}
 .baris-lokasi .no-titik{width:24px;height:24px;border-radius:50%;background:var(--primary);color:var(--gold);font-size:11px;font-weight:700;display:grid;place-items:center;flex-shrink:0;margin-top:2px}
+/* Blok formulir Titik Lokasi pada wizard terbitkan — BUKAN .baris-lokasi
+   (itu baris ringkas berdampingan peta pada mockup, tidak pernah dipakai
+   di sini karena wizard ini tanpa peta pin-drop). Enam kolom isian penuh
+   (nama, alamat, lat, lng, radius, keterangan) tidak pernah muat sebaris
+   di layar telepon — susun ke bawah, .fg dan .f2 di dalamnya sudah
+   responsif sendiri. */
+.blok-lokasi-tb{display:flex;flex-direction:column;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:10px;background:var(--bg)}
 .row-x{width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--card);color:var(--ink-3);cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:all var(--t)}
 .row-x:hover{border-color:var(--red);color:var(--red)}
 .tambah-baris{border:1.5px dashed var(--line-2);background:transparent;color:var(--ink-2);font-size:13px;font-weight:600;padding:10px;border-radius:var(--r-sm);width:100%;cursor:pointer;transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:6px}

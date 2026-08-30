@@ -1,7 +1,82 @@
-import { HalamanBelumDibangun } from '@/components/sipantau/halaman-belum-dibangun'
+import { sesiAktifSaya, ruteSayaLintasSpt } from '@/lib/gps/kueri'
+import { KartuSesiTugas } from '@/components/sipantau/kartu-sesi-tugas'
+import { LABEL_SEBAB_PENUTUPAN } from '@/lib/gps/tipe'
+import { Ikon } from '@/components/sipantau/ikon'
 
 export const metadata = { title: 'Sesi Tugas — Si PANTAU' }
 
-export default function Halaman() {
-  return <HalamanBelumDibangun judul="Sesi Tugas" modul="Modul 6.4 GPS Tracking" />
+function tanggalWaktu(iso: string): string {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  }).format(new Date(iso))
+}
+
+function jarakTampil(meter: number | null): string {
+  if (meter == null) return '—'
+  return meter >= 1000 ? `${(meter / 1000).toFixed(1)} km` : `${Math.round(meter)} m`
+}
+
+export default async function HalamanTugas() {
+  const [sesi, riwayat] = await Promise.all([sesiAktifSaya(), ruteSayaLintasSpt()])
+
+  return (
+    <>
+      <div className="kh">
+        <div>
+          <h1>Sesi Tugas</h1>
+          <p className="sub">
+            Perekaman posisi hanya berjalan selama Sesi Tugas dibuka.
+          </p>
+        </div>
+      </div>
+
+      <KartuSesiTugas sesi={sesi} />
+
+      {/* Rute Saya (KP-6.4-46): sama persis dengan yang dilihat
+          pengawas, tanpa satu bagian pun disembunyikan — orang yang
+          dilacak berhak melihat seluruh data tentang dirinya sendiri. */}
+      <section className="kartu" style={{ marginTop: 18 }}>
+        <div className="kartu-h">
+          <h3>Rute Saya</h3>
+          <span className="isyarat">{riwayat.length} sesi</span>
+        </div>
+        <div className="kartu-b rata">
+          {riwayat.length === 0 ? (
+            <div className="kosong" style={{ padding: '24px 0' }}>
+              <Ikon nama="riwayat" />
+              <h3>Belum ada riwayat</h3>
+              <p>Perekaman posisi hanya berjalan selama Sesi Tugas dibuka.</p>
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Penugasan</th><th>Mulai</th><th>Jarak</th><th>Titik</th><th>Keadaan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {riwayat.map(s => (
+                  <tr key={s.id}>
+                    <td>
+                      <div className="sel-utama">{s.nomor_spt ?? s.judul}</div>
+                      <div className="sel-sub">{s.judul}</div>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{tanggalWaktu(s.dibuka_pada)}</td>
+                    <td>{jarakTampil(s.jarak_tempuh_meter)}</td>
+                    <td>{s.jumlah_titik}</td>
+                    <td>
+                      {s.ditutup_pada
+                        ? (s.sebab_penutupan ? LABEL_SEBAB_PENUTUPAN[s.sebab_penutupan] : '—')
+                        : <span className="lc berjalan">Berjalan</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    </>
+  )
 }

@@ -1,10 +1,25 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
-import { satuPenugasan, lewatBatas, hariTerlampaui } from '@/lib/penugasan/kueri'
+import { satuPenugasan, lewatBatas, hariTerlampaui, riwayatPerpanjangan, bolehHapusPermanen } from '@/lib/penugasan/kueri'
+import { ruteSptDenganTitik } from '@/lib/gps/kueri'
 import { catatTandaTerima } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
+import { RuteSpt } from '@/components/sipantau/rute-spt'
+import { AksiSpt } from '@/components/sipantau/aksi-spt'
+import { KelolaTim } from '@/components/sipantau/kelola-tim'
+import { daftarPersonel } from '@/lib/personel/kueri'
 import { inisial } from '@/lib/utils'
+
+const LABEL_JENIS_MASALAH: Record<string, string> = {
+  alamat_sasaran_fiktif: 'Alamat atau sasaran fiktif',
+  objek_tidak_ditemukan: 'Objek tidak ditemukan di lokasi',
+  informasi_tidak_sesuai: 'Informasi awal tidak sesuai kenyataan',
+  kendala_keamanan: 'Situasi tidak memungkinkan karena alasan keamanan',
+  sasaran_berpindah: 'Sasaran berpindah tempat',
+  kendala_perangkat_jaringan: 'Kendala perangkat atau jaringan',
+  lainnya: 'Lainnya',
+}
 
 export const metadata = { title: 'Rincian Penugasan — Si PANTAU' }
 
@@ -28,10 +43,13 @@ function tanggal(iso: string | null): string {
 
 export default async function RincianPenugasan({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ belumTerbit?: string }>
 }) {
   const { id } = await params
+  const { belumTerbit } = await searchParams
   const pengguna = await wajibkanSudahSiap()
   const spt = await satuPenugasan(id)
 
@@ -42,6 +60,7 @@ export default async function RincianPenugasan({
   // boleh menghalangi halaman tampil.
   await catatTandaTerima(id)
 
+  const rute = await ruteSptDenganTitik(id)
   const lokasi = [...(spt.penugasan_lokasi ?? [])].sort((a, b) => a.urutan - b.urutan)
   const dasar = [...(spt.penugasan_dasar ?? [])].sort((a, b) => a.urutan - b.urutan)
   const pelaksana = (spt.penugasan_pelaksana ?? [])
@@ -51,6 +70,16 @@ export default async function RincianPenugasan({
 
   const akuPelaksana = pelaksana.some(
     p => p.pelaksana_id === pengguna.id && !p.dicabut_pada)
+  const akuPanitAktif = panit.some(
+    p => p.panit_id === pengguna.id && !p.dicabut_pada)
+  const akuKanitPemilik = pengguna.peran === 'kanit' && spt.unit_id === pengguna.unit_id
+
+  const [riwayatPerpanjang, bolehHapus, personel] = await Promise.all([
+    riwayatPerpanjangan(id),
+    akuKanitPemilik ? bolehHapusPermanen(id) : Promise.resolve(false),
+    akuKanitPemilik ? daftarPersonel() : Promise.resolve([]),
+  ])
+  const bolehUbahTim = akuKanitPemilik && !['selesai', 'dibatalkan'].includes(spt.status)
 
   return (
     <>
@@ -98,12 +127,48 @@ export default async function RincianPenugasan({
         </div>
       </div>
 
+      {belumTerbit && (
+        <div className="kartu" style={{ marginBottom: 18, borderLeft: '3px solid var(--amber)' }}>
+          <div className="kartu-b">
+            <strong style={{ fontSize: 13, color: '#B45309' }}>Draf tersimpan, belum diterbitkan</strong>
+            <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, lineHeight: 1.6 }}>{belumTerbit}</p>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 18 }}>
+        <AksiSpt
+          penugasanId={spt.id}
+          status={spt.status}
+          berkasAda={!!spt.berkas_surat_path}
+          isKanitPemilik={akuKanitPemilik}
+          isKasubdit={pengguna.peran === 'kasubdit'}
+          isPelaksanaAktif={akuPelaksana}
+          isPanitAktif={akuPanitAktif}
+          bolehHapus={bolehHapus}
+        />
+      </div>
+
       {spt.status === 'dibatalkan' && spt.alasan_pembatalan && (
         <div className="kartu" style={{ marginBottom: 18, borderLeft: '3px solid var(--red)' }}>
           <div className="kartu-b">
             <strong style={{ fontSize: 13, color: 'var(--red)' }}>Penugasan dibatalkan</strong>
             <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, lineHeight: 1.6 }}>
               {spt.alasan_pembatalan}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Prinsip 0.6: menyatakan kejadian dan uraiannya, bukan menuduh. */}
+      {spt.status === 'bermasalah' && spt.uraian_masalah && (
+        <div className="kartu" style={{ marginBottom: 18, borderLeft: '3px solid var(--amber)' }}>
+          <div className="kartu-b">
+            <strong style={{ fontSize: 13, color: '#B45309' }}>
+              Penugasan ditandai bermasalah — {spt.jenis_masalah ? LABEL_JENIS_MASALAH[spt.jenis_masalah] : '—'}
+            </strong>
+            <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, lineHeight: 1.6 }}>
+              {spt.uraian_masalah}
             </p>
           </div>
         </div>
@@ -249,8 +314,52 @@ export default async function RincianPenugasan({
               ))}
             </div>
           </section>
+
+          {bolehUbahTim && (
+            <section className="kartu">
+              <div className="kartu-h"><h3>Kelola Tim</h3></div>
+              <div className="kartu-b">
+                <KelolaTim
+                  penugasanId={spt.id} pelaksana={pelaksana} panit={panit}
+                  personelTersedia={personel} bolehUbah={bolehUbahTim}
+                />
+              </div>
+            </section>
+          )}
+
+          {riwayatPerpanjang.length > 0 && (
+            <section className="kartu">
+              <div className="kartu-h">
+                <h3>Riwayat Perpanjangan</h3>
+                <span className="isyarat">{riwayatPerpanjang.length} kali</span>
+              </div>
+              <div className="kartu-b rata">
+                {riwayatPerpanjang.map(r => (
+                  <div key={r.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {tanggal(r.tanggal_lama)} → {tanggal(r.tanggal_baru)}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 3 }}>{r.alasan}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>
+                      {r.users?.nama ?? '—'} · {tanggal(r.diubah_pada)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
+
+      <section className="kartu" style={{ marginTop: 16 }}>
+        <div className="kartu-h">
+          <h3>Rute</h3>
+          <span className="isyarat">{rute.sesi.length} sesi</span>
+        </div>
+        <div className="kartu-b">
+          <RuteSpt sesi={rute.sesi} titikPerSesi={rute.titikPerSesi} lokasiSpt={lokasi} />
+        </div>
+      </section>
     </>
   )
 }

@@ -39,17 +39,29 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
   const [menyimpan, mulai] = useTransition()
 
   // Bila API-nya tidak ada sama sekali, keadaan awal langsung 'gagal' —
-  // dihitung sekali saat inisialisasi, bukan lewat setState di dalam
-  // efek (yang memicu render beruntun untuk kasus yang sudah pasti
-  // sejak render pertama).
-  const [statusGeo, setStatusGeo] = useState<StatusGeo>(
-    () => (typeof navigator !== 'undefined' && navigator.geolocation) ? 'mencari' : 'gagal')
+  // SELALU 'mencari' pada render pertama, di server MAUPUN di klien.
+  // Bentuk sebelumnya (`typeof navigator !== 'undefined' && ...`)
+  // terlihat aman untuk SSR, tapi justru itu penyebabnya: nilai itu
+  // dihitung SEKALI LAGI saat komponen di-hydrate di peramban, dan di
+  // sana `navigator` SELALU ada — sedangkan di server tidak pernah ada.
+  // Server merender 'gagal', klien merender 'mencari': React membuang
+  // pohonnya dan merender ulang seluruhnya ("Hydration failed"), yang
+  // terlihat sebagai kedipan/pergantian tampilan sesaat setelah halaman
+  // dibuka. Ketetapan 'gagal' saat geolocation sungguh tidak ada
+  // sekarang dipindah ke efek di bawah (hanya berjalan di klien),
+  // bukan di initializer state yang ikut dijalankan saat SSR.
+  const [statusGeo, setStatusGeo] = useState<StatusGeo>('mencari')
   const [koordinat, setKoordinat] = useState<{ lat: number; lng: number; akurasi: number } | null>(null)
 
   // Kotak lokasi menampilkan keadaan mencari sinyal selama GPS dibaca.
   // Pelapor TIDAK PERNAH terkunci menunggu — tombol Lewati langsung
   // membuka pemilih alasan (6.3.5).
   useEffect(() => {
+    // Peramban tanpa API geolocation sama sekali (praktis tidak pernah
+    // terjadi di peramban bergerak masa kini): statusGeo tetap
+    // 'mencari' selamanya, bukan cacat — tombol Lewati yang sudah
+    // tampil sejak awal (baris di bawah) tetap membuka pemilih alasan
+    // kapan pun, jadi pelapor tidak pernah terkunci menunggu.
     if (!navigator.geolocation) return
     const jam = navigator.geolocation.getCurrentPosition(
       pos => {

@@ -1,9 +1,12 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { PROFIL } from '@/lib/auth/menu'
 import type { Pengguna } from '@/lib/supabase/types'
 import { inisial } from '@/lib/utils'
+import { klienBrowser } from '@/lib/supabase/client'
+import { labelJumlah } from '@/lib/notifikasi/tipe'
 import { Ikon } from './ikon'
 
 const WARNA_PERAN: Record<string, { latar: string; tinta: string }> = {
@@ -16,13 +19,52 @@ const WARNA_PERAN: Record<string, { latar: string; tinta: string }> = {
 
 export function HeaderAplikasi({
   pengguna,
+  jumlahNotifAwal = 0,
   onTekanMenu,
 }: {
   pengguna: Pengguna
+  jumlahNotifAwal?: number
   onTekanMenu: () => void
 }) {
   const jalur = usePathname()
+  const router = useRouter()
   const warna = WARNA_PERAN[pengguna.peran]
+  const [jumlahNotif, setJumlahNotif] = useState(jumlahNotifAwal)
+  // Resinkron ke potret server terbaru saat navigasi berpindah halaman
+  // (jumlahNotifAwal dihitung ulang tiap kunjungan layout.tsx), TANPA
+  // setState di dalam efek — mengikuti pola resmi React "adjusting
+  // state when a prop changes" (setState di render, bukan di effect).
+  const [awalTerekam, setAwalTerekam] = useState(jumlahNotifAwal)
+  if (jumlahNotifAwal !== awalTerekam) {
+    setAwalTerekam(jumlahNotifAwal)
+    setJumlahNotif(jumlahNotifAwal)
+  }
+
+  // KP-6.9-17: penghitung bertambah tanpa memuat ulang halaman selama
+  // aplikasi terbuka. KP-6.9-18: bila sambungan sempat terputus, potret
+  // awal (dari Server Component saat halaman dibuka/muat ulang) yang
+  // menjaga penghitung tetap benar — tidak ada yang perlu disusulkan
+  // secara khusus di sini.
+  useEffect(() => {
+    const supabase = klienBrowser()
+    const kanal = supabase
+      .channel(`notifikasi-lonceng-${pengguna.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifikasi',
+        filter: `penerima_id=eq.${pengguna.id}`,
+      }, () => setJumlahNotif(v => v + 1))
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'notifikasi',
+        filter: `penerima_id=eq.${pengguna.id}`,
+      }, payload => {
+        const lama = payload.old as { dibaca_pada?: string | null }
+        const baru = payload.new as { dibaca_pada?: string | null }
+        if (!lama?.dibaca_pada && baru?.dibaca_pada) setJumlahNotif(v => Math.max(0, v - 1))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(kanal) }
+  }, [pengguna.id, jumlahNotifAwal])
 
   const butir = PROFIL[pengguna.peran].nav.find(
     b => 'rute' in b && (jalur === b.rute || jalur.startsWith(b.rute + '/')),
@@ -38,9 +80,20 @@ export function HeaderAplikasi({
       <div className="jejak">{judul}</div>
 
       <div className="hd-kanan">
-        {/* Lonceng pemberitahuan menunggu Modul 6.9 (Langkah 12).
-            Sengaja belum dirender: menampilkan lonceng yang tidak
-            pernah berisi apa-apa lebih membingungkan daripada tidak ada. */}
+        {/* Akun Pemeliharaan tidak pernah menerima pemberitahuan
+            (KP-6.9-41) — lonceng yang tidak mungkin pernah berisi
+            apa pun tidak ditampilkan, sejalan BR-11. */}
+        {pengguna.peran !== 'pemeliharaan' && (
+          <button
+            className="ikon-btn"
+            style={{ position: 'relative' }}
+            onClick={() => router.push('/pemberitahuan')}
+            aria-label="Pemberitahuan"
+          >
+            <Ikon nama="lonceng" />
+            {jumlahNotif > 0 && <span className="lonceng-titik">{labelJumlah(jumlahNotif)}</span>}
+          </button>
+        )}
         <div
           className="av hd-av"
           style={{ background: warna.latar, color: warna.tinta }}

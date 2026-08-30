@@ -35,8 +35,10 @@ await db.waitReady
 await db.exec(readFileSync(join(import.meta.dirname, 'stub.sql'), 'utf8'))
 for (const f of readdirSync(MIGRASI).filter(f => f.endsWith('.sql')).sort()) {
   await db.exec(
-    readFileSync(join(MIGRASI, f), 'utf8').replace(
-      /create extension if not exists (postgis|pg_cron)[^;]*;/gi, ''))
+    readFileSync(join(MIGRASI, f), 'utf8')
+      .replace(/create extension if not exists (postgis|pg_cron)[^;]*;/gi, '')
+      .replace(/extensions\.geography\(Point,\s*4326\)/gi, 'extensions.geography')
+      .replace(/create index if not exists idx_location_logs_geom[\s\S]*?;/i, ''))
 }
 
 // ---------------------------------------------------------------- seed

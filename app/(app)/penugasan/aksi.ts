@@ -57,13 +57,20 @@ interface IsianTerbitkan {
 }
 
 /**
- * Menyimpan SPT sebagai draf, atau langsung menerbitkannya.
+ * Menyimpan SPT SELALU sebagai draf terlebih dahulu, lalu menerbitkannya
+ * lewat terbitkan_draf() (migrasi 0025) bila diminta.
  *
- * Empat syarat minimum sebelum SPT boleh terbit (nomor SPT, dasar
- * hukum, titik lokasi berkoordinat, Panit + Anggota pelaksana)
- * diperiksa di sini SEBELUM menyentuh basis data — bukan untuk
- * menggantikan penegakannya di sana, melainkan supaya pengguna
- * mendapat pesan yang jelas alih-alih pesan galat mentah.
+ * Draf-lebih-dahulu ini disengaja, bukan gaya penulisan: Empat syarat
+ * minimum (KP-6.2-04) ditegakkan trg_periksa_syarat_terbit yang HANYA
+ * bereaksi pada transisi status draf -> baru (migrasi 0024). Menyimpan
+ * langsung dengan status='baru' pada INSERT tidak pernah melewati
+ * pemicu itu sama sekali — celah nyata yang sempat ada sebelum
+ * perbaikan ini, dan pemeriksaan sisi klien lama (mengecek
+ * `pelaksana.length === 0`, bukan peran anggota di dalamnya) juga
+ * tidak benar-benar menegakkan "sekurang-kurangnya satu pelaksana
+ * BERPERAN ANGGOTA". Satu sumber kebenaran sekarang: pesan galat di
+ * bawah datang langsung dari SYARAT_TERBIT_KURANG, yang menyebutkan
+ * seluruh kekurangannya sekaligus.
  */
 export async function simpanPenugasan(isian: IsianTerbitkan): Promise<HasilAksi> {
   const supabase = await klienServer()
@@ -78,22 +85,6 @@ export async function simpanPenugasan(isian: IsianTerbitkan): Promise<HasilAksi>
     .maybeSingle<{ unit_id: string | null; peran: string }>()
 
   if (!aku?.unit_id) return { galat: 'Akun Anda belum terhubung dengan unit mana pun.' }
-
-  // ---- syarat minimum, diperiksa lebih dulu supaya pesannya jelas ----
-  if (isian.terbitkan) {
-    const kurang: string[] = []
-    if (!isian.nomor_spt?.trim()) kurang.push('nomor SPT')
-    if (isian.dasar.length === 0) kurang.push('sekurang-kurangnya satu dasar penugasan')
-    if (!isian.lokasi.some(l => l.lat && l.lng))
-      kurang.push('sekurang-kurangnya satu titik lokasi berkoordinat')
-    if (isian.panit.length === 0) kurang.push('sekurang-kurangnya satu Panit Penanggung Jawab')
-    if (isian.pelaksana.length === 0) kurang.push('sekurang-kurangnya satu pelaksana')
-
-    if (kurang.length > 0) {
-      return { galat: `Belum dapat diterbitkan. Masih kurang: ${kurang.join(', ')}.` }
-    }
-  }
-
   if (!isian.judul.trim()) return { galat: 'Judul penugasan wajib diisi.' }
 
   // ---- induk ----
@@ -109,13 +100,12 @@ export async function simpanPenugasan(isian: IsianTerbitkan): Promise<HasilAksi>
       nomor_lp: isian.nomor_lp?.trim() || null,
       sumber_informasi: isian.sumber_informasi?.trim() || null,
       prioritas: isian.prioritas,
-      status: isian.terbitkan ? 'baru' : 'draf',
+      status: 'draf',
       tanggal_mulai: isian.tanggal_mulai || null,
       tanggal_batas: isian.tanggal_batas || null,
       unit_id: aku.unit_id,
       diterbitkan_oleh: user.id,
       ditugaskan_oleh: user.id,
-      diterbitkan_pada: isian.terbitkan ? new Date().toISOString() : null,
     })
     .select('id')
     .single<{ id: string }>()
@@ -187,14 +177,214 @@ export async function simpanPenugasan(isian: IsianTerbitkan): Promise<HasilAksi>
   }
 
   if (isian.terbitkan) {
-    await supabase.rpc('catat_jejak_audit', {
-      p_jenis: 'terbit_spt',
-      p_sasaran_tabel: 'penugasan',
-      p_sasaran_id: spt.id,
-      p_keterangan: `Menerbitkan ${isian.nomor_spt ?? '(tanpa nomor)'}`,
-    })
+    const { error: galatTerbit } = await supabase.rpc('terbitkan_draf', { p_id: spt.id })
+    if (galatTerbit) {
+      revalidatePath('/penugasan')
+      // Draf sudah TERSIMPAN dengan aman pada titik ini — hanya
+      // penerbitannya yang gagal. Diarahkan ke rinciannya sendiri
+      // supaya Kanit dapat melengkapi yang kurang dan menekan
+      // Terbitkan lagi dari sana, bukan kehilangan isian yang sudah
+      // disusun.
+      redirect(`/penugasan/${spt.id}?belumTerbit=${encodeURIComponent(
+        galatTerbit.message.includes('SYARAT_TERBIT_KURANG')
+          ? galatTerbit.message.replace('SYARAT_TERBIT_KURANG: ', 'Belum dapat diterbitkan. Masih kurang: ') + '.'
+          : galatTerbit.message,
+      )}`)
+    }
   }
 
   revalidatePath('/penugasan')
   redirect(`/penugasan/${spt.id}`)
+}
+
+/** Menerbitkan draf yang sudah tersimpan (KP-6.2-04..06). Dipanggil
+ *  dari halaman rincian bila penerbitan awal sempat gagal, atau bila
+ *  Kanit memang sengaja menyusun draf lebih dulu lalu menerbitkannya
+ *  belakangan. */
+export async function terbitkanDraf(penugasanId: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('terbitkan_draf', { p_id: penugasanId })
+
+  if (error) {
+    if (error.message.includes('SYARAT_TERBIT_KURANG')) {
+      return { galat: error.message.replace('SYARAT_TERBIT_KURANG: ', 'Belum dapat diterbitkan. Masih kurang: ') + '.' }
+    }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat menerbitkan penugasan.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Draf tidak ditemukan atau bukan milik unit Anda.' }
+    return { galat: `Gagal menerbitkan: ${error.message}` }
+  }
+
+  revalidatePath(`/penugasan/${penugasanId}`)
+  revalidatePath('/penugasan')
+  return { sukses: 'Penugasan berhasil diterbitkan.' }
+}
+
+// =====================================================================
+// Siklus hidup SPT setelah terbit (migrasi 0025) — satu Server Action
+// tipis per fungsi basis data, menerjemahkan kode galat menjadi kalimat
+// yang dapat dibaca manusia. Tidak ada pemeriksaan peran di sini,
+// alasannya sama seperti catatan pembuka berkas ini.
+// =====================================================================
+
+export async function tandaiBermasalah(
+  penugasanId: string, jenisMasalah: string, uraian: string,
+): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('tandai_spt_bermasalah', {
+    p_id: penugasanId, p_jenis_masalah: jenisMasalah, p_uraian: uraian,
+  })
+  if (error) {
+    if (error.message.includes('URAIAN_WAJIB')) return { galat: 'Uraian masalah wajib diisi.' }
+    if (error.message.includes('BUKAN_TIM')) {
+      return { galat: 'Hanya pelaksana atau Panit Penanggung Jawab aktif yang dapat menandai bermasalah.' }
+    }
+    return { galat: `Gagal menandai bermasalah: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Penugasan ditandai bermasalah.' }
+}
+
+export async function kembalikanDariBermasalah(penugasanId: string, alasan: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('kembalikan_dari_bermasalah', { p_id: penugasanId, p_alasan: alasan })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) return { galat: 'Alasan pengembalian wajib diisi.' }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat mengembalikan status.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan atau bukan berstatus bermasalah.' }
+    return { galat: `Gagal mengembalikan status: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Status dikembalikan ke berjalan.' }
+}
+
+export async function tutupSpt(penugasanId: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('tutup_spt', { p_id: penugasanId })
+  if (error) {
+    if (error.message.includes('chk_selesai_wajib_berkas') || error.message.includes('chk_spt_selesai_wajib_berkas')) {
+      return { galat: 'Lampirkan pindaian surat perintah tugas sebelum menutup penugasan.' }
+    }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat menutup penugasan.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan, bukan milik unit Anda, atau sudah tertutup.' }
+    return { galat: `Gagal menutup penugasan: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  revalidatePath('/penugasan')
+  return { sukses: 'Penugasan ditutup.' }
+}
+
+export async function batalkanSpt(penugasanId: string, alasan: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('batalkan_spt', { p_id: penugasanId, p_alasan: alasan })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) return { galat: 'Alasan pembatalan wajib diisi.' }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat membatalkan penugasan.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan, bukan milik unit Anda, atau sudah dibatalkan.' }
+    return { galat: `Gagal membatalkan penugasan: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  revalidatePath('/penugasan')
+  return { sukses: 'Penugasan dibatalkan.' }
+}
+
+export async function bukaKembaliSpt(penugasanId: string, alasan: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('buka_kembali_spt', { p_id: penugasanId, p_alasan: alasan })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) return { galat: 'Alasan pembukaan kembali wajib diisi.' }
+    if (error.message.includes('TIDAK_BERWENANG')) return { galat: 'Hanya Kanit unit pemilik atau Kasubdit yang dapat membuka kembali.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan, bukan berstatus selesai, atau bukan milik unit Anda.' }
+    return { galat: `Gagal membuka kembali: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  revalidatePath('/penugasan')
+  return { sukses: 'Penugasan dibuka kembali.' }
+}
+
+export async function perpanjangBatas(penugasanId: string, tanggalBaru: string, alasan: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('perpanjang_batas', {
+    p_id: penugasanId, p_tanggal_baru: tanggalBaru, p_alasan: alasan,
+  })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) return { galat: 'Alasan perpanjangan wajib diisi.' }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat mengubah batas waktu.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan, bukan milik unit Anda, atau sudah tertutup.' }
+    return { galat: `Gagal memperpanjang batas waktu: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Batas waktu diperpanjang.' }
+}
+
+export async function hapusSptPermanen(penugasanId: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('hapus_spt_permanen', { p_id: penugasanId })
+  if (error) {
+    if (error.message.includes('SUDAH_ADA_KEGIATAN')) {
+      return { galat: 'Penugasan ini sudah memiliki kegiatan tercatat, tidak dapat dihapus permanen. Gunakan Batalkan.' }
+    }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat menghapus penugasan.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan atau bukan milik unit Anda.' }
+    return { galat: `Gagal menghapus penugasan: ${error.message}` }
+  }
+  revalidatePath('/penugasan')
+  redirect('/penugasan')
+}
+
+// ---------------------------------------------------------------------
+// Susunan tim — cabut/tambah pelaksana, tunjuk/cabut Panit.
+// ---------------------------------------------------------------------
+
+export async function tambahPelaksana(penugasanId: string, pelaksanaId: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('tambah_pelaksana', { p_id: penugasanId, p_pelaksana_id: pelaksanaId })
+  if (error) {
+    if (error.message.includes('BUKAN_PERSONEL_UNIT')) return { galat: 'Hanya personel aktif unit Anda yang dapat ditambahkan.' }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat menambah pelaksana.' }
+    return { galat: `Gagal menambah pelaksana: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Pelaksana ditambahkan.' }
+}
+
+export async function cabutPelaksana(relasiId: string, penugasanId: string, alasan: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('cabut_pelaksana', { p_relasi_id: relasiId, p_alasan: alasan })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) return { galat: 'Alasan pencabutan wajib diisi.' }
+    if (error.message.includes('PELAKSANA_ANGGOTA_TERAKHIR')) {
+      return { galat: 'Ini pelaksana berperan Anggota terakhir pada penugasan ini — tunjuk penggantinya lebih dulu.' }
+    }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat mencabut pelaksana.' }
+    return { galat: `Gagal mencabut pelaksana: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Pelaksana dicabut.' }
+}
+
+export async function tunjukPanit(penugasanId: string, panitId: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('tunjuk_panit', { p_id: penugasanId, p_panit_id: panitId })
+  if (error) {
+    if (error.message.includes('BUKAN_PANIT_UNIT')) return { galat: 'Hanya Panit aktif unit Anda yang dapat ditunjuk.' }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat menunjuk Panit Penanggung Jawab.' }
+    return { galat: `Gagal menunjuk Panit: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Panit Penanggung Jawab ditunjuk.' }
+}
+
+export async function cabutPanit(relasiId: string, penugasanId: string, alasan: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('cabut_panit', { p_relasi_id: relasiId, p_alasan: alasan })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) return { galat: 'Alasan pencabutan wajib diisi.' }
+    if (error.message.includes('PANIT_TERAKHIR')) {
+      return { galat: 'Ini Panit Penanggung Jawab terakhir pada penugasan ini — tunjuk penggantinya lebih dulu.' }
+    }
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat mencabut Panit.' }
+    return { galat: `Gagal mencabut Panit: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Panit Penanggung Jawab dicabut.' }
 }

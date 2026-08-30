@@ -67,15 +67,24 @@ grant usage on schema public to anon, authenticated, service_role;
 --
 -- Migrasi ASLI di supabase/migrations/ tetap memakai `create extension
 -- postgis` dan tipe `geography` sungguhan — tidak menyentuh berkas ini.
+--
+-- Ditempatkan di skema extensions (bukan public) supaya rujukan
+-- berskema lengkap extensions.geography / extensions.ST_MakePoint /
+-- extensions.ST_Distance yang dipakai migrasi GPS (0015/0016, mengikuti
+-- pola search_path = public, extensions dari 0011) benar-benar
+-- menemukan sesuatu di uji lokal ini, persis seperti di Supabase
+-- sungguhan yang memasang PostGIS ke skema extensions.
 -- =====================================================================
-create type geography as (lng double precision, lat double precision);
+create schema if not exists extensions;
 
-create or replace function ST_MakePoint(lng double precision, lat double precision)
-returns geography language sql immutable as $$
-  select row(lng, lat)::geography
+create type extensions.geography as (lng double precision, lat double precision);
+
+create or replace function extensions.ST_MakePoint(lng double precision, lat double precision)
+returns extensions.geography language sql immutable as $$
+  select row(lng, lat)::extensions.geography
 $$;
 
-create or replace function ST_Distance(a geography, b geography)
+create or replace function extensions.ST_Distance(a extensions.geography, b extensions.geography)
 returns double precision language plpgsql immutable as $$
 declare
   r    double precision := 6371000; -- radius Bumi, meter
@@ -97,6 +106,12 @@ create schema if not exists cron;
 
 create or replace function cron.schedule(job_name text, schedule text, command text)
 returns bigint language sql as $$ select 1::bigint $$;
+
+-- Dipakai butir uji U-6.4-02 (docs/40-modul-6.4-gps.md) untuk menjedakan
+-- penjadwal secara sengaja dan membuktikan penutupan Sesi Menggantung
+-- TIDAK bergantung padanya (P-04, BR-36).
+create or replace function cron.unschedule(job_name text)
+returns boolean language sql as $$ select true $$;
 
 -- Tiruan storage.foldername Supabase: memecah path berkas jadi array
 -- segmen sebelum nama berkas terakhir.

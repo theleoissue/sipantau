@@ -10,8 +10,9 @@ import { Ikon } from './ikon'
  *
  * KP-6.1-28: bila Sesi Tugas sedang berjalan, dialog memberi tahu lebih
  * dulu bahwa sesinya akan ditutup, sehingga pengguna dapat membatalkan.
- * Peringatan itu belum dirender karena Sesi Tugas lahir di Modul 6.4;
- * tempatnya sudah disiapkan di bawah.
+ * sedangBertugas datang dari sesiAktifSaya() (lib/gps/kueri.ts) yang
+ * dibaca sekali di app/(app)/layout.tsx dan diturunkan lewat props —
+ * bukan dari sini, komponen ini Client Component.
  */
 export function TombolKeluar({ sedangBertugas = false }: { sedangBertugas?: boolean }) {
   const [tanya, setTanya] = useState(false)

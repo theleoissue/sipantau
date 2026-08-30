@@ -71,6 +71,42 @@ export interface Penugasan {
   ditutup_pada: string | null
   dibatalkan_pada: string | null
   alasan_pembatalan: string | null
+  jenis_masalah: string | null
+  uraian_masalah: string | null
+}
+
+export interface Perpanjangan {
+  id: string
+  tanggal_lama: string | null
+  tanggal_baru: string
+  alasan: string
+  diubah_pada: string
+  users: { nama: string } | null
+}
+
+export async function riwayatPerpanjangan(penugasanId: string): Promise<Perpanjangan[]> {
+  const supabase = await klienServer()
+  const { data, error } = await supabase
+    .from('penugasan_perpanjangan')
+    .select('id, tanggal_lama, tanggal_baru, alasan, diubah_pada, users:diubah_oleh ( nama )')
+    .eq('penugasan_id', penugasanId)
+    .order('diubah_pada', { ascending: false })
+
+  if (error) throw new Error(`Gagal membaca riwayat perpanjangan: ${error.message}`)
+  return (data ?? []) as unknown as Perpanjangan[]
+}
+
+/** Boleh dihapus permanen hanya bila belum pernah ada laporan maupun
+ *  Sesi Tugas (KP-6.2-48) — dihitung di sini supaya tombol Hapus hanya
+ *  ditampilkan bila benar-benar berlaku (BR-11), bukan ditampilkan lalu
+ *  ditolak. */
+export async function bolehHapusPermanen(penugasanId: string): Promise<boolean> {
+  const supabase = await klienServer()
+  const [{ count: jumlahLaporan }, { count: jumlahSesi }] = await Promise.all([
+    supabase.from('laporan_harian').select('id', { count: 'exact', head: true }).eq('penugasan_id', penugasanId),
+    supabase.from('sesi_tugas').select('id', { count: 'exact', head: true }).eq('penugasan_id', penugasanId),
+  ])
+  return (jumlahLaporan ?? 0) === 0 && (jumlahSesi ?? 0) === 0
 }
 
 export interface PenugasanLengkap extends Penugasan {

@@ -156,6 +156,10 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   // Halaman pemeliharaan hanya untuk akun teknis itu sendiri.
   { pola: /^\/pemeliharaan(\/.*)?$/,                  peran: ['pemeliharaan'] },
 
+  // Akun Pemeliharaan tidak pernah menerima pemberitahuan (KP-6.9-41,
+  // "bukan bagian dari alur kerja") — halamannya pun bukan untuknya.
+  { pola: /^\/pemberitahuan(\/.*)?$/,                 peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
+
   // Peta dan penugasan terbuka bagi keempat peran organisasi, tetapi
   // ISInya disaring aturan akses baris menurut lingkup masing-masing.
   { pola: /^\/peta(\/.*)?$/,                          peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },

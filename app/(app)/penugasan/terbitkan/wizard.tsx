@@ -313,7 +313,7 @@ export function WizardTerbitkan({
               </p>
 
               {lokasi.map((l, i) => (
-                <div key={i} className="baris-lokasi">
+                <div key={i} className="blok-lokasi-tb">
                   <div className="fg">
                     <label>Titik {i + 1} — nama tempat <span className="wajib">*</span></label>
                     <input value={l.nama}

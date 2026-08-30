@@ -23,10 +23,14 @@ import { BilahBawah } from './bilah-bawah'
 export function KerangkaAplikasi({
   pengguna,
   namaUnit,
+  sedangBertugas = false,
+  jumlahNotifAwal = 0,
   children,
 }: {
   pengguna: Pengguna
   namaUnit: string | null
+  sedangBertugas?: boolean
+  jumlahNotifAwal?: number
   children: React.ReactNode
 }) {
   const [laciTerbuka, setLaciTerbuka] = useState(false)
@@ -51,6 +55,7 @@ export function KerangkaAplikasi({
       <BilahSamping
         pengguna={pengguna}
         namaUnit={namaUnit}
+        sedangBertugas={sedangBertugas}
         onTutupLaci={() => setLaciTerbuka(false)}
       />
 
@@ -68,6 +73,7 @@ export function KerangkaAplikasi({
       <div id="rangka">
         <HeaderAplikasi
           pengguna={pengguna}
+          jumlahNotifAwal={jumlahNotifAwal}
           onTekanMenu={() => {
             if (window.innerWidth <= 768) setLaciTerbuka(v => !v)
             else setDipaksaPenuh(v => !v)
