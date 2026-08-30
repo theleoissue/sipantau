@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { klienServer } from '@/lib/supabase/server'
 import { personelDapatDipilih } from '@/lib/penugasan/kueri'

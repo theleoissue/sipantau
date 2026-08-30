@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { simpanPenugasan } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
+import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
 
 const LANGKAH = [
   'Keterangan Penugasan',
@@ -59,6 +60,7 @@ export function WizardTerbitkan({
   const [lokasi, setLokasi] = useState<Lokasi[]>([
     { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' },
   ])
+  const [titikAktif, setTitikAktif] = useState(0)
   const [panit, setPanit] = useState<string[]>([])
   const [pelaksana, setPelaksana] = useState<string[]>([])
 
@@ -312,8 +314,26 @@ export function WizardTerbitkan({
                 kekurangan data.
               </p>
 
+              {/* KP-6.2-16: tiga cara menetapkan koordinat — peta+pin dan
+                  pencarian nama tempat di sini, ketik lintang/bujur manual
+                  tetap ada di bawah pada tiap blok titik (cara ketiga). */}
+              <PetaPilihLokasi
+                titik={lokasi.map(l => ({ nama: l.nama, lat: l.lat, lng: l.lng }))}
+                aktif={Math.min(titikAktif, lokasi.length - 1)}
+                onAktifChange={setTitikAktif}
+                onUbahKoordinat={(i, lat, lng) => setLokasi(lokasi.map((x, j) =>
+                  j === i ? { ...x, lat, lng } : x))}
+              />
+
               {lokasi.map((l, i) => (
-                <div key={i} className="blok-lokasi-tb">
+                <div
+                  key={i}
+                  className="blok-lokasi-tb"
+                  onClick={() => setTitikAktif(i)}
+                  style={i === titikAktif
+                    ? { borderColor: 'var(--gold)', boxShadow: '0 0 0 1px var(--gold)' }
+                    : undefined}
+                >
                   <div className="fg">
                     <label>Titik {i + 1} — nama tempat <span className="wajib">*</span></label>
                     <input value={l.nama}
@@ -366,8 +386,11 @@ export function WizardTerbitkan({
               ))}
 
               <button type="button" className="tambah-baris"
-                      onClick={() => setLokasi([...lokasi,
-                        { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' }])}>
+                      onClick={() => {
+                        setLokasi([...lokasi,
+                          { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' }])
+                        setTitikAktif(lokasi.length)
+                      }}>
                 <Ikon nama="tambah" /> Tambah titik lokasi
               </button>
             </>

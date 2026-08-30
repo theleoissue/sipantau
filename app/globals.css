@@ -445,7 +445,7 @@ tbody tr.bisa-klik{cursor:pointer}
    (nama, alamat, lat, lng, radius, keterangan) tidak pernah muat sebaris
    di layar telepon — susun ke bawah, .fg dan .f2 di dalamnya sudah
    responsif sendiri. */
-.blok-lokasi-tb{display:flex;flex-direction:column;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:10px;background:var(--bg)}
+.blok-lokasi-tb{display:flex;flex-direction:column;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:10px;background:var(--bg);cursor:pointer;transition:border-color var(--t),box-shadow var(--t)}
 .row-x{width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--card);color:var(--ink-3);cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:all var(--t)}
 .row-x:hover{border-color:var(--red);color:var(--red)}
 .tambah-baris{border:1.5px dashed var(--line-2);background:transparent;color:var(--ink-2);font-size:13px;font-weight:600;padding:10px;border-radius:var(--r-sm);width:100%;cursor:pointer;transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:6px}
