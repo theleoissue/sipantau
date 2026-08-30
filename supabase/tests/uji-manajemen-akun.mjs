@@ -158,6 +158,7 @@ cek('U-MAK-10', 'Admin mereset sandi siapa pun: wajib_ganti_sandi menyala',
 cek('U-MAK-11', 'Reset sandi mengakhiri sesi masuk sasaran',
   await n(`select count(*) n from public.perangkat_masuk where user_id=$1`, [ID.anggota1]) === 0)
 await db.exec(`update public.users set wajib_ganti_sandi=false where id='${ID.anggota1}'`)
+await db.exec(`delete from public.notifikasi where penerima_id='${ID.anggota1}'`)
 
 await komitService(async () => {
   await db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.pemel, ID.anggota2])
@@ -165,6 +166,7 @@ await komitService(async () => {
 cek('U-MAK-12', 'Akun Pemeliharaan dapat mereset sandi siapa pun (KP-6.6-33)',
   (await db.query(`select wajib_ganti_sandi from public.users where id=$1`, [ID.anggota2])).rows[0].wajib_ganti_sandi === true)
 await db.exec(`update public.users set wajib_ganti_sandi=false where id='${ID.anggota2}'`)
+await db.exec(`delete from public.notifikasi where penerima_id='${ID.anggota2}'`)
 
 await komitService(async () => {
   await db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.kanit1, ID.anggota1])
@@ -172,6 +174,7 @@ await komitService(async () => {
 cek('U-MAK-13', 'Kanit dapat mereset sandi Anggota unitnya sendiri (BR-15)',
   (await db.query(`select wajib_ganti_sandi from public.users where id=$1`, [ID.anggota1])).rows[0].wajib_ganti_sandi === true)
 await db.exec(`update public.users set wajib_ganti_sandi=false where id='${ID.anggota1}'`)
+await db.exec(`delete from public.notifikasi where penerima_id='${ID.anggota1}'`)
 
 await sebagaiService(async () => {
   const e = await galat(() => db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.kanit1, ID.anggota2]))
@@ -182,6 +185,56 @@ await sebagaiService(async () => {
   const e = await galat(() => db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.kanit1, ID.kanit2]))
   cek('U-MAK-15', 'Kanit TIDAK dapat mereset sandi Kanit lain (bukan anggota/panit)',
     e !== null && e.includes('TIDAK_BERWENANG'))
+})
+
+// KP-6.6-26: pemberitahuan ke sasaran, menyebut siapa yang meresetnya.
+// Tidak ada pemicu otomatis untuk ini (beda dari akun_dinonaktifkan) —
+// admin_reset_kata_sandi_selesai wajib menyisipkannya sendiri.
+await komitService(async () => {
+  await db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.admin1, ID.anggota1])
+})
+cek('U-MAK-19', 'Reset sandi mengirim notifikasi kata_sandi_direset ke sasaran (KP-6.6-26)',
+  await n(`select count(*) n from public.notifikasi where penerima_id=$1 and jenis='kata_sandi_direset'`, [ID.anggota1]) === 1)
+cek('U-MAK-20', 'Isi notifikasi menyebut nama pelaku',
+  (await db.query(`select isi from public.notifikasi where penerima_id=$1 and jenis='kata_sandi_direset'`, [ID.anggota1])).rows[0].isi.includes('Admin Satu'))
+await db.exec(`update public.users set wajib_ganti_sandi=false where id='${ID.anggota1}'`)
+await db.exec(`delete from public.notifikasi where penerima_id='${ID.anggota1}'`)
+
+// =====================================================================
+// BR-51 — batas laju ditegakkan DI BASIS DATA (bukan hanya di aplikasi)
+// =====================================================================
+for (let i = 0; i < 10; i++) {
+  await db.query(
+    `insert into public.jejak_audit (pelaku_id, peran_pelaku, jenis_tindakan, sasaran_tabel, sasaran_id)
+     values ($1,'admin','reset_sandi','users',$2)`,
+    [ID.admin1, ID.anggota1])
+}
+await sebagaiService(async () => {
+  const e = await galat(() => db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.admin1, ID.anggota1]))
+  cek('U-MAK-21', 'Reset sandi ke-11 dalam satu jam oleh pelaku sama ditolak (BR-51, KP-6.6-25)',
+    e !== null && e.includes('BATAS_LAJU'))
+})
+await sebagaiService(async () => {
+  const e = await galat(() => db.query(`select public.admin_reset_kata_sandi_selesai($1,$2)`, [ID.kanit1, ID.anggota1]))
+  cek('U-MAK-22', 'Batas laju dihitung per pelaku, bukan global (pelaku lain tetap bisa)',
+    e === null)
+})
+await db.exec(`update public.users set wajib_ganti_sandi=false where id in ('${ID.anggota1}')`)
+await db.exec(`delete from public.notifikasi where penerima_id='${ID.anggota1}'`)
+
+for (let i = 0; i < 20; i++) {
+  await db.query(
+    `insert into public.jejak_audit (pelaku_id, peran_pelaku, jenis_tindakan, sasaran_tabel, sasaran_id)
+     values ($1,'admin','buat_akun','users',$2)`,
+    [ID.admin1, ID.anggota1])
+}
+await sebagaiService(async () => {
+  const e = await galat(() => db.query(
+    `select public.admin_buat_akun($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [ID.admin1, '00000000-0000-0000-0000-000000000097', 'X', '9999997', '9999997@sipantau.internal',
+     'BRIPDA', 'anggota', UNIT.satu]))
+  cek('U-MAK-23', 'Pembuatan akun ke-21 dalam satu jam oleh pelaku sama ditolak (BR-51 amandemen)',
+    e !== null && e.includes('BATAS_LAJU'))
 })
 
 // =====================================================================

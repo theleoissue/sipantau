@@ -24,6 +24,42 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
+-- fn_periksa_batas_laju — BR-51 ("ditegakkan di dalam basis data, bukan
+-- di aplikasi"). jejak_audit sudah mencatat pelaku_id/jenis_tindakan/
+-- dibuat_pada untuk setiap panggilan berhasil — dipakai apa adanya
+-- sebagai penghitung, tanpa tabel baru.
+-- ---------------------------------------------------------------------
+create or replace function public.fn_periksa_batas_laju(
+  p_pelaku_id uuid,
+  p_jenis     public.jenis_tindakan_audit,
+  p_batas     integer
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_jumlah integer;
+begin
+  select count(*) into v_jumlah
+    from public.jejak_audit
+   where pelaku_id = p_pelaku_id
+     and jenis_tindakan = p_jenis
+     and waktu > now() - interval '1 hour';
+
+  if v_jumlah >= p_batas then
+    raise exception 'BATAS_LAJU: terlalu sering, coba lagi setelah beberapa saat (BR-51)';
+  end if;
+end;
+$$;
+
+revoke execute on function public.fn_periksa_batas_laju(uuid, public.jenis_tindakan_audit, integer)
+  from public, authenticated;
+grant execute on function public.fn_periksa_batas_laju(uuid, public.jenis_tindakan_audit, integer)
+  to service_role;
+
+-- ---------------------------------------------------------------------
 -- admin_buat_akun — KP-6.6-01/04/06/07, AM-6.6-03. Baris auth.users
 -- SUDAH dibuat Fungsi Tepi lewat Admin API sebelum memanggil ini;
 -- fungsi ini HANYA menyisipkan baris public.users yang bersesuaian.
@@ -56,6 +92,8 @@ begin
   if v_peran_pelaku is distinct from 'admin' then
     raise exception 'BUKAN_ADMIN: hanya Admin yang dapat membuat akun';
   end if;
+
+  perform public.fn_periksa_batas_laju(p_pelaku_id, 'buat_akun', 20);
 
   insert into public.users
     (id, nama, nrp, email_sistem, pangkat, peran, unit_id, wajib_ganti_sandi, aktif)
@@ -130,6 +168,11 @@ grant execute on function public.admin_nonaktifkan_akun(uuid, uuid) to service_r
 --
 -- Wewenang BR-15: Admin (siapa pun) dan Akun Pemeliharaan (siapa pun,
 -- KP-6.6-33) atau Kanit (anggota/panit unitnya sendiri saja).
+--
+-- KP-6.6-26: berbeda dari akun_dinonaktifkan, TIDAK ADA pemicu yang
+-- mengirim 'kata_sandi_direset' secara otomatis (tabel kata sandi
+-- disimpan Supabase Auth, di luar jangkauan pemicu pada public.users) —
+-- pemberitahuannya disisipkan langsung di sini.
 -- ---------------------------------------------------------------------
 create or replace function public.admin_reset_kata_sandi_selesai(
   p_pelaku_id  uuid,
@@ -143,10 +186,11 @@ as $$
 declare
   v_peran_pelaku  public.peran_pengguna;
   v_unit_pelaku   uuid;
+  v_nama_pelaku   text;
   v_peran_sasaran public.peran_pengguna;
   v_unit_sasaran  uuid;
 begin
-  select peran, unit_id into v_peran_pelaku, v_unit_pelaku
+  select peran, unit_id, nama into v_peran_pelaku, v_unit_pelaku, v_nama_pelaku
     from public.users where id = p_pelaku_id and aktif = true;
 
   if v_peran_pelaku is null then
@@ -170,6 +214,8 @@ begin
     raise exception 'TIDAK_BERWENANG: tidak berhak mereset kata sandi akun ini';
   end if;
 
+  perform public.fn_periksa_batas_laju(p_pelaku_id, 'reset_sandi', 10);
+
   perform set_config('sipantau.jalur_resmi', 'on', true);
 
   update public.users set wajib_ganti_sandi = true where id = p_sasaran_id;
@@ -180,6 +226,12 @@ begin
     (pelaku_id, peran_pelaku, jenis_tindakan, sasaran_tabel, sasaran_id)
   values
     (p_pelaku_id, v_peran_pelaku, 'reset_sandi', 'users', p_sasaran_id);
+
+  perform public.fn_buat_notifikasi(
+    'kata_sandi_direset', array[p_sasaran_id], 'Kata sandi Anda direset',
+    'Direset oleh ' || coalesce(v_nama_pelaku, 'pengelola akun'),
+    'akun', p_sasaran_id, null, null, true, p_pelaku_id
+  );
 end;
 $$;
 
