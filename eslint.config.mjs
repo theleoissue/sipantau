@@ -12,6 +12,9 @@ const konfigurasi = [
       'node_modules/**',
       // Perkakas uji berjalan di Node polos, bukan di dalam Next.js.
       'supabase/tests/**',
+      // Fungsi Tepi berjalan di Deno (global Deno, impor URL) — bukan
+      // bagian aplikasi Next.js, punya konvensi sendiri.
+      'supabase/functions/**',
     ],
   },
 ]
