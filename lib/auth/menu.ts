@@ -130,8 +130,10 @@ interface AturanRute {
 }
 
 export const RUTE_KHUSUS_PERAN: AturanRute[] = [
-  // Menerbitkan dan menyunting SPT: eksklusif Kanit (BR-06).
-  { pola: /^\/penugasan\/terbitkan\/?$/,             peran: ['kanit'] },
+  // Menerbitkan dan menyunting SPT: eksklusif Kanit (BR-06). Sub-rute
+  // /penugasan/terbitkan/<id> (sunting draf, wizard yang sama dipakai
+  // ulang) ikut tercakup pola ini.
+  { pola: /^\/penugasan\/terbitkan(\/.*)?$/,         peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/sunting\/?$/,        peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/tutup\/?$/,          peran: ['kanit'] },
 

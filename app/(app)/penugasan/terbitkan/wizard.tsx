@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { simpanPenugasan } from '../aksi'
+import { simpanPenugasan, perbaruiDraf } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
 
@@ -12,6 +12,13 @@ const LANGKAH = [
   'Titik Lokasi',
   'Susunan Tim',
 ] as const
+
+// Menyunting draf HANYA mencakup tiga langkah pertama — Susunan Tim
+// draf sudah dapat diubah dari Kelola Tim pada halaman rincian SPT
+// (bolehUbahTim di sana sudah mengizinkan status 'draf'), jadi tidak
+// diduplikasi di sini. Menampilkannya lagi hanya akan membingungkan:
+// isian di langkah itu tidak akan pernah tersimpan lewat perbaruiDraf.
+const LANGKAH_SUNTING_DRAF = LANGKAH.slice(0, 3)
 
 const JENIS_DASAR = [
   ['laporan_informasi', 'Laporan Informasi'],
@@ -29,35 +36,58 @@ interface Personel { id: string; nama: string; pangkat: string | null; peran: st
 type Dasar = { jenis: string; nomor: string; tanggal: string; keterangan: string }
 type Lokasi = { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }
 
+export interface DrafAwal {
+  id: string
+  nomor_spt: string | null
+  jenis_kegiatan: string
+  judul: string
+  objek: string | null
+  sasaran: string | null
+  uraian_tugas: string | null
+  nomor_lp: string | null
+  sumber_informasi: string | null
+  prioritas: string
+  tanggal_mulai: string | null
+  tanggal_batas: string | null
+  dasar: Dasar[]
+  lokasi: Lokasi[]
+}
+
 export function WizardTerbitkan({
   personel,
   kodeKlasifikasi,
   namaUnit,
+  draf,
 }: {
   personel: Personel[]
   kodeKlasifikasi: string | null
   namaUnit: string
+  /** Bila diisi, wizard dalam mode SUNTING draf yang sudah ada (bukan
+   *  membuat baru) — hanya tiga langkah pertama, disimpan lewat
+   *  perbaruiDraf(), bukan simpanPenugasan(). */
+  draf?: DrafAwal
 }) {
+  const langkah = draf ? LANGKAH_SUNTING_DRAF : LANGKAH
   const [n, setN] = useState(1)
   const [galat, setGalat] = useState<string | null>(null)
   const [menyimpan, mulai] = useTransition()
 
-  const [judul, setJudul] = useState('')
-  const [jenisKegiatan, setJenisKegiatan] = useState('penyelidikan')
-  const [nomorSpt, setNomorSpt] = useState('')
-  const [objek, setObjek] = useState('')
-  const [sasaran, setSasaran] = useState('')
-  const [uraian, setUraian] = useState('')
-  const [nomorLp, setNomorLp] = useState('')
-  const [sumber, setSumber] = useState('')
-  const [prioritas, setPrioritas] = useState('normal')
-  const [mulaiTgl, setMulaiTgl] = useState('')
-  const [batasTgl, setBatasTgl] = useState('')
+  const [judul, setJudul] = useState(draf?.judul ?? '')
+  const [jenisKegiatan, setJenisKegiatan] = useState(draf?.jenis_kegiatan ?? 'penyelidikan')
+  const [nomorSpt, setNomorSpt] = useState(draf?.nomor_spt ?? '')
+  const [objek, setObjek] = useState(draf?.objek ?? '')
+  const [sasaran, setSasaran] = useState(draf?.sasaran ?? '')
+  const [uraian, setUraian] = useState(draf?.uraian_tugas ?? '')
+  const [nomorLp, setNomorLp] = useState(draf?.nomor_lp ?? '')
+  const [sumber, setSumber] = useState(draf?.sumber_informasi ?? '')
+  const [prioritas, setPrioritas] = useState(draf?.prioritas ?? 'normal')
+  const [mulaiTgl, setMulaiTgl] = useState(draf?.tanggal_mulai ?? '')
+  const [batasTgl, setBatasTgl] = useState(draf?.tanggal_batas ?? '')
 
-  const [dasar, setDasar] = useState<Dasar[]>([
+  const [dasar, setDasar] = useState<Dasar[]>(draf?.dasar.length ? draf.dasar : [
     { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' },
   ])
-  const [lokasi, setLokasi] = useState<Lokasi[]>([
+  const [lokasi, setLokasi] = useState<Lokasi[]>(draf?.lokasi.length ? draf.lokasi : [
     { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' },
   ])
   const [titikAktif, setTitikAktif] = useState(0)
@@ -84,18 +114,31 @@ export function WizardTerbitkan({
   function simpan(terbitkan: boolean) {
     setGalat(null)
     mulai(async () => {
-      const hasil = await simpanPenugasan({
-        judul, jenis_kegiatan: jenisKegiatan,
-        nomor_spt: nomorSpt || null,
-        objek: objek || null, sasaran: sasaran || null,
-        uraian_tugas: uraian || null,
-        nomor_lp: nomorLp || null, sumber_informasi: sumber || null,
-        prioritas,
-        tanggal_mulai: mulaiTgl || null, tanggal_batas: batasTgl || null,
-        dasar: dasar.filter(d => d.nomor.trim() || d.keterangan.trim()),
-        lokasi: lokasi.filter(l => l.nama.trim()),
-        panit, pelaksana, terbitkan,
-      })
+      const isianDasar = dasar.filter(d => d.nomor.trim() || d.keterangan.trim())
+      const isianLokasi = lokasi.filter(l => l.nama.trim())
+
+      const hasil = draf
+        ? await perbaruiDraf(draf.id, {
+            judul, jenis_kegiatan: jenisKegiatan,
+            nomor_spt: nomorSpt || null,
+            objek: objek || null, sasaran: sasaran || null,
+            uraian_tugas: uraian || null,
+            nomor_lp: nomorLp || null, sumber_informasi: sumber || null,
+            prioritas,
+            tanggal_mulai: mulaiTgl || null, tanggal_batas: batasTgl || null,
+            dasar: isianDasar, lokasi: isianLokasi,
+          })
+        : await simpanPenugasan({
+            judul, jenis_kegiatan: jenisKegiatan,
+            nomor_spt: nomorSpt || null,
+            objek: objek || null, sasaran: sasaran || null,
+            uraian_tugas: uraian || null,
+            nomor_lp: nomorLp || null, sumber_informasi: sumber || null,
+            prioritas,
+            tanggal_mulai: mulaiTgl || null, tanggal_batas: batasTgl || null,
+            dasar: isianDasar, lokasi: isianLokasi,
+            panit, pelaksana, terbitkan,
+          })
       if (hasil?.galat) setGalat(hasil.galat)
     })
   }
@@ -107,24 +150,28 @@ export function WizardTerbitkan({
   return (
     <>
       <Link
-        href="/penugasan"
+        href={draf ? `/penugasan/${draf.id}` : '/penugasan'}
         className="back-link"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
                  color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
       >
         <Ikon nama="silang" />
-        Batalkan penerbitan
+        {draf ? 'Kembali ke rincian draf' : 'Batalkan penerbitan'}
       </Link>
 
       <div className="kh">
         <div>
-          <h1>Terbitkan penugasan</h1>
-          <p className="sub">Surat perintah tugas untuk {namaUnit}.</p>
+          <h1>{draf ? 'Sunting draf penugasan' : 'Terbitkan penugasan'}</h1>
+          <p className="sub">
+            {draf
+              ? 'Susunan tim tetap diubah dari Kelola Tim pada rincian penugasan.'
+              : `Surat perintah tugas untuk ${namaUnit}.`}
+          </p>
         </div>
       </div>
 
       <div className="wiz-steps">
-        {LANGKAH.map((lb, i) => (
+        {langkah.map((lb, i) => (
           <button
             key={lb}
             type="button"
@@ -397,7 +444,7 @@ export function WizardTerbitkan({
           )}
 
           {/* ───────────── 4. Susunan tim ───────────── */}
-          {n === 4 && (
+          {!draf && n === 4 && (
             <>
               <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 16, lineHeight: 1.6 }}>
                 Tim melekat pada surat perintah ini, bukan pada unit, dan
@@ -453,21 +500,38 @@ export function WizardTerbitkan({
             </button>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn btn-o"
-                      onClick={() => simpan(false)} disabled={menyimpan}>
-                Simpan sebagai draf
-              </button>
-
-              {n < 4 ? (
-                <button type="button" className="btn btn-p"
-                        onClick={() => setN(n + 1)} disabled={menyimpan}>
-                  Berikutnya
-                </button>
+              {draf ? (
+                <>
+                  {n < langkah.length && (
+                    <button type="button" className="btn btn-o"
+                            onClick={() => setN(n + 1)} disabled={menyimpan}>
+                      Berikutnya
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-p"
+                          onClick={() => simpan(false)} disabled={menyimpan}>
+                    {menyimpan ? 'Menyimpan…' : 'Simpan perubahan'}
+                  </button>
+                </>
               ) : (
-                <button type="button" className="btn btn-g"
-                        onClick={() => simpan(true)} disabled={menyimpan}>
-                  {menyimpan ? 'Menerbitkan…' : 'Terbitkan penugasan'}
-                </button>
+                <>
+                  <button type="button" className="btn btn-o"
+                          onClick={() => simpan(false)} disabled={menyimpan}>
+                    Simpan sebagai draf
+                  </button>
+
+                  {n < langkah.length ? (
+                    <button type="button" className="btn btn-p"
+                            onClick={() => setN(n + 1)} disabled={menyimpan}>
+                      Berikutnya
+                    </button>
+                  ) : (
+                    <button type="button" className="btn btn-g"
+                            onClick={() => simpan(true)} disabled={menyimpan}>
+                      {menyimpan ? 'Menerbitkan…' : 'Terbitkan penugasan'}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

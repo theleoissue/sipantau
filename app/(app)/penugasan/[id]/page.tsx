@@ -144,10 +144,14 @@ export default async function RincianPenugasan({
               Cetak SPRIN
             </Link>
           )}
-          {pengguna.peran === 'kanit' && (
-            <Link href={`/penugasan/${spt.id}/sunting`} className="btn btn-p">
+          {/* KP-6.2-43: SPT selesai/dibatalkan sama sekali tidak
+              menampilkan tombol sunting. Draf disunting lewat wizard
+              yang sama (bukan halaman "Sunting" terpisah — itu belum
+              dibangun, khusus SPT yang sudah terbit, KP-6.2-38..43). */}
+          {akuKanitPemilik && spt.status === 'draf' && (
+            <Link href={`/penugasan/terbitkan/${spt.id}`} className="btn btn-p">
               <Ikon nama="lapor" />
-              Sunting
+              Sunting Draf
             </Link>
           )}
           {akuPelaksana && ['baru', 'berjalan', 'bermasalah'].includes(spt.status) && (

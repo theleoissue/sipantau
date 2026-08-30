@@ -37,7 +37,7 @@ export async function catatTandaTerima(penugasanId: string): Promise<void> {
   }
 }
 
-interface IsianTerbitkan {
+interface IsianDasarLokasi {
   judul: string
   jenis_kegiatan: string
   nomor_spt: string | null
@@ -51,6 +51,9 @@ interface IsianTerbitkan {
   tanggal_batas: string | null
   dasar: { jenis: string; nomor: string; tanggal: string; keterangan: string }[]
   lokasi: { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }[]
+}
+
+interface IsianTerbitkan extends IsianDasarLokasi {
   panit: string[]
   pelaksana: string[]
   terbitkan: boolean
@@ -217,6 +220,108 @@ export async function terbitkanDraf(penugasanId: string): Promise<HasilAksi> {
   revalidatePath(`/penugasan/${penugasanId}`)
   revalidatePath('/penugasan')
   return { sukses: 'Penugasan berhasil diterbitkan.' }
+}
+
+/**
+ * Menyunting draf yang sudah tersimpan — dipanggil dari wizard yang
+ * sama (mode sunting) lewat tautan "Sunting" pada rincian draf.
+ *
+ * HANYA berlaku selagi status='draf', diperiksa eksplisit di sini
+ * (bukan cuma mengandalkan RLS) karena aksi ini MENGGANTI SELURUH
+ * baris dasar/lokasi lewat hapus-lalu-sisip-ulang — aman hanya karena
+ * draf dijamin belum pernah dirujuk laporan atau Sesi Tugas (keduanya
+ * mensyaratkan SPT sudah terbit). Susunan tim (Panit/pelaksana)
+ * SENGAJA tidak ikut di sini — draf sudah dapat diubah timnya lewat
+ * Kelola Tim pada rincian SPT (bolehUbahTim di sana sudah mengizinkan
+ * status 'draf'), jadi tidak perlu dua jalur berbeda untuk hal yang
+ * sama.
+ *
+ * Guard trigger fn_jaga_dasar_terakhir/fn_jaga_lokasi_terakhir
+ * (migrasi 0024) EKSPLISIT mengecualikan status draf dari syarat
+ * minimum satu baris — dikonfirmasi sebelum menulis fungsi ini, bukan
+ * anggapan.
+ */
+export async function perbaruiDraf(penugasanId: string, isian: IsianDasarLokasi): Promise<HasilAksi> {
+  const supabase = await klienServer()
+
+  const { data: existing } = await supabase
+    .from('penugasan').select('status').eq('id', penugasanId).maybeSingle<{ status: string }>()
+  if (!existing) return { galat: 'Penugasan tidak ditemukan.' }
+  if (existing.status !== 'draf') {
+    return { galat: 'Hanya draf yang dapat disunting lewat wizard ini.' }
+  }
+
+  if (!isian.judul.trim()) return { galat: 'Judul penugasan wajib diisi.' }
+
+  const { error: galatUpdate } = await supabase
+    .from('penugasan')
+    .update({
+      judul: isian.judul.trim(),
+      jenis_kegiatan: isian.jenis_kegiatan,
+      nomor_spt: isian.nomor_spt?.trim() || null,
+      objek: isian.objek?.trim() || null,
+      sasaran: isian.sasaran?.trim() || null,
+      uraian_tugas: isian.uraian_tugas?.trim() || null,
+      nomor_lp: isian.nomor_lp?.trim() || null,
+      sumber_informasi: isian.sumber_informasi?.trim() || null,
+      prioritas: isian.prioritas,
+      tanggal_mulai: isian.tanggal_mulai || null,
+      tanggal_batas: isian.tanggal_batas || null,
+    })
+    .eq('id', penugasanId)
+
+  if (galatUpdate) {
+    if (galatUpdate.message.includes('nomor_spt')) {
+      return { galat: 'Nomor SPT itu sudah dipakai penugasan lain.' }
+    }
+    if (galatUpdate.message.includes('chk_spt_batas_setelah_mulai')) {
+      return { galat: 'Batas waktu tidak boleh mendahului tanggal mulai.' }
+    }
+    return { galat: `Gagal menyimpan perubahan: ${galatUpdate.message}` }
+  }
+
+  const { error: galatHapusDasar } = await supabase.from('penugasan_dasar').delete().eq('penugasan_id', penugasanId)
+  if (galatHapusDasar) return { galat: `Gagal menyimpan dasar penugasan: ${galatHapusDasar.message}` }
+
+  if (isian.dasar.length > 0) {
+    const { error } = await supabase.from('penugasan_dasar').insert(
+      isian.dasar.map((d, i) => ({
+        penugasan_id: penugasanId,
+        urutan: i + 1,
+        jenis: d.jenis,
+        nomor: d.nomor?.trim() || null,
+        tanggal: d.tanggal || null,
+        keterangan: d.keterangan?.trim() || null,
+      })),
+    )
+    if (error) return { galat: `Gagal menyimpan dasar penugasan: ${error.message}` }
+  }
+
+  const { error: galatHapusLokasi } = await supabase.from('penugasan_lokasi').delete().eq('penugasan_id', penugasanId)
+  if (galatHapusLokasi) return { galat: `Gagal menyimpan titik lokasi: ${galatHapusLokasi.message}` }
+
+  if (isian.lokasi.length > 0) {
+    const { error } = await supabase.from('penugasan_lokasi').insert(
+      isian.lokasi.map((l, i) => {
+        const adaKoordinat = !!(l.lat && l.lng)
+        return {
+          penugasan_id: penugasanId,
+          urutan: i + 1,
+          nama: l.nama.trim(),
+          alamat: l.alamat?.trim() || null,
+          keterangan: l.keterangan?.trim() || null,
+          lat: adaKoordinat ? Number(l.lat) : null,
+          lng: adaKoordinat ? Number(l.lng) : null,
+          radius_meter: adaKoordinat ? Number(l.radius || 300) : null,
+        }
+      }),
+    )
+    if (error) return { galat: `Gagal menyimpan titik lokasi: ${error.message}` }
+  }
+
+  revalidatePath(`/penugasan/${penugasanId}`)
+  revalidatePath('/penugasan')
+  redirect(`/penugasan/${penugasanId}`)
 }
 
 // =====================================================================
