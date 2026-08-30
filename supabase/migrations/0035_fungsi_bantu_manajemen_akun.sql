@@ -161,20 +161,20 @@ revoke execute on function public.admin_nonaktifkan_akun(uuid, uuid) from public
 grant execute on function public.admin_nonaktifkan_akun(uuid, uuid) to service_role;
 
 -- ---------------------------------------------------------------------
--- admin_reset_kata_sandi_selesai — Bagian 2.3 docs/10-modul-6.1-auth.md,
--- langkah 9-11. Kata sandi ITU SENDIRI sudah diubah Fungsi Tepi lewat
--- Admin API SEBELUM memanggil ini (BR-76: sandi tidak pernah tercatat
--- di jejak audit, jadi tidak jadi parameter di sini sama sekali).
+-- admin_periksa_reset_kata_sandi — pemeriksaan MURNI baca (wewenang
+-- BR-15 + batas laju BR-51), TANPA efek samping apa pun.
 --
--- Wewenang BR-15: Admin (siapa pun) dan Akun Pemeliharaan (siapa pun,
--- KP-6.6-33) atau Kanit (anggota/panit unitnya sendiri saja).
---
--- KP-6.6-26: berbeda dari akun_dinonaktifkan, TIDAK ADA pemicu yang
--- mengirim 'kata_sandi_direset' secara otomatis (tabel kata sandi
--- disimpan Supabase Auth, di luar jangkauan pemicu pada public.users) —
--- pemberitahuannya disisipkan langsung di sini.
+-- WAJIB dipanggil Fungsi Tepi SEBELUM mengubah kata sandi lewat Admin
+-- API. Kata sandi tidak dapat "dibatalkan" seperti baris tabel biasa —
+-- bila pemeriksaan wewenang/batas laju baru dilakukan SETELAH kata
+-- sandi sasaran sudah diubah, permintaan yang ditolak akan tetap
+-- meninggalkan sasaran dengan kata sandi baru yang tidak diketahui
+-- siapa pun: akun terkunci akibat permintaan yang justru DITOLAK —
+-- persis "kegagalan senyap" yang diperingatkan CLAUDE.md §11.
+-- admin_reset_kata_sandi_selesai (di bawah) memanggil ulang pemeriksaan
+-- yang sama sebagai lapis kedua sebelum benar-benar menulis.
 -- ---------------------------------------------------------------------
-create or replace function public.admin_reset_kata_sandi_selesai(
+create or replace function public.admin_periksa_reset_kata_sandi(
   p_pelaku_id  uuid,
   p_sasaran_id uuid
 )
@@ -186,11 +186,10 @@ as $$
 declare
   v_peran_pelaku  public.peran_pengguna;
   v_unit_pelaku   uuid;
-  v_nama_pelaku   text;
   v_peran_sasaran public.peran_pengguna;
   v_unit_sasaran  uuid;
 begin
-  select peran, unit_id, nama into v_peran_pelaku, v_unit_pelaku, v_nama_pelaku
+  select peran, unit_id into v_peran_pelaku, v_unit_pelaku
     from public.users where id = p_pelaku_id and aktif = true;
 
   if v_peran_pelaku is null then
@@ -215,6 +214,40 @@ begin
   end if;
 
   perform public.fn_periksa_batas_laju(p_pelaku_id, 'reset_sandi', 10);
+end;
+$$;
+
+revoke execute on function public.admin_periksa_reset_kata_sandi(uuid, uuid) from public, authenticated;
+grant execute on function public.admin_periksa_reset_kata_sandi(uuid, uuid) to service_role;
+
+-- ---------------------------------------------------------------------
+-- admin_reset_kata_sandi_selesai — Bagian 2.3 docs/10-modul-6.1-auth.md,
+-- langkah 9-11. Kata sandi ITU SENDIRI sudah diubah Fungsi Tepi lewat
+-- Admin API SEBELUM memanggil ini, HANYA setelah
+-- admin_periksa_reset_kata_sandi di atas lulus (BR-76: sandi tidak
+-- pernah tercatat di jejak audit, jadi tidak jadi parameter di sini
+-- sama sekali).
+--
+-- KP-6.6-26: berbeda dari akun_dinonaktifkan, TIDAK ADA pemicu yang
+-- mengirim 'kata_sandi_direset' secara otomatis (tabel kata sandi
+-- disimpan Supabase Auth, di luar jangkauan pemicu pada public.users) —
+-- pemberitahuannya disisipkan langsung di sini.
+-- ---------------------------------------------------------------------
+create or replace function public.admin_reset_kata_sandi_selesai(
+  p_pelaku_id  uuid,
+  p_sasaran_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_nama_pelaku text;
+begin
+  perform public.admin_periksa_reset_kata_sandi(p_pelaku_id, p_sasaran_id);
+
+  select nama into v_nama_pelaku from public.users where id = p_pelaku_id;
 
   perform set_config('sipantau.jalur_resmi', 'on', true);
 
@@ -223,9 +256,10 @@ begin
   delete from public.perangkat_masuk where user_id = p_sasaran_id;
 
   insert into public.jejak_audit
-    (pelaku_id, peran_pelaku, jenis_tindakan, sasaran_tabel, sasaran_id)
-  values
-    (p_pelaku_id, v_peran_pelaku, 'reset_sandi', 'users', p_sasaran_id);
+    (pelaku_id, peran_pelaku,
+     jenis_tindakan, sasaran_tabel, sasaran_id)
+  select p_pelaku_id, u.peran, 'reset_sandi', 'users', p_sasaran_id
+    from public.users u where u.id = p_pelaku_id;
 
   perform public.fn_buat_notifikasi(
     'kata_sandi_direset', array[p_sasaran_id], 'Kata sandi Anda direset',

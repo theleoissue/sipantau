@@ -187,6 +187,20 @@ await sebagaiService(async () => {
     e !== null && e.includes('TIDAK_BERWENANG'))
 })
 
+// admin_periksa_reset_kata_sandi harus dipanggil Fungsi Tepi SEBELUM
+// mengubah kata sandi lewat Admin API — cukup ditolak di sini, TANPA
+// menyentuh public.users sama sekali (murni baca).
+await sebagaiService(async () => {
+  const e = await galat(() => db.query(`select public.admin_periksa_reset_kata_sandi($1,$2)`, [ID.kanit1, ID.kanit2]))
+  cek('U-MAK-24', 'admin_periksa_reset_kata_sandi menolak lebih dulu, sebelum kata sandi diubah',
+    e !== null && e.includes('TIDAK_BERWENANG'))
+})
+await sebagaiService(async () => {
+  const e = await galat(() => db.query(`select public.admin_periksa_reset_kata_sandi($1,$2)`, [ID.admin1, ID.anggota1]))
+  cek('U-MAK-25', 'admin_periksa_reset_kata_sandi meluluskan pemanggil berwenang tanpa efek samping',
+    e === null)
+})
+
 // KP-6.6-26: pemberitahuan ke sasaran, menyebut siapa yang meresetnya.
 // Tidak ada pemicu otomatis untuk ini (beda dari akun_dinonaktifkan) —
 // admin_reset_kata_sandi_selesai wajib menyisipkannya sendiri.
