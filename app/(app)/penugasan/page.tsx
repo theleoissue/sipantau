@@ -32,8 +32,11 @@ export default async function HalamanPenugasan({
 }: {
   searchParams: Promise<{ saring?: string; cari?: string }>
 }) {
-  const pengguna = await wajibkanSudahSiap()
-  const { saring, cari } = await searchParams
+  // Independen — searchParams tidak butuh pengguna lebih dulu.
+  const [pengguna, { saring, cari }] = await Promise.all([
+    wajibkanSudahSiap(),
+    searchParams,
+  ])
 
   const status: StatusSpt[] =
     saring && saring !== 'semua' ? [saring as StatusSpt] : STATUS_AKTIF

@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { klienServer } from '@/lib/supabase/server'
 import type { Pengguna } from '@/lib/supabase/types'
@@ -9,8 +10,17 @@ import type { Pengguna } from '@/lib/supabase/types'
  * pun yang tersimpan di perangkat (AM-6.1-09). Nilai yang tersimpan di
  * perangkat hanya untuk mempercepat tampilan dan tidak pernah menjadi
  * dasar keputusan izin.
+ *
+ * DIBUNGKUS react.cache(): hampir setiap halaman memanggil ini SENDIRI
+ * di atas panggilan yang layout.tsx sudah lakukan — tanpa pembungkus
+ * ini, satu navigasi menyisipkan DUA kali auth.getUser() (satu
+ * permintaan jaringan ke server Auth Supabase, bukan sekadar baca
+ * cookie lokal) plus dua kali kueri tabel users. cache() menjadikan
+ * seluruh pemanggilan dengan argumen sama dalam SATU permintaan
+ * render memakai hasil yang sama, tanpa perlu mengubah satu pun
+ * pemanggilnya.
  */
-export async function penggunaSekarang(): Promise<Pengguna | null> {
+export const penggunaSekarang = cache(async (): Promise<Pengguna | null> => {
   const supabase = await klienServer()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,7 +34,7 @@ export async function penggunaSekarang(): Promise<Pengguna | null> {
 
   if (error || !data) return null
   return data as Pengguna
-}
+})
 
 /**
  * Dipakai layout halaman setelah masuk. Mengembalikan pengguna, atau

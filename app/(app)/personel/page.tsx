@@ -28,8 +28,12 @@ function waktuMasuk(iso: string | null): string {
  * masuk terakhir — seluruhnya sudah benar-benar terekam.
  */
 export default async function HalamanPersonel() {
-  const pengguna = await wajibkanSudahSiap()
-  const daftar = await daftarPersonel()
+  // Independen — daftarPersonel() tidak menerima argumen, lingkupnya
+  // disaring RLS sendiri, tidak perlu menunggu pengguna lebih dulu.
+  const [pengguna, daftar] = await Promise.all([
+    wajibkanSudahSiap(),
+    daftarPersonel(),
+  ])
 
   return (
     <>

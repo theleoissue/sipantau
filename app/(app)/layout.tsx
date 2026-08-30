@@ -14,22 +14,29 @@ export default async function TataLetakAplikasi({
 }) {
   const pengguna = await wajibkanSudahSiap()
 
-  let namaUnit: string | null = null
-  if (pengguna.unit_id) {
-    const supabase = await klienServer()
-    const { data } = await supabase
-      .from('unit')
-      .select('nama')
-      .eq('id', pengguna.unit_id)
-      .maybeSingle<{ nama: string }>()
-    namaUnit = data?.nama ?? null
-  }
-
-  // KP-6.1-28 (catatan tempatnya sudah disiapkan tombol-keluar.tsx):
-  // dialog Keluar perlu tahu ada Sesi Tugas berjalan atau tidak, supaya
-  // peringatannya bukan sekadar kalimat generik.
-  const sesi = await sesiAktifSaya()
-  const jumlahNotifAwal = await jumlahBelumDibaca()
+  // Ketiga di bawah TIDAK saling bergantung — sebelumnya ditulis
+  // sebagai tiga `await` berurutan, yang berarti setiap navigasi
+  // menunggu tiga perjalanan bolak-balik ke Supabase SATU PER SATU
+  // padahal bisa serentak. Inilah bagian terbesar dari keluhan
+  // "pindah menu lambat": kelambatan ini terjadi di layout akar, jadi
+  // tertimpa pada SETIAP perpindahan halaman, bukan cuma sesekali.
+  const [namaUnit, sesi, jumlahNotifAwal] = await Promise.all([
+    (async () => {
+      if (!pengguna.unit_id) return null
+      const supabase = await klienServer()
+      const { data } = await supabase
+        .from('unit')
+        .select('nama')
+        .eq('id', pengguna.unit_id)
+        .maybeSingle<{ nama: string }>()
+      return data?.nama ?? null
+    })(),
+    // KP-6.1-28 (catatan tempatnya sudah disiapkan tombol-keluar.tsx):
+    // dialog Keluar perlu tahu ada Sesi Tugas berjalan atau tidak,
+    // supaya peringatannya bukan sekadar kalimat generik.
+    sesiAktifSaya(),
+    jumlahBelumDibaca(),
+  ])
 
   return (
     <KerangkaAplikasi

@@ -1,4 +1,5 @@
 import { klienServer } from '@/lib/supabase/server'
+import { penggunaSekarang } from '@/lib/auth/pengguna'
 import type { SesiAktifSaya, PosisiPeta, SesiRute, TitikRute } from './tipe'
 
 // =====================================================================
@@ -14,8 +15,11 @@ import type { SesiAktifSaya, PosisiPeta, SesiRute, TitikRute } from './tipe'
  *  null berarti belum membuka Sesi Tugas. */
 export async function sesiAktifSaya(): Promise<SesiAktifSaya | null> {
   const supabase = await klienServer()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  // penggunaSekarang() dibungkus react.cache() — di layout.tsx ini
+  // TIDAK menambah permintaan jaringan sama sekali, karena hasilnya
+  // sudah dihitung untuk pemanggilan lain dalam permintaan yang sama.
+  const pengguna = await penggunaSekarang()
+  if (!pengguna) return null
 
   const { data, error } = await supabase
     .from('sesi_tugas')
@@ -24,7 +28,7 @@ export async function sesiAktifSaya(): Promise<SesiAktifSaya | null> {
       izin_dicabut_pada, izin_dipulihkan_pada,
       penugasan:penugasan_id ( nomor_spt, judul )
     `)
-    .eq('pengguna_id', user.id)
+    .eq('pengguna_id', pengguna.id)
     .is('ditutup_pada', null)
     .maybeSingle()
 
@@ -200,8 +204,8 @@ export async function titikSesi(sesiId: string): Promise<TitikRute[]> {
  *  Saya"). */
 export async function ruteSayaLintasSpt(): Promise<(SesiRute & { nomor_spt: string | null; judul: string })[]> {
   const supabase = await klienServer()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
+  const pengguna = await penggunaSekarang()
+  if (!pengguna) return []
 
   const { data, error } = await supabase
     .from('sesi_tugas')
@@ -211,7 +215,7 @@ export async function ruteSayaLintasSpt(): Promise<(SesiRute & { nomor_spt: stri
       lat_awal, lng_awal, lat_akhir, lng_akhir,
       penugasan:penugasan_id ( nomor_spt, judul )
     `)
-    .eq('pengguna_id', user.id)
+    .eq('pengguna_id', pengguna.id)
     .order('dibuka_pada', { ascending: false })
 
   if (error) throw new Error(`Gagal membaca Rute Saya: ${error.message}`)

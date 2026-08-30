@@ -51,16 +51,21 @@ export default async function RincianPenugasan({
   const { id } = await params
   const { belumTerbit } = await searchParams
   const pengguna = await wajibkanSudahSiap()
-  const spt = await satuPenugasan(id)
+
+  // Ketiganya lepas satu sama lain (hanya butuh `id`, bukan hasil satu
+  // sama lain) — sebelumnya ditulis menunggu tiga giliran berurutan,
+  // padahal bisa serentak. catatTandaTerima murni efek samping (tanda
+  // terima otomatis saat pelaksana pertama kali membuka rincian, bukan
+  // tombol terpisah) dan kegagalannya memang tidak boleh menghalangi
+  // halaman tampil, jadi aman dijalankan bersamaan dengan pembacaan.
+  const [spt, rute] = await Promise.all([
+    satuPenugasan(id),
+    ruteSptDenganTitik(id),
+    catatTandaTerima(id),
+  ])
 
   if (!spt) notFound()
 
-  // Tanda terima otomatis saat pelaksana pertama kali membuka rincian,
-  // bukan tombol terpisah. Dijalankan diam-diam; kegagalannya tidak
-  // boleh menghalangi halaman tampil.
-  await catatTandaTerima(id)
-
-  const rute = await ruteSptDenganTitik(id)
   const lokasi = [...(spt.penugasan_lokasi ?? [])].sort((a, b) => a.urutan - b.urutan)
   const dasar = [...(spt.penugasan_dasar ?? [])].sort((a, b) => a.urutan - b.urutan)
   const pelaksana = (spt.penugasan_pelaksana ?? [])

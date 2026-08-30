@@ -29,8 +29,12 @@ export default async function RincianLaporan({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const pengguna = await wajibkanSudahSiap()
-  const laporan = await satuLaporan(id)
+  // Dua ini tidak saling bergantung — satuLaporan(id) tidak butuh pengguna,
+  // baru dipakai belakangan untuk cek akuPelapor dkk.
+  const [pengguna, laporan] = await Promise.all([
+    wajibkanSudahSiap(),
+    satuLaporan(id),
+  ])
   if (!laporan) notFound()
 
   const supabase = await klienServer()

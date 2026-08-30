@@ -25,8 +25,12 @@ function waktu(iso: string): string {
 }
 
 export default async function HalamanDaftarLaporan() {
-  const pengguna = await wajibkanSudahSiap()
-  const daftar = await daftarLaporan()
+  // Independen — daftarLaporan() tidak menerima argumen, lingkupnya
+  // disaring RLS sendiri, tidak perlu menunggu pengguna lebih dulu.
+  const [pengguna, daftar] = await Promise.all([
+    wajibkanSudahSiap(),
+    daftarLaporan(),
+  ])
 
   return (
     <>

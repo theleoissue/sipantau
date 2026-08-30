@@ -11,13 +11,16 @@ export default async function HalamanTerbitkan() {
   const pengguna = await wajibkanSudahSiap()
   const supabase = await klienServer()
 
-  const personel = await personelDapatDipilih()
-
-  const { data: unit } = await supabase
-    .from('unit')
-    .select('nama, kode_klasifikasi')
-    .eq('id', pengguna.unit_id!)
-    .maybeSingle<{ nama: string; kode_klasifikasi: string | null }>()
+  // Dua kueri ini TIDAK saling bergantung — personelDapatDipilih() tidak
+  // menerima argumen, jadi tidak perlu menunggu pengguna/unit lebih dulu.
+  const [personel, { data: unit }] = await Promise.all([
+    personelDapatDipilih(),
+    supabase
+      .from('unit')
+      .select('nama, kode_klasifikasi')
+      .eq('id', pengguna.unit_id!)
+      .maybeSingle<{ nama: string; kode_klasifikasi: string | null }>(),
+  ])
 
   return (
     <WizardTerbitkan

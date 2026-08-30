@@ -41,8 +41,12 @@ export default async function HalamanSprin({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  await wajibkanSudahSiap()
-  const spt = await satuPenugasan(id)
+  // Independen — satuPenugasan(id) tidak butuh hasil wajibkanSudahSiap(),
+  // hanya perlu penjagaannya (redirect bila belum siap).
+  const [, spt] = await Promise.all([
+    wajibkanSudahSiap(),
+    satuPenugasan(id),
+  ])
   if (!spt) notFound()
 
   const supabase = await klienServer()
