@@ -10,12 +10,14 @@ const JUDUL: Record<string, string> = {
   kanit: 'Semua Laporan',
   panit: 'Review Laporan',
   kasubdit: 'Semua Laporan',
+  admin: 'Semua Laporan',
 }
 
 const SUB: Record<string, string> = {
   kanit: 'Laporan dari pelaksana unit Anda yang menunggu tinjauan.',
   panit: 'Laporan dari pelaksana pada penugasan yang Anda tanggungjawabi.',
   kasubdit: 'Laporan lapangan dari seluruh unit Subdit IV.',
+  admin: 'Laporan lapangan dari seluruh unit Subdit IV.',
 }
 
 function waktu(iso: string): string {

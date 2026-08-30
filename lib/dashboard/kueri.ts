@@ -44,7 +44,10 @@ export async function statDashboard(peran: Peran): Promise<KartuStat[]> {
 
   const aktif = ['baru', 'berjalan', 'bermasalah']
 
-  if (peran === 'kasubdit') {
+  // Admin (migrasi 0032) punya hak baca "semua unit" yang identik
+  // dengan Kasubdit di seluruh sistem selain Manajemen Akun — kartu
+  // dashboardnya karena itu disamakan, bukan cabang terpisah.
+  if (peran === 'kasubdit' || peran === 'admin') {
     const [{ count: penugasanAktif }, { count: laporanHariIni }, { count: bermasalah }] = await Promise.all([
       supabase.from('penugasan').select('id', { count: 'exact', head: true }).in('status', aktif),
       supabase.from('laporan_harian').select('id', { count: 'exact', head: true })

@@ -12,11 +12,13 @@ const SAPA: Record<string, (nama: string) => string> = {
   panit: nama => `Selamat bertugas, ${nama}`,
   kanit: nama => `Selamat datang, ${nama}`,
   kasubdit: nama => `Selamat datang, ${nama}`,
+  admin: nama => `Selamat datang, ${nama}`,
   pemeliharaan: nama => `Selamat datang, ${nama}`,
 }
 
 const SUB: Record<string, string> = {
   kasubdit: 'Ringkasan kegiatan penyelidikan lapangan pada seluruh unit Subdit IV.',
+  admin: 'Ringkasan kegiatan penyelidikan lapangan pada seluruh unit Subdit IV.',
   kanit: 'Ringkasan kegiatan penyelidikan lapangan pada unit Anda.',
   panit: 'Penugasan yang Anda tanggungjawabi beserta perkembangannya.',
   anggota: 'Tugas dan laporan Anda hari ini.',
@@ -73,6 +75,11 @@ export default async function Beranda() {
           {pengguna.peran === 'kasubdit' && (
             <Link href="/rekap" className="btn btn-o">
               <Ikon nama="unduh" />Rekap lintas unit
+            </Link>
+          )}
+          {pengguna.peran === 'admin' && (
+            <Link href="/akun" className="btn btn-o">
+              <Ikon nama="orang" />Kelola akun
             </Link>
           )}
           {pengguna.peran === 'kanit' && (

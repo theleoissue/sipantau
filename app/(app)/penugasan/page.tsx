@@ -12,6 +12,7 @@ const JUDUL: Record<string, string> = {
   panit: 'Penugasan saya',
   kanit: 'Kelola penugasan',
   kasubdit: 'Semua penugasan',
+  admin: 'Semua penugasan',
   pemeliharaan: 'Semua penugasan',
 }
 
@@ -20,6 +21,7 @@ const SUB: Record<string, string> = {
   panit: 'Penugasan tempat Anda ditunjuk sebagai Panit Penanggung Jawab.',
   kanit: 'Penugasan pada unit Anda. Terbitkan surat perintah dan tunjuk pelaksana.',
   kasubdit: 'Seluruh penugasan penyelidikan lapangan pada Subdit IV.',
+  admin: 'Seluruh penugasan penyelidikan lapangan pada Subdit IV.',
   pemeliharaan: 'Seluruh penugasan penyelidikan lapangan pada Subdit IV.',
 }
 

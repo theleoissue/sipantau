@@ -53,7 +53,7 @@ export default async function RincianLaporan({
   const akuPelapor = laporan.pelapor_id === pengguna.id
   const terkunci = laporan.status_laporan === 'disetujui' || laporan.status_laporan === 'ditarik'
   const bolehMencatat =
-    !akuPelapor && ['panit', 'kanit', 'kasubdit'].includes(pengguna.peran)
+    !akuPelapor && ['panit', 'kanit', 'kasubdit', 'admin'].includes(pengguna.peran)
   const bolehSetujui = !akuPelapor && pengguna.peran === 'kanit'
   const bolehTarik = akuPelapor
   const bolehSunting = akuPelapor && !terkunci

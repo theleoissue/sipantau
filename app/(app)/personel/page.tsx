@@ -41,7 +41,7 @@ export default async function HalamanPersonel() {
         <div>
           <h1>Status Personel</h1>
           <p className="sub">
-            {pengguna.peran === 'kasubdit'
+            {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin')
               ? 'Personel pada seluruh unit di bawah Subdit IV.'
               : 'Personel pada unit Anda.'}
           </p>
@@ -64,7 +64,7 @@ export default async function HalamanPersonel() {
               <thead>
                 <tr>
                   <th>Nama</th><th>Peran</th>
-                  {pengguna.peran === 'kasubdit' && <th>Unit</th>}
+                  {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && <th>Unit</th>}
                   <th>Status akun</th><th>Terakhir masuk</th>
                 </tr>
               </thead>
@@ -83,7 +83,7 @@ export default async function HalamanPersonel() {
                       </div>
                     </td>
                     <td>{LABEL_PERAN[p.peran as keyof typeof LABEL_PERAN]}</td>
-                    {pengguna.peran === 'kasubdit' && <td>{p.unit?.nama ?? '—'}</td>}
+                    {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && <td>{p.unit?.nama ?? '—'}</td>}
                     <td>
                       <span className={`lc ${p.aktif ? 'selesai' : 'dibatalkan'}`}>
                         {p.aktif ? 'aktif' : 'nonaktif'}

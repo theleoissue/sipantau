@@ -11,7 +11,7 @@ export default async function HalamanPeta() {
     posisiPetaAwal(), daftarSptUntukPeta(), titikLokasiUntukPeta(),
   ])
 
-  const sub = pengguna.peran === 'kasubdit'
+  const sub = (pengguna.peran === 'kasubdit' || pengguna.peran === 'admin')
     ? 'Peta seluruh unit di bawah Subdit IV.'
     : pengguna.peran === 'kanit'
     ? 'Peta unit Anda.'

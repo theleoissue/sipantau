@@ -11,6 +11,7 @@ import { Ikon } from './ikon'
 
 const WARNA_PERAN: Record<string, { latar: string; tinta: string }> = {
   kasubdit:     { latar: '#7C3AED', tinta: '#FFFFFF' },
+  admin:        { latar: '#7C3AED', tinta: '#FFFFFF' },
   kanit:        { latar: '#F5A623', tinta: '#0F1C32' },
   panit:        { latar: '#2563EB', tinta: '#FFFFFF' },
   anggota:      { latar: '#059669', tinta: '#FFFFFF' },

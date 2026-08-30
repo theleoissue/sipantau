@@ -37,6 +37,28 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Administrasi' },
       { id: 'rekap',     rute: '/rekap',     ikon: 'unduh',       label: 'Rekap Lintas Unit' },
+    ],
+    bilahBawah: ['beranda', 'penugasan', 'peta', 'personel'],
+    beranda: '/beranda',
+  },
+
+  // Admin (migrasi 0032, keputusan sadar mengubah PRD — lihat komentar
+  // pada Peran di lib/supabase/types.ts) MENGGANTIKAN Kasubdit khusus
+  // untuk Manajemen Akun. Nav-nya sama persis dengan Kasubdit di seluruh
+  // sistem lain (hak baca "semua unit" identik), MINUS Rekap Lintas Unit
+  // (tetap eksklusif Kasubdit, tidak ikut dipindah) PLUS Manajemen Akun
+  // eksklusif.
+  admin: {
+    label: 'Admin',
+    nav: [
+      { kelompok: 'Pengawasan' },
+      { id: 'beranda',   rute: '/beranda',   ikon: 'dasbor',      label: 'Beranda' },
+      { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Semua Penugasan' },
+      { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Semua Laporan' },
+      { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
+      { id: 'personel',  rute: '/personel',  ikon: 'grafik',      label: 'Status Personel' },
+      { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
+      { kelompok: 'Administrasi' },
       { id: 'akun',      rute: '/akun',      ikon: 'orang',       label: 'Manajemen Akun' },
     ],
     bilahBawah: ['beranda', 'penugasan', 'peta', 'personel'],
@@ -137,8 +159,10 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   { pola: /^\/penugasan\/[^/]+\/sunting\/?$/,        peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/tutup\/?$/,          peran: ['kanit'] },
 
-  // Manajemen akun dan rekap lintas unit: eksklusif Kasubdit (BR-07).
-  { pola: /^\/akun(\/.*)?$/,                          peran: ['kasubdit'] },
+  // Manajemen akun: eksklusif Admin sejak migrasi 0032 (Kasubdit
+  // kehilangan hak ini — "Menggantikan", keputusan sadar mengubah PRD).
+  // Rekap lintas unit TETAP eksklusif Kasubdit, tidak ikut dipindah.
+  { pola: /^\/akun(\/.*)?$/,                          peran: ['admin'] },
   { pola: /^\/rekap(\/.*)?$/,                         peran: ['kasubdit'] },
 
   // Sesi Tugas dan pengiriman laporan: Anggota, Panit, dan Kanit.
@@ -153,30 +177,30 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   // membuka miliknya sendiri lewat tautan dari Riwayat Laporan, dan
   // lingkupnya tetap ditegakkan RLS (pelapor_id = auth.uid()), bukan
   // oleh penjaga rute ini.
-  { pola: /^\/laporan\/?$/,                           peran: ['kasubdit', 'kanit', 'panit'] },
-  { pola: /^\/laporan\/[^/]+$/,                       peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
+  { pola: /^\/laporan\/?$/,                           peran: ['kasubdit', 'admin', 'kanit', 'panit'] },
+  { pola: /^\/laporan\/[^/]+$/,                       peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 
   // Personel: Anggota hanya melihat dirinya, tidak punya halaman ini.
-  { pola: /^\/personel(\/.*)?$/,                      peran: ['kasubdit', 'kanit'] },
+  { pola: /^\/personel(\/.*)?$/,                      peran: ['kasubdit', 'admin', 'kanit'] },
 
   // Halaman pemeliharaan hanya untuk akun teknis itu sendiri.
   { pola: /^\/pemeliharaan(\/.*)?$/,                  peran: ['pemeliharaan'] },
 
   // Akun Pemeliharaan tidak pernah menerima pemberitahuan (KP-6.9-41,
   // "bukan bagian dari alur kerja") — halamannya pun bukan untuknya.
-  { pola: /^\/pemberitahuan(\/.*)?$/,                 peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
+  { pola: /^\/pemberitahuan(\/.*)?$/,                 peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 
-  // LHP Ringkas: keempat peran organisasi boleh membuka (melihat dalam
+  // LHP Ringkas: peran organisasi boleh membuka (melihat dalam
   // lingkupnya, hanya Anggota yang benar-benar dapat menyusun/menyunting
   // — ditegakkan RLS 0028, bukan penjaga rute ini). Akun Pemeliharaan
   // tidak pernah ikut serta (docs/00-fondasi.md §7 tidak menyebutnya).
-  { pola: /^\/lhp(\/.*)?$/,                           peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
+  { pola: /^\/lhp(\/.*)?$/,                           peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 
-  // Peta dan penugasan terbuka bagi keempat peran organisasi, tetapi
-  // ISInya disaring aturan akses baris menurut lingkup masing-masing.
-  { pola: /^\/peta(\/.*)?$/,                          peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
-  { pola: /^\/penugasan(\/.*)?$/,                     peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
-  { pola: /^\/beranda(\/.*)?$/,                       peran: ['kasubdit', 'kanit', 'panit', 'anggota'] },
+  // Peta dan penugasan terbuka bagi peran organisasi, tetapi ISInya
+  // disaring aturan akses baris menurut lingkup masing-masing.
+  { pola: /^\/peta(\/.*)?$/,                          peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
+  { pola: /^\/penugasan(\/.*)?$/,                     peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
+  { pola: /^\/beranda(\/.*)?$/,                       peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 ]
 
 /** Aturan PERTAMA yang cocok yang menang, jadi urutan daftar di atas

@@ -36,7 +36,11 @@ for (const p of ['kanit','panit','anggota','pemeliharaan']) {
   cek('U-RUTE-10',`${p} TIDAK dapat membuka /akun/unit (sub-rute)`, !boleh('/akun/unit',p))
   cek('U-RUTE-11',`${p} TIDAK dapat membuka /rekap`, !boleh('/rekap',p))
 }
-cek('U-RUTE-12','Kasubdit DAPAT membuka /akun', boleh('/akun','kasubdit'))
+// Migrasi 0032 (keputusan sadar mengubah PRD): Admin MENGGANTIKAN
+// Kasubdit khusus untuk Manajemen Akun — lihat lib/supabase/types.ts.
+cek('U-RUTE-12','Kasubdit TIDAK LAGI dapat membuka /akun (digantikan Admin)', !boleh('/akun','kasubdit'))
+cek('U-RUTE-12b','Admin DAPAT membuka /akun', boleh('/akun','admin'))
+cek('U-RUTE-12c','Admin TIDAK dapat membuka /rekap (tidak ikut dipindah)', !boleh('/rekap','admin'))
 
 // --- Sesi Tugas: Kasubdit dan Pemeliharaan dilarang (KP-6.1-43) ---
 cek('U-RUTE-13','Kasubdit TIDAK dapat membuka Sesi Tugas', !boleh('/tugas','kasubdit'))
@@ -53,10 +57,16 @@ cek('U-RUTE-19','Anggota TIDAK dapat membuka daftar peninjauan /laporan', !boleh
 // terbuka bagi Anggota untuk miliknya sendiri — lihat U-RUTE-25.
 cek('U-RUTE-21','Panit DAPAT meninjau laporan', boleh('/laporan','panit'))
 
-// --- halaman pemeliharaan tertutup bagi keempat peran ---
-for (const p of ['kasubdit','kanit','panit','anggota'])
+// --- halaman pemeliharaan tertutup bagi seluruh peran organisasi ---
+for (const p of ['kasubdit','admin','kanit','panit','anggota'])
   cek('U-RUTE-22',`${p} TIDAK dapat membuka /pemeliharaan`, !boleh('/pemeliharaan',p))
 cek('U-RUTE-23','Akun Pemeliharaan TIDAK melihat dashboard peran mana pun (KP-6.1-40)', !boleh('/beranda','pemeliharaan'))
+
+// --- Admin melihat "semua unit" seperti Kasubdit, di luar Manajemen Akun ---
+for (const rute of ['/beranda','/penugasan','/peta','/laporan','/personel','/lhp','/pemberitahuan'])
+  cek('U-RUTE-24',`Admin DAPAT membuka ${rute}`, boleh(rute,'admin'))
+cek('U-RUTE-25','Admin TIDAK dapat membuka Sesi Tugas (bukan peran lapangan)', !boleh('/tugas','admin'))
+cek('U-RUTE-26','Admin TIDAK dapat menerbitkan SPT (BR-06, bukan Kanit)', !boleh('/penugasan/terbitkan','admin'))
 
 console.log(`\n== ${lulus} lulus, ${gagal} gagal`)
 process.exit(gagal===0?0:1)

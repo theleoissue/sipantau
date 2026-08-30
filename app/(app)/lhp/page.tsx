@@ -10,6 +10,7 @@ export const metadata = { title: 'LHP Ringkas — Si PANTAU' }
 // 0028), tidak pernah punya tombol susun/sunting (BR-11).
 const JUDUL: Record<string, string> = {
   kasubdit: 'LHP Ringkas — Seluruh Unit',
+  admin: 'LHP Ringkas — Seluruh Unit',
   kanit: 'LHP Ringkas — Unit Saya',
   panit: 'LHP Ringkas — Tim Saya',
   anggota: 'LHP Ringkas Saya',
@@ -17,6 +18,7 @@ const JUDUL: Record<string, string> = {
 
 const SUB: Record<string, string> = {
   kasubdit: 'Laporan Hasil Penyelidikan ringkas dari seluruh unit Subdit IV.',
+  admin: 'Laporan Hasil Penyelidikan ringkas dari seluruh unit Subdit IV.',
   kanit: 'Laporan Hasil Penyelidikan ringkas yang disusun Anggota unit Anda.',
   panit: 'Laporan Hasil Penyelidikan ringkas pada penugasan yang Anda tanggungjawabi.',
   anggota: 'Draf dan LHP Ringkas yang sudah Anda susun.',
