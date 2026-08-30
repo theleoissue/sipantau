@@ -1,4 +1,5 @@
 import { sesiAktifSaya, ruteSayaLintasSpt } from '@/lib/gps/kueri'
+import { daftarPenugasan } from '@/lib/penugasan/kueri'
 import { KartuSesiTugas } from '@/components/sipantau/kartu-sesi-tugas'
 import { LABEL_SEBAB_PENUTUPAN } from '@/lib/gps/tipe'
 import { Ikon } from '@/components/sipantau/ikon'
@@ -18,7 +19,13 @@ function jarakTampil(meter: number | null): string {
 }
 
 export default async function HalamanTugas() {
-  const [sesi, riwayat] = await Promise.all([sesiAktifSaya(), ruteSayaLintasSpt()])
+  const [sesi, riwayat, penugasanAktif] = await Promise.all([
+    sesiAktifSaya(),
+    ruteSayaLintasSpt(),
+    // RLS menyaring sendiri ke SPT tempat pengguna ini pelaksana aktif
+    // (lib/penugasan/kueri.ts: tidak ada penyaring tambahan di sini).
+    daftarPenugasan({ status: ['baru', 'berjalan', 'bermasalah'] }),
+  ])
 
   return (
     <>
@@ -31,7 +38,10 @@ export default async function HalamanTugas() {
         </div>
       </div>
 
-      <KartuSesiTugas sesi={sesi} />
+      <KartuSesiTugas
+        sesi={sesi}
+        sptTersedia={penugasanAktif.map(p => ({ id: p.id, nomor_spt: p.nomor_spt, judul: p.judul }))}
+      />
 
       {/* Rute Saya (KP-6.4-46): sama persis dengan yang dilihat
           pengawas, tanpa satu bagian pun disembunyikan — orang yang

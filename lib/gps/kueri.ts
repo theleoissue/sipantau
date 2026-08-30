@@ -25,7 +25,7 @@ export async function sesiAktifSaya(): Promise<SesiAktifSaya | null> {
     .from('sesi_tugas')
     .select(`
       id, penugasan_id, dibuka_pada, titik_terakhir_pada, jumlah_titik,
-      izin_dicabut_pada, izin_dipulihkan_pada,
+      izin_dicabut_pada, izin_dipulihkan_pada, penanda_perangkat,
       penugasan:penugasan_id ( nomor_spt, judul )
     `)
     .eq('pengguna_id', pengguna.id)
@@ -46,6 +46,7 @@ export async function sesiAktifSaya(): Promise<SesiAktifSaya | null> {
     jumlah_titik: data.jumlah_titik,
     izin_dicabut_pada: data.izin_dicabut_pada,
     izin_dipulihkan_pada: data.izin_dipulihkan_pada,
+    penanda_perangkat: data.penanda_perangkat,
   }
 }
 

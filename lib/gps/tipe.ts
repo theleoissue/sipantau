@@ -29,6 +29,10 @@ export interface SesiAktifSaya {
   jumlah_titik: number
   izin_dicabut_pada: string | null
   izin_dipulihkan_pada: string | null
+  /** Berawalan 'web-' bila sesi ini dimulai dari Mulai Tugas versi web
+   *  (migrasi 0031) — dipakai kartu-sesi-tugas.tsx memutuskan apakah
+   *  tab ini sendiri yang harus melanjutkan mengirim Titik. */
+  penanda_perangkat: string
 }
 
 /** Satu baris posisi_terkini beserta keterangan yang perlu ditampilkan

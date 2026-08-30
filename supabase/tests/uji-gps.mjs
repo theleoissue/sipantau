@@ -95,14 +95,23 @@ async function galat(fn) {
 // Pembukaan Sesi Tugas
 // =====================================================================
 
-// U-GPS-01 — BR-65/KP-6.4-68: penanda perangkat bentuk web ditolak
-// basis data, independen dari penyembunyian tombol di antarmuka.
+// U-GPS-01 — BR-65 lapis kedua DICABUT migrasi 0031 atas permintaan
+// eksplisit pemilik produk (bukan tebakan) — penanda 'web-' kini
+// DIIZINKAN, bukan ditolak. Satu-satunya syarat yang tersisa: penanda
+// tidak boleh kosong (PENANDA_PERANGKAT_KOSONG).
+await sebagai(ID.anggota1, async () => {
+  const r = await db.query(
+    `select * from public.buka_sesi_tugas($1,$2,$3,$4,$5)`,
+    [SPT.a, -6.9, 107.6, 15, 'web-abc123'])
+  cek('U-GPS-01', 'Penanda perangkat bentuk web kini DIIZINKAN (0031, permintaan eksplisit)',
+    r.rows[0].dibuka_pada != null && r.rows[0].penanda_perangkat === 'web-abc123')
+})
 await sebagai(ID.anggota1, async () => {
   const e = await galat(() => db.query(
     `select public.buka_sesi_tugas($1,$2,$3,$4,$5)`,
-    [SPT.a, -6.9, 107.6, 15, 'web-abc123']))
-  cek('U-GPS-01', 'Penanda perangkat bentuk web ditolak (BENTUK_WEB)',
-    e !== null && e.includes('BENTUK_WEB'))
+    [SPT.a, -6.9, 107.6, 15, '']))
+  cek('U-GPS-01b', 'Penanda perangkat KOSONG tetap ditolak',
+    e !== null && e.includes('PENANDA_PERANGKAT_KOSONG'))
 })
 
 // U-GPS-02 — pelaksana aktif dari perangkat Android berhasil membuka.
