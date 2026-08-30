@@ -34,6 +34,11 @@ export const IKON: Record<string, React.ReactNode> = {
   silang: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
   kunci_buka: <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>,
   satelit: <><circle cx="12" cy="12" r="3"/><path d="M12 5a7 7 0 0 1 7 7"/><path d="M12 2a10 10 0 0 1 10 10"/></>,
+  cetak: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
+  // Satu-satunya ikon di sini yang BUKAN salinan mockup: Modul 6.8 (LHP)
+  // tidak pernah punya layar prototipe di sipantau-mockup-v2-sprin.html
+  // ("belum digali" — PETA.md), jadi tidak ada bentuk acuan untuk ditiru.
+  berkas: <><path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z"/><rect x="4" y="4" width="16" height="18" rx="2"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></>,
 }
 
 export function Ikon({ nama, className }: { nama: string; className?: string }) {
