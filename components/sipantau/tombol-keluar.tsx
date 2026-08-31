@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { keluar } from '@/app/(app)/aksi-keluar'
+import { useState, useTransition } from 'react'
+import { keluar, cekSedangBertugas } from '@/app/(app)/aksi-keluar'
 import { Ikon } from './ikon'
 
 /**
@@ -10,17 +10,27 @@ import { Ikon } from './ikon'
  *
  * KP-6.1-28: bila Sesi Tugas sedang berjalan, dialog memberi tahu lebih
  * dulu bahwa sesinya akan ditutup, sehingga pengguna dapat membatalkan.
- * sedangBertugas datang dari sesiAktifSaya() (lib/gps/kueri.ts) yang
- * dibaca sekali di app/(app)/layout.tsx dan diturunkan lewat props —
- * bukan dari sini, komponen ini Client Component.
+ * sedangBertugas diperiksa SESAAT tombol ini ditekan (cekSedangBertugas,
+ * app/(app)/aksi-keluar.ts) — BUKAN dibaca di layout.tsx pada setiap
+ * navigasi. Dialog ini jarang dibuka, jadi tidak ada alasan menanggung
+ * satu perjalanan bolak-balik tambahan ke basis data di setiap
+ * perpindahan halaman hanya demi kalimat dalam dialog yang jarang tampil.
  */
-export function TombolKeluar({ sedangBertugas = false }: { sedangBertugas?: boolean }) {
+export function TombolKeluar() {
   const [tanya, setTanya] = useState(false)
+  const [sedangBertugas, setSedangBertugas] = useState(false)
   const [proses, setProses] = useState(false)
+  const [, mulaiCek] = useTransition()
 
   return (
     <>
-      <button className="nav-i" onClick={() => setTanya(true)}>
+      <button
+        className="nav-i"
+        onClick={() => mulaiCek(async () => {
+          setSedangBertugas(await cekSedangBertugas())
+          setTanya(true)
+        })}
+      >
         <Ikon nama="keluar" />
         <span className="lbl">Keluar</span>
       </button>

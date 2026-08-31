@@ -21,12 +21,10 @@ const WARNA_PERAN: Record<string, { latar: string; tinta: string }> = {
 export function BilahSamping({
   pengguna,
   namaUnit,
-  sedangBertugas = false,
   onTutupLaci,
 }: {
   pengguna: Pengguna
   namaUnit: string | null
-  sedangBertugas?: boolean
   onTutupLaci: () => void
 }) {
   const jalur = usePathname()
@@ -80,7 +78,7 @@ export function BilahSamping({
       </nav>
 
       <div className="sb-kaki">
-        <TombolKeluar sedangBertugas={sedangBertugas} />
+        <TombolKeluar />
       </div>
     </aside>
   )

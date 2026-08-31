@@ -23,13 +23,11 @@ import { BilahBawah } from './bilah-bawah'
 export function KerangkaAplikasi({
   pengguna,
   namaUnit,
-  sedangBertugas = false,
   jumlahNotifAwal = 0,
   children,
 }: {
   pengguna: Pengguna
   namaUnit: string | null
-  sedangBertugas?: boolean
   jumlahNotifAwal?: number
   children: React.ReactNode
 }) {
@@ -55,7 +53,6 @@ export function KerangkaAplikasi({
       <BilahSamping
         pengguna={pengguna}
         namaUnit={namaUnit}
-        sedangBertugas={sedangBertugas}
         onTutupLaci={() => setLaciTerbuka(false)}
       />
 

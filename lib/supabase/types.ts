@@ -52,6 +52,10 @@ export interface Pengguna {
   /** Dasar penghitungan status hijau/kuning/abu-abu. JANGAN dicampur
    *  dengan terakhir_masuk. */
   terakhir_terlihat: string | null
+  /** Disertakan lewat join pada penggunaSekarang() (lib/auth/pengguna.ts)
+   *  supaya app/(app)/layout.tsx tidak perlu kueri terpisah demi nama
+   *  unit pada setiap navigasi. null untuk Akun Pemeliharaan. */
+  unit?: { nama: string } | null
 }
 
 export type JenisTindakanAudit =

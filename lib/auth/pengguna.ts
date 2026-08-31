@@ -28,7 +28,7 @@ export const penggunaSekarang = cache(async (): Promise<Pengguna | null> => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('*')
+    .select('*, unit:unit_id ( nama )')
     .eq('id', user.id)
     .maybeSingle()
 
