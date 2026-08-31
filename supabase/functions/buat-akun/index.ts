@@ -3,8 +3,8 @@
 // "belum ditetapkan"). Dirancang mengikuti pola reset-kata-sandi +
 // KP-6.6-01/02/04/05/06/07/08 + EC-6.6-10.
 //
-// Masukan : { "nama", "nrp", "pangkat", "peran", "unit_id" (null bila
-//             peran pemeliharaan) }
+// Masukan : { "nama", "nrp", "pangkat", "peran", "unit_id" } — peran
+//           pemeliharaan tidak pernah lewat sini sama sekali (AM-6.6-06)
 // Keluaran: { "kata_sandi_sementara": "...", "user_id": "uuid" }
 //
 // EC-6.6-10: bila baris public.users gagal disisipkan SETELAH pengguna
@@ -16,7 +16,12 @@ import { klienService } from '../_shared/klien.ts'
 import { bangkitkanKataSandiSementara } from '../_shared/sandi.ts'
 import { jsonRespons, galatKeRespons } from '../_shared/respons.ts'
 
-const PERAN_VALID = ['kanit', 'panit', 'anggota', 'pemeliharaan'] as const
+// Pemeliharaan SENGAJA di luar daftar ini — AM-6.6-06: "tidak dapat
+// diberikan lewat antarmuka mana pun. Akun itu dibuat sekali saat
+// penyiapan sistem." Harus sama persis dengan PERAN_DAPAT_DIPILIH di
+// lib/akun/tipe.ts — dua daftar terpisah untuk hal yang sama cepat atau
+// lambat berbeda isi.
+const PERAN_VALID = ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] as const
 type PeranValid = (typeof PERAN_VALID)[number]
 
 interface Badan {
@@ -61,11 +66,10 @@ Deno.serve(async (req: Request) => {
   if (!nama || !nrp || !pangkat || !peran || !PERAN_VALID.includes(peran)) {
     return jsonRespons({ kode: 'MASUKAN_TIDAK_LENGKAP', keterangan: 'nama/nrp/pangkat/peran wajib diisi dengan peran yang sah' }, 400)
   }
-  // KP-6.6-06/07: pemeliharaan tidak boleh berunit, peran lain wajib berunit.
-  if (peran === 'pemeliharaan' && unitId) {
-    return jsonRespons({ kode: 'MASUKAN_TIDAK_LENGKAP', keterangan: 'Peran pemeliharaan tidak dapat memiliki unit' }, 400)
-  }
-  if (peran !== 'pemeliharaan' && !unitId) {
+  // KP-6.6-07: unit wajib diisi. Tidak ada lagi cabang "pemeliharaan
+  // tidak boleh berunit" di sini — AM-6.6-06 sudah menyingkirkannya dari
+  // PERAN_VALID sama sekali, jadi peran di titik ini tidak pernah itu.
+  if (!unitId) {
     return jsonRespons({ kode: 'MASUKAN_TIDAK_LENGKAP', keterangan: 'Unit wajib dipilih untuk peran ini' }, 400)
   }
 
@@ -80,15 +84,13 @@ Deno.serve(async (req: Request) => {
   }
 
   // KP-6.6-07: unit wajib berstatus aktif.
-  if (unitId) {
-    const { data: unit, error: errUnit } = await svc
-      .from('unit')
-      .select('aktif')
-      .eq('id', unitId)
-      .maybeSingle()
-    if (errUnit || !unit || !unit.aktif) {
-      return jsonRespons({ kode: 'UNIT_TIDAK_AKTIF', keterangan: 'Unit tidak ditemukan atau tidak aktif' }, 400)
-    }
+  const { data: unit, error: errUnit } = await svc
+    .from('unit')
+    .select('aktif')
+    .eq('id', unitId)
+    .maybeSingle()
+  if (errUnit || !unit || !unit.aktif) {
+    return jsonRespons({ kode: 'UNIT_TIDAK_AKTIF', keterangan: 'Unit tidak ditemukan atau tidak aktif' }, 400)
   }
 
   const emailSistem = `${nrp.toLowerCase()}@sipantau.internal`
