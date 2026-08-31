@@ -39,6 +39,9 @@ export const IKON: Record<string, React.ReactNode> = {
   // tidak pernah punya layar prototipe di sipantau-mockup-v2-sprin.html
   // ("belum digali" — PETA.md), jadi tidak ada bentuk acuan untuk ditiru.
   berkas: <><path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z"/><rect x="4" y="4" width="16" height="18" rx="2"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></>,
+  // Layar "kata sandi tampil sekali" (Modul 6.6, §6.6.5) juga tidak ada
+  // bentuk acuan di mockup — tombol salin tidak pernah ada sebelumnya.
+  salin: <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
 }
 
 export function Ikon({ nama, className }: { nama: string; className?: string }) {
