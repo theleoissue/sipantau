@@ -4,4 +4,22 @@
     <string name="title_activity_main">SiPANTAU</string>
     <string name="package_name">id.go.jabar.polda.sipantau</string>
     <string name="custom_url_scheme">id.go.jabar.polda.sipantau</string>
+
+    <!--
+      Notifikasi pelacakan Sesi Tugas. Ketiga nama di bawah dibaca
+      @capgo/background-geolocation; tanpa ditimpa ia memakai bawaannya
+      sendiri (ikon peluncur berwarna, dan saluran bernama Inggris
+      "Background Tracking").
+    -->
+    <!-- Siluet putih latar tembus pandang. Bawaannya mipmap/ic_launcher
+         yang BERWARNA PENUH — menurut README pustakanya itu membuat
+         notifikasi dapat digeser hilang padahal seharusnya tidak, dan
+         membuat sentuhan padanya membuka pengaturan alih-alih aplikasi. -->
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_notifikasi_pelacakan</string>
+    <!-- Terlihat saat notifikasi ditekan lama, dan pada daftar saluran
+         notifikasi di pengaturan perangkat. Seluruh antarmuka sistem ini
+         Bahasa Indonesia (CLAUDE.md §7.3). -->
+    <string name="capacitor_background_geolocation_notification_channel_name">Pelacakan Sesi Tugas</string>
+    <!-- Emas SiPANTAU, palet prototype (CLAUDE.md §7.2). -->
+    <string name="capacitor_background_geolocation_notification_color">#F5A623</string>
 </resources>

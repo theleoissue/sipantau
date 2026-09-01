@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ikon notifikasi pelacakan Sesi Tugas.
+
+  KENAPA ADA. Pustaka pelacakan jatuh ke bawaan "mipmap/ic_launcher"
+  (BackgroundGeolocationService.java baris 444) bila tidak ditimpa —
+  yaitu ikon peluncur aplikasi yang BERWARNA PENUH. README pustakanya
+  sendiri memperingatkan bahwa aset ikon yang tidak cocok menimbulkan
+  tepat tiga gejala:
+    - notifikasi dapat digeser hilang pengguna padahal seharusnya tidak
+    - menyentuh notifikasi membuka layar pengaturan, bukan aplikasi
+    - tulisan pada notifikasi bisa keliru
+
+  Ikon notifikasi Android WAJIB berupa siluet putih di atas latar
+  tembus pandang; Android melapisi warnanya sendiri. Ikon berwarna
+  penuh tidak memenuhi syarat itu, dan itulah yang terpasang selama ini.
+
+  Bentuk vektor, bukan PNG bertingkat kerapatan: satu berkas melayani
+  seluruh kerapatan layar sekaligus dan tidak pernah pecah.
+
+  Bentuknya penanda lokasi baku Material — dikenali seketika sebagai
+  "sedang melacak posisi", tidak perlu dibaca dulu.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2C8.13,2 5,5.13 5,9c0,5.25 7,13 7,13s7,-7.75 7,-13c0,-3.87 -3.13,-7 -7,-7zM12,11.5c-1.38,0 -2.5,-1.12 -2.5,-2.5s1.12,-2.5 2.5,-2.5 2.5,1.12 2.5,2.5 -1.12,2.5 -2.5,2.5z" />
+</vector>
