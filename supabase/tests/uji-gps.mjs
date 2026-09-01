@@ -293,6 +293,14 @@ cek('U-GPS-10b', 'sesi_tugas TIDAK dihapus, hanya ditutup (BR-56)',
   (await db.query(`select sebab_penutupan, ditutup_oleh from public.sesi_tugas where id=$1`, [idSesiA1Baru]))
     .rows[0].sebab_penutupan === 'manual')
 
+// U-GPS-10c — 0036: users.terakhir_terlihat diisi fn_catat_titik dan
+// BERTAHAN melewati penutupan sesi (beda dari posisi_terkini yang
+// dihapus di atas) — satu-satunya jejak "kapan terakhir terlihat"
+// yang tersisa setelah Sesi Tugas berakhir.
+cek('U-GPS-10c', 'users.terakhir_terlihat terisi dari Titik terakhir (t=120) dan bertahan setelah sesi ditutup',
+  (await db.query(`select terakhir_terlihat from public.users where id=$1`, [ID.anggota1]))
+    .rows[0].terakhir_terlihat.toISOString() === t(120))
+
 // =====================================================================
 // Ringkasan Rute — disusun sekali saat penutupan (KP-6.4-30, aturan 6)
 // =====================================================================
