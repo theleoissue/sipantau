@@ -701,3 +701,30 @@ tbody tr.bisa-klik{cursor:pointer}
 }
 
 a.nav-i { text-decoration: none; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   AREA AMAN TELEPON (bilah gestur Android / notch)
+
+   Mockup dirancang di peramban meja, yang tidak pernah punya bilah
+   gestur — jadi #bb memakai tinggi PASTI 62px sambil menambahkan
+   padding-bottom:env(safe-area-inset-bottom). Dengan box-sizing:
+   border-box yang berlaku menyeluruh (baris 55), padding itu dipotong
+   DARI DALAM 62px, bukan ditambahkan padanya.
+
+   Akibatnya di telepon sungguhan (APK): ruang isi bilah bawah menyusut
+   61px -> 27px pada bilah gestur 34px, sementara ikon+label butuh 39px.
+   Ikon dan tulisan berdesakan/tertimpa — persis keluhan "bertumpuk"
+   yang TIDAK pernah terlihat di peramban meja karena inset-nya nol.
+
+   Diperbaiki dengan menjadikan area aman TAMBAHAN atas tinggi dasar,
+   bukan potongan darinya. Nilai aslinya di atas sengaja tidak diubah,
+   mengikuti kebiasaan berkas ini (lihat blok PENYESUAIAN di atas).
+   ═══════════════════════════════════════════════════════════════════ */
+#bb { height: calc(62px + env(safe-area-inset-bottom, 0px)); }
+#fab { bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
+
+@media (max-width: 768px) {
+  /* Ruang bebas di kaki halaman ikut tumbuh bersama bilah bawah,
+     supaya baris terakhir daftar tidak tertutup bilah itu. */
+  #utama { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}

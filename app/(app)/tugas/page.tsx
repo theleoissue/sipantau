@@ -51,7 +51,12 @@ export default async function HalamanTugas() {
           <h3>Rute Saya</h3>
           <span className="isyarat">{riwayat.length} sesi</span>
         </div>
-        <div className="kartu-b rata">
+        {/* tw WAJIB ikut di sini: table{min-width:660px} berlaku untuk
+            SELURUH tabel (globals.css), sementara body{overflow-x:hidden}
+            memangkas kelebihannya diam-diam. Tanpa .tw, kolom Titik dan
+            Keadaan terpotong dan TIDAK dapat dijangkau sama sekali di
+            layar telepon — bukan sekadar sempit. */}
+        <div className="kartu-b rata tw">
           {riwayat.length === 0 ? (
             <div className="kosong" style={{ padding: '24px 0' }}>
               <Ikon nama="riwayat" />
