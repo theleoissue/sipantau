@@ -106,6 +106,14 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'beranda',   rute: '/beranda',   ikon: 'dasbor',  label: 'Beranda' },
       { id: 'tugas',     rute: '/tugas',     ikon: 'satelit', label: 'Sesi Tugas' },
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',     label: 'Tugas Saya' },
+      // Modul 6.4 Bagian 577 memberi Anggota hak melihat peta waktu
+      // nyata: posisi sendiri DAN rekan pelaksana aktif pada SPT yang
+      // sama. Kebijakan RLS (posisi_terkini_baca_sesuai_lingkup, 0017),
+      // penjaga rute, bahkan kalimat pengantar khusus Anggota pada
+      // halamannya sudah lengkap sejak awal — hanya butir menu ini yang
+      // tidak pernah terpasang, sehingga haknya ada tetapi tidak ada
+      // satu pun jalan menuju ke sana.
+      { id: 'peta',      rute: '/peta',      ikon: 'peta',    label: 'Peta Tim' },
       { kelompok: 'Pelaporan' },
       { id: 'lapor',     rute: '/lapor',     ikon: 'lapor',   label: 'Kirim Laporan' },
       { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat', label: 'Riwayat Laporan' },
