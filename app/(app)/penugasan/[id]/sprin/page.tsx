@@ -38,6 +38,11 @@ const LABEL_DASAR: Record<string, string> = {
 function KopSurat() {
   return (
     <div className="sprin-kop">
+      <div className="teks-kop">
+        <div className="l1">Kepolisian Negara Republik Indonesia</div>
+        <div className="l2">Daerah Jawa Barat</div>
+        <div className="l3">Direktorat Reserse Kriminal Khusus</div>
+      </div>
       <Image
         src="/lambang-polri.png"
         alt="Lambang Kepolisian Negara Republik Indonesia"
@@ -46,11 +51,6 @@ function KopSurat() {
         className="sprin-lambang"
         priority
       />
-      <div className="teks-kop">
-        <div className="l1">Kepolisian Negara Republik Indonesia</div>
-        <div className="l2">Daerah Jawa Barat</div>
-        <div className="l3">Direktorat Reserse Kriminal Khusus</div>
-      </div>
     </div>
   )
 }
@@ -262,26 +262,29 @@ export default async function HalamanSprin({
           <div className="kiri">
             <div>Yang Menerima Perintah</div>
             <div className="ruang" />
-            <div className="nama-ttd">{penerima?.nama ?? '—'}</div>
-            <div className="pangkat-ttd">
-              {penerima?.pangkat ?? ''}{penerima?.nrp ? ` NRP ${penerima.nrp}` : ''}
+            <div className="blok-nama">
+              <div className="nama-ttd">{penerima?.nama ?? '—'}</div>
+              <div className="pangkat-ttd">
+                {penerima?.pangkat ?? ''}{penerima?.nrp ? ` NRP ${penerima.nrp}` : ''}
+              </div>
             </div>
           </div>
 
           <div className="kanan">
             <div className="jabatan-ttd">
               {pejabat?.atas_nama ?? 'a.n. DIREKTUR RESERSE KRIMINAL KHUSUS POLDA JABAR'}
-              <br />
-              {pejabat?.jabatan ?? 'WADIR'}
             </div>
+            <div className="jabatan-tengah">{pejabat?.jabatan ?? 'WADIR'}</div>
             <div className="ket-jabatan">{pejabat?.keterangan_jabatan ?? 'Selaku Penyidik'}</div>
             {/* Ruang kosong untuk tanda tangan dan cap basah. Sengaja
                 TIDAK diisi cap tiruan — ini konsep surat, dan cap palsu
                 pada konsep surat dinas adalah masalah tersendiri. */}
             <div className="ruang" />
-            <div className="nama-ttd">{pejabat?.nama ?? '—'}</div>
-            <div className="pangkat-ttd">
-              {pejabat?.pangkat ?? ''}{pejabat?.nrp ? ` NRP ${pejabat.nrp}` : ''}
+            <div className="blok-nama">
+              <div className="nama-ttd">{pejabat?.nama ?? '—'}</div>
+              <div className="pangkat-ttd">
+                {pejabat?.pangkat ?? ''}{pejabat?.nrp ? ` NRP ${pejabat.nrp}` : ''}
+              </div>
             </div>
           </div>
         </div>
@@ -319,13 +322,13 @@ export default async function HalamanSprin({
           <tbody>
             {tim.map((t, i) => (
               <tr key={t.kunci}>
-                <td className="c-no">{i + 1}</td>
+                <td className="c-no">{i + 1}.</td>
                 <td className="c-nama">{t.orang?.nama ?? '—'}</td>
+                {/* Satu aliran teks, membungkus sendiri — dokumen asli
+                    memutus baris setelah garis miring hanya ketika pangkatnya
+                    panjang, bukan selalu. NRP dibaca dari baris users. */}
                 <td className="c-pangkat">
-                  {t.orang?.pangkat ?? '—'} /
-                  <br />
-                  {/* NRP dibaca dari baris users, tidak pernah diketik ulang. */}
-                  {t.orang?.nrp ?? '—'}
+                  {t.orang?.pangkat ?? '—'} / {t.orang?.nrp ?? '—'}
                 </td>
                 {/* Jabatan resmi (kolom jabatan, migrasi 0039). Bila
                     Admin belum mengisinya, kedudukan pada SPT dipakai
@@ -345,14 +348,15 @@ export default async function HalamanSprin({
           <div className="kanan">
             <div className="jabatan-ttd">
               {pejabat?.atas_nama ?? 'a.n. DIREKTUR RESERSE KRIMINAL KHUSUS POLDA JABAR'}
-              <br />
-              {pejabat?.jabatan ?? 'WADIR'}
             </div>
+            <div className="jabatan-tengah">{pejabat?.jabatan ?? 'WADIR'}</div>
             <div className="ket-jabatan">{pejabat?.keterangan_jabatan ?? 'Selaku Penyidik'}</div>
             <div className="ruang" />
-            <div className="nama-ttd">{pejabat?.nama ?? '—'}</div>
-            <div className="pangkat-ttd">
-              {pejabat?.pangkat ?? ''}{pejabat?.nrp ? ` NRP ${pejabat.nrp}` : ''}
+            <div className="blok-nama">
+              <div className="nama-ttd">{pejabat?.nama ?? '—'}</div>
+              <div className="pangkat-ttd">
+                {pejabat?.pangkat ?? ''}{pejabat?.nrp ? ` NRP ${pejabat.nrp}` : ''}
+              </div>
             </div>
           </div>
         </div>

@@ -477,11 +477,19 @@ tbody tr.bisa-klik{cursor:pointer}
 }
 .sprin-lembar *{box-sizing:border-box}
 
-.sprin-kop{display:flex; align-items:center; gap:16px; border-bottom:3px double #111; padding-bottom:12px; margin-bottom:20px}
-.sprin-lambang{width:64px; height:64px; object-fit:contain; flex-shrink:0}
-.sprin-kop .teks-kop{flex:1; text-align:center; padding-right:64px}
-.sprin-kop .l1,.sprin-kop .l2,.sprin-kop .l3{font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.02em;line-height:1.4}
+/* Kop dokumen resmi: tiga baris RATA KIRI (bukan tengah), lambang
+   Tribrata di TENGAH lembar tepat di bawahnya, dan TANPA garis pemisah
+   mendatar. Bentuk sebelumnya menaruh lambang di kiri dengan teks di
+   tengah plus garis ganda — tidak satu pun benar. */
+.sprin-kop{margin-bottom:4px}
+.sprin-kop .teks-kop{text-align:left}
+.sprin-kop .l1,.sprin-kop .l2,.sprin-kop .l3{font-size:11.5px;font-weight:bold;
+  text-transform:uppercase;letter-spacing:.01em;line-height:1.35}
 .sprin-kop .l3{text-decoration:underline}
+/* Margin atas negatif: pada dokumen aslinya lambang naik sejajar baris
+   kedua dan ketiga kop, tidak berdiri sendiri di bawahnya. Aman karena
+   teks kop rata kiri dan berhenti jauh sebelum tengah lembar. */
+.sprin-lambang{display:block;margin:-30px auto 0;width:56px;height:56px;object-fit:contain}
 
 .sprin-judul{text-align:center;margin:16px 0}
 .sprin-judul h2{font-size:16px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:.03em;font-family:inherit}
@@ -526,6 +534,15 @@ tbody tr.bisa-klik{cursor:pointer}
 .sprin-tabel .c-pangkat{width:34mm}
 .sprin-tabel .c-jab{width:39mm}
 
+/* Preflight Tailwind menyetel list-style:none pada SELURUH ol/ul
+   (node_modules/tailwindcss/preflight.css). Di seluruh aplikasi itu
+   dikehendaki, tetapi di lembar surat ia MENGHAPUS penomoran resmi
+   diam-diam — butir "Untuk" pada dokumen asli bernomor 1 sampai 8, dan
+   sub-butirnya berhuruf a, b, c. Dipulihkan hanya di dalam lembar. */
+.sprin-lembar ol{list-style:decimal outside}
+.sprin-lembar ol ol{list-style:lower-alpha outside}
+.sprin-lembar li{margin-left:0}
+
 .sprin-daftar{margin:8px 0 0 18px;font-size:12.5px}
 .sprin-daftar li{margin-bottom:7px}
 
@@ -533,7 +550,7 @@ tbody tr.bisa-klik{cursor:pointer}
 
 /* Kode arsip pojok kiri atas ("A.5"). Diangkat keluar aliran supaya
    tidak menggeser kop yang harus tetap di tengah lembar. */
-.sprin-arsip{position:absolute;top:12mm;left:14mm;font-size:11px;font-weight:bold;
+.sprin-arsip{position:absolute;top:12mm;right:14mm;font-size:11px;font-weight:bold;
   border:1px solid #333;padding:1px 7px}
 
 /* Tempat dan tanggal, rata kanan, di atas blok tanda tangan. Lebarnya
@@ -546,16 +563,27 @@ tbody tr.bisa-klik{cursor:pointer}
 /* DUA blok tanda tangan berdampingan: kiri penerima perintah, kanan
    pejabat penerbit. Rata ATAS, bukan tengah — nama di kiri dan kanan
    berada pada ketinggian berbeda pada dokumen aslinya. */
-.sprin-ttd-dua{display:flex;justify-content:space-between;align-items:flex-start;
-  margin-top:6px;font-size:12.5px;gap:12mm}
-.sprin-ttd-dua .kiri{width:74mm}
-.sprin-ttd-dua .kanan{width:74mm}
-.sprin-ttd-dua .ruang{height:22mm}
-.sprin-ttd-dua .jabatan-ttd{font-weight:bold;text-transform:uppercase;
+/* align-items:stretch + margin-top:auto pada blok nama: kedua nama
+   duduk di GARIS DASAR YANG SAMA sekalipun kolom kanan memuat tiga
+   baris jabatan sementara kiri hanya satu. Itulah bentuk aslinya. */
+.sprin-ttd-dua{display:flex;justify-content:space-between;align-items:stretch;
+  margin-top:4px;font-size:12px;gap:6mm}
+.sprin-ttd-dua .kiri{width:66mm;display:flex;flex-direction:column}
+.sprin-ttd-dua .kanan{width:92mm;display:flex;flex-direction:column}
+.sprin-ttd-dua .ruang{height:20mm}
+.sprin-ttd-dua .blok-nama{margin-top:auto}
+.sprin-ttd-dua .jabatan-ttd{text-transform:uppercase;font-size:11.5px;line-height:1.5}
+/* Jabatan dan keterangannya berdiri di TENGAH kolom kanan, di bawah
+   baris "a.n. ..." yang memenuhi lebar kolom. */
+.sprin-ttd-dua .jabatan-tengah{text-align:center;text-transform:uppercase;
   font-size:11.5px;line-height:1.5}
-.sprin-ttd-dua .ket-jabatan{font-size:11.5px;margin-bottom:2px}
+.sprin-ttd-dua .ket-jabatan{text-align:center;font-size:11.5px;margin-bottom:2px}
 .sprin-ttd-dua .nama-ttd{font-weight:bold;text-decoration:underline}
-.sprin-ttd-dua .pangkat-ttd{font-size:11.5px}
+/* min-height menjaga baris pangkat tetap menempati satu baris meski
+   identitas pejabat belum diisi. Tanpa ini blok kanan menyusut sebaris
+   dan kedua nama tidak lagi sejajar — tata letak tidak boleh bergantung
+   pada sudah/belum terisinya data. */
+.sprin-ttd-dua .pangkat-ttd{font-size:11.5px;min-height:1.5em}
 /* Lampiran hanya bertanda tangan pejabat penerbit — didorong ke kanan
    karena tidak ada pasangan di kiri yang menahannya. */
 .sprin-ttd-dua.lampiran-ttd{justify-content:flex-end}
@@ -563,7 +591,7 @@ tbody tr.bisa-klik{cursor:pointer}
 /* ── Halaman lampiran ────────────────────────────────────────────── */
 .sprin-lampiran{margin-top:24px}
 /* Kotak identitas surat induk di pojok kanan atas lampiran. */
-.sprin-lampiran .lampiran-kepala{margin-left:auto;width:88mm;border:1px solid #333;
+.sprin-lampiran .lampiran-kepala{margin-left:auto;width:92mm;border:1px solid #333;
   padding:7px 10px;font-size:11px;margin-bottom:16px}
 .sprin-lampiran .lampiran-kepala .jd{font-weight:bold;text-transform:uppercase;
   line-height:1.4;margin-bottom:3px}
@@ -575,9 +603,11 @@ tbody tr.bisa-klik{cursor:pointer}
 /* Lampiran memakai lebar penuh lembar, bukan 125mm seperti tabel yang
    dulu bersarang di dalam .sprin-baris. */
 .lampiran-tabel{width:100%;font-size:11px}
+.lampiran-tabel thead tr:first-child th{text-align:center}
 .lampiran-tabel .angka-kolom th{text-align:center;font-weight:normal;font-size:10.5px;
   padding:2px 8px}
 .lampiran-tabel .c-no{width:12mm;text-align:center}
+.lampiran-tabel tbody .c-no{text-align:center}
 .lampiran-tabel .c-nama{width:58mm}
 .lampiran-tabel .c-pangkat{width:44mm}
 .lampiran-tabel .c-jab{width:48mm}
