@@ -2,6 +2,7 @@ import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { jumlahBelumDibaca } from '@/lib/notifikasi/kueri'
 import { KerangkaAplikasi } from '@/components/sipantau/kerangka-aplikasi'
 import { PesanSekilas } from '@/components/sipantau/pesan-sekilas'
+import { PenyegarOtomatis } from '@/components/sipantau/penyegar-otomatis'
 
 // Seluruh halaman setelah masuk melewati sini. Server Component:
 // datanya tidak berubah selama halaman terbuka (docs/CLAUDE.md §6.1).
@@ -33,6 +34,11 @@ export default async function TataLetakAplikasi({
       jumlahNotifAwal={jumlahNotifAwal}
     >
       <PesanSekilas />
+      {/* Dipasang di rangka, bukan per halaman: berlaku untuk SELURUH
+          halaman sesudah masuk sekaligus, dan tetap terpasang saat
+          berpindah halaman sehingga pencacahnya tidak berulang kali
+          dibongkar-pasang. */}
+      <PenyegarOtomatis />
       {children}
     </KerangkaAplikasi>
   )
