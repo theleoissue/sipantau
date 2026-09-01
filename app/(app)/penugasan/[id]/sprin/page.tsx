@@ -9,6 +9,22 @@ import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'Surat Perintah — Si PANTAU' }
 
+/** Judul surat menyebut jenis kegiatannya, seperti dokumen resmi:
+ *  "SURAT PERINTAH PENYELIDIKAN", bukan "SURAT PERINTAH" polos. */
+const JUDUL_JENIS: Record<string, string> = {
+  penyelidikan: 'Surat Perintah Penyelidikan',
+  pulbaket: 'Surat Perintah Pengumpulan Bahan Keterangan',
+  pengamanan: 'Surat Perintah Pengamanan',
+}
+
+/** Sebutan pelaksana pada judul lampiran, mengikuti jenis kegiatan —
+ *  dokumen contoh memakai "DAFTAR NAMA PENYELIDIK". */
+const SEBUTAN_PELAKSANA: Record<string, string> = {
+  penyelidikan: 'Penyelidik',
+  pulbaket: 'Petugas',
+  pengamanan: 'Petugas',
+}
+
 const LABEL_DASAR: Record<string, string> = {
   laporan_informasi: 'Laporan Informasi',
   laporan_polisi: 'Laporan Polisi',
@@ -16,6 +32,27 @@ const LABEL_DASAR: Record<string, string> = {
   surat_perintah_terdahulu: 'Surat Perintah',
   disposisi_pimpinan: 'Disposisi Pimpinan',
   lainnya: 'Dasar lain',
+}
+
+/** Kop dipakai dua kali: badan surat dan halaman lampiran. */
+function KopSurat() {
+  return (
+    <div className="sprin-kop">
+      <Image
+        src="/lambang-polri.png"
+        alt="Lambang Kepolisian Negara Republik Indonesia"
+        width={78}
+        height={72}
+        className="sprin-lambang"
+        priority
+      />
+      <div className="teks-kop">
+        <div className="l1">Kepolisian Negara Republik Indonesia</div>
+        <div className="l2">Daerah Jawa Barat</div>
+        <div className="l3">Direktorat Reserse Kriminal Khusus</div>
+      </div>
+    </div>
+  )
 }
 
 function tglIndo(iso: string | null): string {
@@ -52,11 +89,16 @@ export default async function HalamanSprin({
   if (!spt) notFound()
 
   const supabase = await klienServer()
-  const { data: penerbit } = await supabase
-    .from('users')
-    .select('nama, pangkat, nrp')
-    .eq('id', spt.diterbitkan_oleh ?? '')
-    .maybeSingle<{ nama: string; pangkat: string | null; nrp: string }>()
+  // Pejabat penanda tangan TIDAK diketik ulang tiap SPT — disimpan
+  // sekali sebagai pengaturan (migrasi 0039). Barisnya dijamin tepat
+  // satu oleh chk_baris_tunggal, jadi maybeSingle() aman.
+  const { data: pejabat } = await supabase
+    .from('pengaturan_surat')
+    .select('kota, atas_nama, jabatan, keterangan_jabatan, nama, pangkat, nrp')
+    .maybeSingle<{
+      kota: string; atas_nama: string; jabatan: string; keterangan_jabatan: string
+      nama: string | null; pangkat: string | null; nrp: string | null
+    }>()
 
   const lokasi = [...(spt.penugasan_lokasi ?? [])].sort((a, b) => a.urutan - b.urutan)
   const dasar = [...(spt.penugasan_dasar ?? [])].sort((a, b) => a.urutan - b.urutan)
@@ -74,6 +116,30 @@ export default async function HalamanSprin({
       .sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0))
       .map(p => ({ kunci: p.id, orang: p.users, kedudukan: 'Pelaksana' })),
   ]
+
+  // "Yang Menerima Perintah" pada dokumen resmi adalah pemegang kendali
+  // di lapangan. Diambil Panit Penanggung Jawab; bila SPT tidak menunjuk
+  // Panit, pelaksana urutan pertama yang mewakili.
+  const penerima = (tim.find(t => t.kedudukan === 'Panit Penanggung Jawab') ?? tim[0])?.orang
+
+  // Jabatan diambil TERPISAH, bukan ditumpangkan pada kueri penugasan
+  // yang dipakai bersama banyak halaman lain: kolom ini hanya berguna
+  // untuk lampiran surat, dan menambahkannya ke kueri bersama membuat
+  // SELURUH halaman Penugasan gagal dimuat sebelum migrasi 0039 terpasang
+  // (sudah terbukti terjadi saat diuji: "column users_2.jabatan does not
+  // exist"). Galatnya pun ditelan di sini — bila kolomnya belum ada,
+  // lampiran jatuh ke kedudukan pada SPT, bukan ikut mematikan halaman.
+  const idOrang = tim.map(t => t.orang?.id).filter((v): v is string => !!v)
+  let petaJabatan = new Map<string, string>()
+  if (idOrang.length > 0) {
+    const { data: barisJabatan } = await supabase
+      .from('users').select('id, jabatan').in('id', idOrang)
+    petaJabatan = new Map(
+      (barisJabatan ?? [])
+        .filter((b): b is { id: string; jabatan: string } => !!b.jabatan)
+        .map(b => [b.id, b.jabatan]),
+    )
+  }
 
   return (
     <>
@@ -98,24 +164,12 @@ export default async function HalamanSprin({
       </div>
 
       <div className="sprin-lembar">
-        <div className="sprin-kop">
-          <Image
-            src="/lambang-polri.png"
-            alt="Lambang Kepolisian Negara Republik Indonesia"
-            width={78}
-            height={72}
-            className="sprin-lambang"
-            priority
-          />
-          <div className="teks-kop">
-            <div className="l1">Kepolisian Negara Republik Indonesia</div>
-            <div className="l2">Daerah Jawa Barat</div>
-            <div className="l3">Direktorat Reserse Kriminal Khusus</div>
-          </div>
-        </div>
+        {/* Kode arsip pojok kiri atas, seperti pada dokumen resmi. */}
+        <div className="sprin-arsip">A.5</div>
+        <KopSurat />
 
         <div className="sprin-judul">
-          <h2>Surat Perintah</h2>
+          <h2>{JUDUL_JENIS[spt.jenis_kegiatan] ?? 'Surat Perintah'}</h2>
           <div className="no">Nomor : {spt.nomor_spt ?? '—'}</div>
         </div>
 
@@ -152,35 +206,15 @@ export default async function HalamanSprin({
           Diperintahkan
         </p>
 
+        {/* Dokumen resmi TIDAK memuat daftar personel di badan surat —
+            ia merujuk ke lampiran, dan daftarnya jadi halaman tersendiri
+            di bawah. Bentuk sebelumnya menaruh tabel tim di sini. */}
         <div className="sprin-baris">
           <div className="lbl">Kepada</div>
           <div className="titik-dua">:</div>
-          <div className="isi">
-            <table className="sprin-tabel">
-              <thead>
-                <tr>
-                  <th className="c-no">No</th>
-                  <th className="c-nama">Nama</th>
-                  <th className="c-pangkat">Pangkat / NRP</th>
-                  <th className="c-jab">Kedudukan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tim.map((t, i) => (
-                  <tr key={t.kunci}>
-                    <td className="c-no">{i + 1}</td>
-                    <td className="c-nama">{t.orang?.nama ?? '—'}</td>
-                    <td className="c-pangkat">
-                      {t.orang?.pangkat ?? '—'}
-                      <br />
-                      {/* NRP diambil dari baris users, bukan diketik ulang. */}
-                      NRP {t.orang?.nrp ?? '—'}
-                    </td>
-                    <td className="c-jab">{t.kedudukan}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="isi" style={{ textTransform: 'uppercase' }}>
+            Nama, pangkat, NRP, dan jabatan sesuai yang tercantum dalam
+            lampiran surat perintah ini.
           </div>
         </div>
 
@@ -214,22 +248,112 @@ export default async function HalamanSprin({
 
         <p style={{ marginTop: 14 }}>Selesai.</p>
 
-        <div className="sprin-ttd-wrap">
-          <div className="kotak">
-            <div>Dikeluarkan di : Bandung</div>
-            <div>Pada tanggal&nbsp;&nbsp; : {tglIndo(spt.diterbitkan_pada ?? spt.tanggal_mulai)}</div>
-            <div className="jabatan-ttd">
-              Kepala {spt.unit?.nama ?? 'Unit'}
-              <br />
-              Subdit IV Ditreskrimsus
+        {/* Tanggal penerbitan berdiri sendiri di atas kedua blok tanda
+            tangan, rata kanan — seperti dokumen resmi. */}
+        <div className="sprin-tempat-tanggal">
+          <div><span className="k">Dikeluarkan di</span><span className="d">:</span> {pejabat?.kota ?? 'Bandung'}</div>
+          <div><span className="k">pada tanggal</span><span className="d">:</span> {tglIndo(spt.diterbitkan_pada ?? spt.tanggal_mulai)}</div>
+        </div>
+
+        {/* DUA blok, bukan satu. Kiri: yang menerima perintah, diisi
+            Panit Penanggung Jawab (pemegang kendali di lapangan) —
+            bentuk sebelumnya hanya punya blok kanan. */}
+        <div className="sprin-ttd-dua">
+          <div className="kiri">
+            <div>Yang Menerima Perintah</div>
+            <div className="ruang" />
+            <div className="nama-ttd">{penerima?.nama ?? '—'}</div>
+            <div className="pangkat-ttd">
+              {penerima?.pangkat ?? ''}{penerima?.nrp ? ` NRP ${penerima.nrp}` : ''}
             </div>
+          </div>
+
+          <div className="kanan">
+            <div className="jabatan-ttd">
+              {pejabat?.atas_nama ?? 'a.n. DIREKTUR RESERSE KRIMINAL KHUSUS POLDA JABAR'}
+              <br />
+              {pejabat?.jabatan ?? 'WADIR'}
+            </div>
+            <div className="ket-jabatan">{pejabat?.keterangan_jabatan ?? 'Selaku Penyidik'}</div>
             {/* Ruang kosong untuk tanda tangan dan cap basah. Sengaja
-                TIDAK diisi gambar cap tiruan — surat ini konsep, dan
-                cap palsu pada konsep surat dinas adalah masalah
-                tersendiri. */}
-            <div style={{ height: 78 }} />
-            <div className="nama-ttd">{penerbit?.nama ?? '—'}</div>
-            <div>{penerbit?.pangkat ?? ''} NRP {penerbit?.nrp ?? '—'}</div>
+                TIDAK diisi cap tiruan — ini konsep surat, dan cap palsu
+                pada konsep surat dinas adalah masalah tersendiri. */}
+            <div className="ruang" />
+            <div className="nama-ttd">{pejabat?.nama ?? '—'}</div>
+            <div className="pangkat-ttd">
+              {pejabat?.pangkat ?? ''}{pejabat?.nrp ? ` NRP ${pejabat.nrp}` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ============ HALAMAN LAMPIRAN ============
+          Lembar terpisah dengan kop dan blok tanda tangannya sendiri,
+          selalu dimulai di halaman baru saat dicetak. */}
+      <div className="sprin-lembar sprin-lampiran">
+        <div className="lampiran-kepala">
+          <div className="jd">Lampiran Surat Perintah {(JUDUL_JENIS[spt.jenis_kegiatan] ?? 'Surat Perintah').replace(/^Surat Perintah ?/i, '')}</div>
+          <div className="brs"><span className="k">NOMOR</span><span className="d">:</span><span>{spt.nomor_spt ?? '—'}</span></div>
+          <div className="brs"><span className="k">TANGGAL</span><span className="d">:</span><span>{tglIndo(spt.diterbitkan_pada ?? spt.tanggal_mulai)}</span></div>
+        </div>
+
+        <KopSurat />
+
+        <h3 className="lampiran-judul">
+          Daftar Nama {SEBUTAN_PELAKSANA[spt.jenis_kegiatan] ?? 'Petugas'}
+        </h3>
+
+        <table className="sprin-tabel lampiran-tabel">
+          <thead>
+            <tr>
+              <th className="c-no">No.</th>
+              <th className="c-nama">Nama</th>
+              <th className="c-pangkat">Pangkat / NRP</th>
+              <th className="c-jab">Jabatan</th>
+            </tr>
+            {/* Baris angka kolom — ada pada dokumen resmi. */}
+            <tr className="angka-kolom">
+              <th>1</th><th>2</th><th>3</th><th>4</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tim.map((t, i) => (
+              <tr key={t.kunci}>
+                <td className="c-no">{i + 1}</td>
+                <td className="c-nama">{t.orang?.nama ?? '—'}</td>
+                <td className="c-pangkat">
+                  {t.orang?.pangkat ?? '—'} /
+                  <br />
+                  {/* NRP dibaca dari baris users, tidak pernah diketik ulang. */}
+                  {t.orang?.nrp ?? '—'}
+                </td>
+                {/* Jabatan resmi (kolom jabatan, migrasi 0039). Bila
+                    Admin belum mengisinya, kedudukan pada SPT dipakai
+                    sebagai penadah supaya sel tidak pernah kosong. */}
+                <td className="c-jab">{(t.orang?.id ? petaJabatan.get(t.orang.id) : null) || t.kedudukan}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="sprin-tempat-tanggal">
+          <div><span className="k">Dikeluarkan di</span><span className="d">:</span> {pejabat?.kota ?? 'Bandung'}</div>
+          <div><span className="k">pada tanggal</span><span className="d">:</span> {tglIndo(spt.diterbitkan_pada ?? spt.tanggal_mulai)}</div>
+        </div>
+
+        <div className="sprin-ttd-dua lampiran-ttd">
+          <div className="kanan">
+            <div className="jabatan-ttd">
+              {pejabat?.atas_nama ?? 'a.n. DIREKTUR RESERSE KRIMINAL KHUSUS POLDA JABAR'}
+              <br />
+              {pejabat?.jabatan ?? 'WADIR'}
+            </div>
+            <div className="ket-jabatan">{pejabat?.keterangan_jabatan ?? 'Selaku Penyidik'}</div>
+            <div className="ruang" />
+            <div className="nama-ttd">{pejabat?.nama ?? '—'}</div>
+            <div className="pangkat-ttd">
+              {pejabat?.pangkat ?? ''}{pejabat?.nrp ? ` NRP ${pejabat.nrp}` : ''}
+            </div>
           </div>
         </div>
       </div>
