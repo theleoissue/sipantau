@@ -29,11 +29,15 @@ jobs:
         # itu memang belum pernah dibangkitkan pada checkout yang segar.
         run: npx cap sync android
 
-      - name: Pasang JDK 17
+      - name: Pasang JDK 21
+        # Bukan 17 (batas minimum AGP 8.13) — beberapa modul plugin
+        # Capacitor sungguhan mengompilasi dengan --release 21, dan
+        # javac tidak bisa menyasar rilis LEBIH TINGGI dari JDK yang
+        # menjalankannya sendiri.
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Pasang Android SDK
         uses: android-actions/setup-android@v3
