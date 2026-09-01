@@ -121,11 +121,16 @@ export function PetaLangsung({
         }
         const baris = payload.new as Record<string, unknown>
         const idSesi = baris.sesi_tugas_id as string
-        let baruTerlihat = false
+        let perluIsiSusulan = false
         setPosisi(prev => {
           const n = new Map(prev)
           const ada = n.get(idSesi)
-          baruTerlihat = !ada
+          // Bukan cuma sesi yang BENAR-BENAR baru — sesi yang sudah
+          // tercatat tapi susulannya belum pernah berhasil (nama masih
+          // "—", mis. percobaan pertama kena kedahuluan sebelum baris
+          // penugasan/pengguna sungguh terbaca) ikut dicoba lagi di
+          // setiap Titik berikutnya, bukan cuma sekali seumur sesi.
+          perluIsiSusulan = !ada || ada.nama === '—'
           n.set(idSesi, {
             sesi_tugas_id: idSesi,
             penugasan_id: baris.penugasan_id as string,
@@ -152,9 +157,10 @@ export function PetaLangsung({
         // Sesi baru (mis. Mulai Tugas baru saja ditekan) tidak pernah
         // ada di potret awal halaman — tanpa ini penanda tampil dengan
         // nama "—" dan nomor SPT jatuh ke UUID penugasan_id mentah
-        // sampai halaman dimuat ulang. Diisi susulan sekali saja per
-        // sesi, bukan pada setiap Titik yang masuk sesudahnya.
-        if (baruTerlihat) isiSusulanNamaDanSpt(idSesi)
+        // sampai halaman dimuat ulang. Dicoba lagi tiap Titik masuk
+        // SELAMA belum berhasil (lihat perluIsiSusulan di atas), lalu
+        // berhenti dengan sendirinya begitu nama sungguh terisi.
+        if (perluIsiSusulan) isiSusulanNamaDanSpt(idSesi)
       })
       .subscribe(status => setTerputus(status !== 'SUBSCRIBED'))
 
