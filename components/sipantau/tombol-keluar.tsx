@@ -72,20 +72,29 @@ export function TombolKeluar() {
               >
                 Batal
               </button>
-              <form
-                action={keluar}
-                style={{ flex: 1 }}
-                onSubmit={() => setProses(true)}
+              <button
+                type="button"
+                className="btn btn-d"
+                style={{ flex: 1, justifyContent: 'center' }}
+                disabled={proses}
+                onClick={async () => {
+                  setProses(true)
+                  // Galat di sini TIDAK menghalangi perpindahan. Bila
+                  // pembersihan sesi gagal, cookie-nya masih ada dan
+                  // proxy.ts akan memantulkan kembali ke berandanya —
+                  // itu jawaban yang benar. Yang tidak boleh terjadi
+                  // adalah pengguna tertinggal di layar yang membeku.
+                  try { await keluar() } catch { /* lihat keterangan */ }
+                  // Navigasi KERAS, bukan router.push: pohon router (app)
+                  // dibuang seluruhnya berikut singgahan RSC, keadaan
+                  // React, dan Zustand-nya. replace() supaya tombol
+                  // kembali tidak membawa balik ke halaman yang sudah
+                  // tidak boleh dibuka lagi.
+                  window.location.replace('/masuk')
+                }}
               >
-                <button
-                  type="submit"
-                  className="btn btn-d"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  disabled={proses}
-                >
-                  {proses ? 'Keluar…' : 'Ya, keluar'}
-                </button>
-              </form>
+                {proses ? 'Keluar…' : 'Ya, keluar'}
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,5 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { klienServer } from '@/lib/supabase/server'
 import { sesiAktifSaya } from '@/lib/gps/kueri'
 
@@ -10,12 +9,27 @@ import { sesiAktifSaya } from '@/lib/gps/kueri'
  * catat_keluar() mencatat jejak audit DAN menghapus baris
  * perangkat_masuk, supaya perangkat ini tidak lagi terhitung sebagai
  * Perangkat Terdaftar (BR-16).
+ *
+ * SENGAJA TIDAK memanggil redirect() di sini. redirect() dari dalam
+ * Server Action menghasilkan navigasi LUNAK: pohon router klien milik
+ * (app) tetap hidup selama perpindahan, padahal sesinya baru saja
+ * dihapus. Setiap render ulang (app) yang menyusul — muatan RSC yang
+ * masih dalam perjalanan, atau penyegaran berkala — menemui
+ * wajibkanSudahSiap() tanpa sesi lalu memicu pengalihan DI TENGAH
+ * pengalihan yang sedang berjalan. Akibatnya halaman kosong, dan
+ * sifatnya kadang-kadang karena bergantung pada perlombaan waktu.
+ *
+ * Pemanggilnya yang berpindah, dengan navigasi KERAS (lihat
+ * components/sipantau/tombol-keluar.tsx). Selain menghapus kelas galat
+ * itu seluruhnya, navigasi keras juga membuang habis seluruh keadaan
+ * klien: singgahan router, keadaan React, dan Zustand. Pada perangkat
+ * yang dipakai bergantian, tidak ada satu pun sisa data pengguna
+ * sebelumnya yang tertinggal di memori peramban.
  */
 export async function keluar() {
   const supabase = await klienServer()
   await supabase.rpc('catat_keluar')
   await supabase.auth.signOut()
-  redirect('/masuk')
 }
 
 /**
