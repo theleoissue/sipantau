@@ -10,7 +10,13 @@ import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
 import { Ikon } from './ikon'
 
-const JEDA_KIRIM_TITIK_MS = 20_000
+// Jeda antar-Titik. Diturunkan 20s -> 15s: masih jauh di bawah ambang
+// "Aktif" (2 menit, KP-6.4-33) sekalipun beberapa Titik berturut-turut
+// gagal terkirim, tapi peta pengawas jadi lebih cepat menyusul keadaan
+// sebenarnya. Tidak diturunkan lebih jauh dengan sengaja — location_logs
+// adalah tabel yang tumbuh paling cepat di sistem ini (Section 10.2),
+// dan tiap penurunan berbanding lurus dengan lajunya.
+const JEDA_KIRIM_TITIK_MS = 15_000
 
 // mulaiTugasWeb/kirimTitikWeb (app/(app)/tugas/aksi.ts) TIDAK sungguh
 // khusus web — keduanya cuma meneruskan penanda_perangkat apa adanya ke
@@ -101,14 +107,26 @@ export function KartuSesiTugas({
         if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
         sedangMengirim.current = true
         terakhirKirim.current = kini
-        const r = await kirimTitikWeb(
-          sesi.id, pos.coords.latitude, pos.coords.longitude,
-          pos.coords.accuracy ?? null, pos.coords.speed ?? null,
-          penandaPerangkatWeb(),
-        )
-        sedangMengirim.current = false
-        if (r.galat) setGalatKirim(r.galat)
-        else setJumlahTerkirim(n => n + 1)
+        // try/finally WAJIB: kirimTitikWeb adalah Server Action, dan
+        // Server Action MELEMPAR (bukan mengembalikan galat) begitu
+        // jaringan putus — hal yang lumrah terjadi di lapangan. Tanpa
+        // finally, sedangMengirim tersangkut true SELAMANYA dan seluruh
+        // Titik sesudahnya dibuang diam-diam: perangkat tetap merekam,
+        // pengawas melihat "Terakhir terlihat" membeku, dan tidak ada
+        // satu pun pesan galat yang muncul di mana pun.
+        try {
+          const r = await kirimTitikWeb(
+            sesi.id, pos.coords.latitude, pos.coords.longitude,
+            pos.coords.accuracy ?? null, pos.coords.speed ?? null,
+            penandaPerangkatWeb(),
+          )
+          if (r.galat) setGalatKirim(r.galat)
+          else { setGalatKirim(null); setJumlahTerkirim(n => n + 1) }
+        } catch {
+          setGalatKirim('Titik gagal terkirim — jaringan terputus. Akan dicoba lagi.')
+        } finally {
+          sedangMengirim.current = false
+        }
       },
       () => setGalatKirim('Izin lokasi ditolak atau tidak tersedia — Titik berhenti terekam.'),
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
@@ -117,7 +135,11 @@ export function KartuSesiTugas({
     return () => {
       if (idPengawas.current !== null) navigator.geolocation.clearWatch(idPengawas.current)
     }
-  }, [sesi, iniSesiWeb])
+    // sesi.id, bukan objek sesi — alasan sama seperti pengawas native
+    // di bawah: objek sesi berganti identitas tiap penyegaran data,
+    // dan itu memasang ulang watchPosition tanpa perlu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesi?.id, iniSesiWeb])
 
   // Sesi ANDROID SUNGGUHAN (penanda BUKAN 'web-', dan berjalan di dalam
   // APK Capacitor) — pengganti watchPosition di atas: BackgroundGeolocation
@@ -125,17 +147,35 @@ export function KartuSesiTugas({
   // jadi terus jalan walau WebView dibekukan sistem saat layar terkunci.
   // Jeda pengiriman sama persis (JEDA_KIRIM_TITIK_MS) — logikanya identik
   // dengan jalur web, cuma sumber titiknya beda.
-  const nativeRef = useRef(false)
   useEffect(() => {
-    if (!sesi || iniSesiWeb || !nativeRef.current) return
+    // Gerbangnya Capacitor.isNativePlatform(), BUKAN penanda yang cuma
+    // dinyalakan saat tombol Mulai Tugas ditekan di sesi layar ini.
+    // Dengan penanda semacam itu, membuka kembali APK yang sesinya
+    // MASIH berjalan (aplikasi ditutup lalu dibuka lagi) tidak pernah
+    // menyalakan pengawas — layanan latar depan tidak hidup, lonceng
+    // pemberitahuan tidak muncul, dan tidak satu pun Titik terekam,
+    // padahal kartu di layar tetap menampilkan "Sesi Tugas berjalan".
+    if (!sesi || iniSesiWeb || !Capacitor.isNativePlatform()) return
     let batal = false
 
     BackgroundGeolocation.start(
       {
         backgroundTitle: 'SiPANTAU sedang melacak Sesi Tugas',
+        // backgroundMessage WAJIB ada: tanpa ini pustaka hanya menjamin
+        // pembaruan saat aplikasi di depan layar (dokumentasi pustaka
+        // sendiri) — layanan latar depan berikut pemberitahuannya tidak
+        // dinyalakan sama sekali.
         backgroundMessage: 'Ketuk untuk kembali ke aplikasi. Jangan hentikan selama masih bertugas.',
         requestPermissions: true,
         stale: false,
+        // Laju diatur di sisi native, bukan lagi hanya disaring di JS:
+        // sebelumnya perangkat memancarkan pembaruan tiap ~1 detik dan
+        // JS membuang hampir semuanya — radio menyala terus tanpa satu
+        // pun Titik tambahan tersimpan. distanceFilter sengaja 0 supaya
+        // personel yang berjaga di tempat TETAP mengirim denyut berkala
+        // (kalau tidak, ia terbaca "hilang" hanya karena tidak bergerak).
+        distanceFilter: 0,
+        minIntervalMs: JEDA_KIRIM_TITIK_MS,
       },
       (lokasi, error) => {
         if (batal || !lokasi) return
@@ -144,24 +184,36 @@ export function KartuSesiTugas({
         if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
         sedangMengirim.current = true
         terakhirKirim.current = kini
-        penandaPerangkatNative().then(penanda =>
-          kirimTitikWeb(sesi.id, lokasi.latitude, lokasi.longitude, lokasi.accuracy, lokasi.speed, penanda)
-        ).then(r => {
-          sedangMengirim.current = false
-          if (r.galat) setGalatKirim(r.galat)
-          else setJumlahTerkirim(n => n + 1)
-        })
+        // Rantai .then TANPA .catch (bentuk sebelumnya) menyangkutkan
+        // sedangMengirim di true selamanya begitu satu pengiriman
+        // ditolak — lihat keterangan panjang pada jalur web di atas.
+        penandaPerangkatNative()
+          .then(penanda =>
+            kirimTitikWeb(sesi.id, lokasi.latitude, lokasi.longitude, lokasi.accuracy, lokasi.speed, penanda),
+          )
+          .then(r => {
+            if (r.galat) setGalatKirim(r.galat)
+            else { setGalatKirim(null); setJumlahTerkirim(n => n + 1) }
+          })
+          .catch(() => setGalatKirim('Titik gagal terkirim — jaringan terputus. Akan dicoba lagi.'))
+          .finally(() => { sedangMengirim.current = false })
       },
     )
 
     return () => { batal = true; BackgroundGeolocation.stop() }
-  }, [sesi, iniSesiWeb])
+    // sesi.id, BUKAN objek sesi: objek itu berganti identitas tiap kali
+    // data sesi disegarkan (jumlah_titik bertambah), dan setiap
+    // pergantian menjalankan ulang efek ini — artinya stop() lalu
+    // start() berulang kali, sehingga pemberitahuan latar depan
+    // berkedip mati-hidup dan ada jeda kosong tanpa perekaman di
+    // antaranya. Yang benar: cukup sekali per Sesi Tugas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesi?.id, iniSesiWeb])
 
   async function mulaiTugasDariAndroid() {
     if (!sptDipilih) return
     setGalatMulai(null)
     setMemulai(true)
-    nativeRef.current = true
 
     // Penjaga sekali-pakai LOKAL (bukan status React) — BackgroundGeolocation
     // bisa memanggil callback ini berkali-kali begitu lokasi terus mengalir,
