@@ -2,12 +2,21 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Capacitor } from '@capacitor/core'
+import { BackgroundGeolocation } from '@capgo/background-geolocation'
 import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, kirimTitikWeb } from '@/app/(app)/tugas/aksi'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
+import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
 import { Ikon } from './ikon'
 
 const JEDA_KIRIM_TITIK_MS = 20_000
+
+// mulaiTugasWeb/kirimTitikWeb (app/(app)/tugas/aksi.ts) TIDAK sungguh
+// khusus web — keduanya cuma meneruskan penanda_perangkat apa adanya ke
+// buka_sesi_tugas/kirim_titik, yang sejak migrasi 0031 tidak lagi
+// membedakan asal penanda. Dipakai ulang apa adanya di sini untuk jalur
+// Android sungguhan, bukan didup fungsi baru untuk hal yang sama.
 
 function lamaBerjalan(dibukaPada: string): string {
   const menit = Math.floor((Date.now() - new Date(dibukaPada).getTime()) / 60_000)
@@ -86,6 +95,90 @@ export function KartuSesiTugas({
     }
   }, [sesi, iniSesiWeb])
 
+  // Sesi ANDROID SUNGGUHAN (penanda BUKAN 'web-', dan berjalan di dalam
+  // APK Capacitor) — pengganti watchPosition di atas: BackgroundGeolocation
+  // punya layanan latar depan sungguhan (foregroundServiceType="location"),
+  // jadi terus jalan walau WebView dibekukan sistem saat layar terkunci.
+  // Jeda pengiriman sama persis (JEDA_KIRIM_TITIK_MS) — logikanya identik
+  // dengan jalur web, cuma sumber titiknya beda.
+  const nativeRef = useRef(false)
+  useEffect(() => {
+    if (!sesi || iniSesiWeb || !nativeRef.current) return
+    let batal = false
+
+    BackgroundGeolocation.start(
+      {
+        backgroundTitle: 'SiPANTAU sedang melacak Sesi Tugas',
+        backgroundMessage: 'Ketuk untuk kembali ke aplikasi. Jangan hentikan selama masih bertugas.',
+        requestPermissions: true,
+        stale: false,
+      },
+      (lokasi, error) => {
+        if (batal || !lokasi) return
+        if (error) { setGalatKirim(error.message); return }
+        const kini = Date.now()
+        if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
+        sedangMengirim.current = true
+        terakhirKirim.current = kini
+        penandaPerangkatNative().then(penanda =>
+          kirimTitikWeb(sesi.id, lokasi.latitude, lokasi.longitude, lokasi.accuracy, lokasi.speed, penanda)
+        ).then(r => {
+          sedangMengirim.current = false
+          if (r.galat) setGalatKirim(r.galat)
+          else setJumlahTerkirim(n => n + 1)
+        })
+      },
+    )
+
+    return () => { batal = true; BackgroundGeolocation.stop() }
+  }, [sesi, iniSesiWeb])
+
+  async function mulaiTugasDariAndroid() {
+    if (!sptDipilih) return
+    setGalatMulai(null)
+    setMemulai(true)
+    nativeRef.current = true
+
+    // Penjaga sekali-pakai LOKAL (bukan status React) — BackgroundGeolocation
+    // bisa memanggil callback ini berkali-kali begitu lokasi terus mengalir,
+    // dan status React dibaca dari closure render saat start() dipanggil,
+    // TIDAK ikut berubah membaca nilai terbaru di dalam callback native ini.
+    let sudahDiproses = false
+
+    await BackgroundGeolocation.start(
+      { requestPermissions: true, stale: false },
+      (lokasi, error) => {
+        // Panggilan PERTAMA saja yang dipakai untuk membuka Sesi Tugas —
+        // BackgroundGeolocation.start tetap berjalan sesudahnya, useEffect
+        // di atas yang mengambil alih pengiriman titik berkelanjutan begitu
+        // `sesi` terisi lewat router.refresh() (bukan dua watcher sekaligus,
+        // sebab watcher milik useEffect baru menyala setelah sesi ada —
+        // pemanggilan start() kedua di situ menggantikan yang di sini).
+        if (sudahDiproses) return
+        if (error || !lokasi) {
+          sudahDiproses = true
+          setMemulai(false)
+          setGalatMulai(error?.message ?? 'Lokasi tidak tersedia. Aktifkan GPS dan coba lagi.')
+          return
+        }
+        sudahDiproses = true
+        setMemulai(false)
+        // Hentikan watcher sekali-pakai ini SEBELUM menyegarkan halaman —
+        // begitu `sesi` terisi, useEffect di atas menyalakan watcher
+        // berkelanjutannya sendiri. Tanpa ini ada dua watcher native
+        // berjalan sekaligus.
+        BackgroundGeolocation.stop().then(() =>
+          penandaPerangkatNative()
+        ).then(penanda =>
+          mulaiTugasWeb(sptDipilih, lokasi.latitude, lokasi.longitude, lokasi.accuracy, penanda)
+        ).then(r => {
+          if (r.galat) setGalatMulai(r.galat)
+          else router.refresh()
+        })
+      },
+    )
+  }
+
   function mulaiTugasDariWeb() {
     if (!sptDipilih || !navigator.geolocation) return
     setGalatMulai(null)
@@ -108,6 +201,52 @@ export function KartuSesiTugas({
   }
 
   if (!sesi) {
+    // Di dalam APK Android sungguhan: alur resmi, tanpa peringatan
+    // "uji coba" — BackgroundGeolocation punya layanan latar depan
+    // sungguhan (bukan watchPosition WebView yang berhenti begitu layar
+    // terkunci, itulah alasan BR-65 melarang jalur web di lapangan).
+    if (Capacitor.isNativePlatform()) {
+      return (
+        <div className="sesi-kartu">
+          <div className="lb">Sesi tugas</div>
+          <div className="nilai">Belum ada sesi berjalan</div>
+          <div className="ket">
+            Pilih penugasan lalu Mulai Tugas untuk membuka Sesi Tugas dan
+            mulai merekam posisi.
+          </div>
+
+          {sptTersedia.length === 0 ? (
+            <div className="sesi-syarat">
+              <Ikon nama="satelit" />
+              <span>Tidak ada penugasan yang menerima Sesi Tugas saat ini.</span>
+            </div>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <select
+                value={sptDipilih} onChange={e => setSptDipilih(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', fontSize: 13, borderRadius: 8, marginBottom: 8 }}
+              >
+                <option value="">Pilih penugasan…</option>
+                {sptTersedia.map(s => (
+                  <option key={s.id} value={s.id}>{s.nomor_spt ?? s.judul} — {s.judul.slice(0, 40)}</option>
+                ))}
+              </select>
+              <button
+                type="button" className="btn btn-g"
+                style={{ width: '100%', justifyContent: 'center' }}
+                disabled={!sptDipilih || memulai}
+                onClick={mulaiTugasDariAndroid}
+              >
+                <Ikon nama="satelit" />
+                {memulai ? 'Meminta izin lokasi…' : 'Mulai Tugas'}
+              </button>
+              {galatMulai && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 8 }}>{galatMulai}</p>}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div className="sesi-kartu">
         <div className="lb">Sesi tugas</div>
