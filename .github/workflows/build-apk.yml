@@ -21,6 +21,14 @@ jobs:
       - name: Pasang dependensi npm
         run: npm ci
 
+      - name: Sinkronkan proyek Android Capacitor
+        # android/capacitor-cordova-android-plugins SENGAJA tidak ikut
+        # Git (android/.gitignore) — dianggap berkas hasil-generate,
+        # sama seperti node_modules. Tanpa langkah ini, build gagal
+        # "cordova.variables.gradle ... does not exist" karena folder
+        # itu memang belum pernah dibangkitkan pada checkout yang segar.
+        run: npx cap sync android
+
       - name: Pasang JDK 17
         uses: actions/setup-java@v5
         with:
