@@ -15,6 +15,9 @@ export interface Akun {
   unit_nama: string
   aktif: boolean
   terakhir_masuk: string | null
+  /** Beda dari `aktif` (status akun, KP-6.6-15) — ini kehadiran: kapan
+   *  terakhir terlihat lewat Titik GPS. null = belum pernah terlihat. */
+  terlihat_pada: string | null
 }
 
 export interface UnitRingkas {

@@ -1,6 +1,7 @@
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { daftarPersonel } from '@/lib/personel/kueri'
 import { LABEL_PERAN } from '@/lib/supabase/types'
+import { statusSinyal, labelTerakhirTerlihat } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from '@/components/sipantau/ikon'
 
@@ -17,15 +18,15 @@ function waktuMasuk(iso: string | null): string {
 }
 
 /**
- * Daftar personel dalam lingkup pengguna. TIDAK menampilkan status
- * "sedang bertugas" atau posisi terakhir — keduanya milik Modul 6.4
- * (GPS) yang belum dibangun, dan kolom terakhir_terlihat pada tabel
- * users belum pernah terisi. Menampilkannya sekarang berarti
- * menyajikan data kosong yang terlihat seperti fakta, dan Prinsip
- * Non-Menghakimi (0.6) berlaku juga terhadap diamnya sistem sendiri.
+ * Daftar personel dalam lingkup pengguna.
  *
- * Yang ditampilkan: identitas, peran, unit, status akun, dan waktu
- * masuk terakhir — seluruhnya sudah benar-benar terekam.
+ * "Kehadiran" (kolom baru, migrasi 0036) BEDA dari "Status akun":
+ * status akun (aktif/nonaktif) berarti boleh/tidaknya masuk sistem,
+ * berubah hanya lewat Admin (BR-12) — hampir selalu "aktif". Kehadiran
+ * berarti kapan orang ini terakhir terlihat lewat Titik GPS, tiga warna
+ * tanpa kalimat menghakimi (KP-6.4-33..36): hijau "Aktif" (<2 menit),
+ * kuning "Terakhir terlihat N menit lalu" (2-15 menit), abu-abu untuk
+ * selain itu — termasuk yang belum pernah sama sekali.
  */
 export default async function HalamanPersonel() {
   // Independen — daftarPersonel() tidak menerima argumen, lingkupnya
@@ -65,7 +66,7 @@ export default async function HalamanPersonel() {
                 <tr>
                   <th>Nama</th><th>Peran</th>
                   {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && <th>Unit</th>}
-                  <th>Status akun</th><th>Terakhir masuk</th>
+                  <th>Kehadiran</th><th>Status akun</th><th>Terakhir masuk</th>
                 </tr>
               </thead>
               <tbody>
@@ -84,6 +85,16 @@ export default async function HalamanPersonel() {
                     </td>
                     <td>{LABEL_PERAN[p.peran as keyof typeof LABEL_PERAN]}</td>
                     {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && <td>{p.unit?.nama ?? '—'}</td>}
+                    <td>
+                      {p.terlihat_pada ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                          <span className={`th ${statusSinyal(p.terlihat_pada)}`} />
+                          {labelTerakhirTerlihat(p.terlihat_pada)}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Belum pernah terlihat</span>
+                      )}
+                    </td>
                     <td>
                       <span className={`lc ${p.aktif ? 'selesai' : 'dibatalkan'}`}>
                         {p.aktif ? 'aktif' : 'nonaktif'}

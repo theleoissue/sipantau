@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { LABEL_PERAN } from '@/lib/supabase/types'
+import { statusSinyal, labelTerakhirTerlihat } from '@/lib/gps/tipe'
 import type { Akun, UnitRingkas } from '@/lib/akun/tipe'
 import { nonaktifkanAkunAksi, aktifkanKembaliAksi, resetSandiAksi } from '@/app/(app)/akun/aksi'
 import { DialogAksi } from './dialog-aksi'
@@ -89,7 +90,7 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
                 <table>
                   <thead>
                     <tr>
-                      <th>Nama</th><th>NRP</th><th>Peran</th><th>Status</th><th>Terakhir masuk</th><th></th>
+                      <th>Nama</th><th>NRP</th><th>Peran</th><th>Kehadiran</th><th>Status</th><th>Terakhir masuk</th><th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -101,6 +102,16 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
                         </td>
                         <td style={{ color: 'var(--ink-2)' }}>{a.nrp}</td>
                         <td><span className={`lc ${LENCANA_PERAN[a.peran] ?? 'selesai'}`}>{LABEL_PERAN[a.peran]}</span></td>
+                        <td>
+                          {a.terlihat_pada ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                              <span className={`th ${statusSinyal(a.terlihat_pada)}`} />
+                              {labelTerakhirTerlihat(a.terlihat_pada)}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Belum pernah terlihat</span>
+                          )}
+                        </td>
                         <td>
                           <span className={`lc ${a.aktif ? 'selesai' : 'dibatalkan'}`}>{a.aktif ? 'Aktif' : 'Nonaktif'}</span>
                         </td>
