@@ -50,7 +50,7 @@ export function PetaLangsung({
   const [filterSpt, setFilterSpt] = useState('semua')
   const [terputus, setTerputus] = useState(false)
   const [pembaruanTerakhir, setPembaruanTerakhir] = useState<Date>(new Date())
-  const [, paksaRenderUlang] = useState(0)
+  const [tik, paksaRenderUlang] = useState(0)
   // Menandai peta+lokasiLayer sudah selesai dibangun. WAJIB ada: import
   // 'leaflet' pada efek pembangunan peta dan efek penanda/lokasi
   // masing-masing async sendiri-sendiri, jadi tanpa penanda ini efek
@@ -234,7 +234,13 @@ export function PetaLangsung({
         )
       }
     })
-  }, [posisi, filterSpt, petaSiap])
+    // tik sengaja terdaftar — balon info dan warna cincin pin memakai
+    // labelTerakhirTerlihat()/statusSinyal() yang menua seiring waktu
+    // nyata, bukan hanya saat posisi berubah (sama seperti daftar
+    // "Sedang bertugas" di render biasa). Tanpa ini, keduanya beku
+    // pada nilai saat titik GPS TERAKHIR masuk, tidak pernah mengejar
+    // waktu berjalan sampai ada titik baru atau halaman dimuat ulang.
+  }, [posisi, filterSpt, petaSiap, tik])
 
   // Titik lokasi SPT — penanda TETAP, tidak berubah lewat Realtime
   // (bukan posisi personel). BR-67: koordinat digambar apa adanya,
