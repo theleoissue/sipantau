@@ -195,6 +195,54 @@ await komit(ID.admin1, async () => {
   await db.query(`update public.users set aktif=true where id=$1`, [ID.kasubdit2])
 })
 
+// =====================================================================
+// Jabatan dan pengaturan pejabat penanda tangan (migrasi 0039)
+//
+// Keduanya tercetak di Surat Perintah resmi, jadi keduanya wajib tidak
+// dapat disetel sendiri oleh yang bersangkutan.
+// =====================================================================
+
+await komit(ID.admin1, () =>
+  db.query(`update public.users set jabatan='BANIT I SUBDIT IV' where id=$1`, [ID.anggota1]))
+cek('U-AKN-30', 'Admin dapat mengisi jabatan pada akun',
+  await n(`select count(*) n from public.users
+            where id=$1 and jabatan='BANIT I SUBDIT IV'`, [ID.anggota1]) === 1)
+
+{
+  // Pemicu fn_jaga_kolom_users MELEMPAR di sini (bukan sekadar disaring
+  // RLS), sebab users_ubah_diri_sendiri mengizinkan barisnya tersentuh
+  // lebih dulu — jadi galatnya memang harus muncul.
+  const e = await galat(() => sebagai(ID.anggota1, () =>
+    db.query(`update public.users set jabatan='KANIT I SUBDIT IV' where id=$1`, [ID.anggota1])))
+  cek('U-AKN-31', 'Anggota TIDAK dapat menuliskan jabatannya sendiri',
+    e !== null && e.includes('KOLOM_TERKUNCI'))
+}
+cek('U-AKN-32', 'Jabatan tetap seperti yang disetel Admin sesudah percobaan itu',
+  await n(`select count(*) n from public.users
+            where id=$1 and jabatan='BANIT I SUBDIT IV'`, [ID.anggota1]) === 1)
+
+cek('U-AKN-33', 'pengaturan_surat selalu tepat satu baris',
+  await n(`select count(*) n from public.pengaturan_surat`) === 1)
+
+await komit(ID.admin1, () =>
+  db.query(`update public.pengaturan_surat set nama='EDI RAHMAT MULYANA, S.I.K., M.H.'`))
+cek('U-AKN-34', 'Admin dapat menyetel pejabat penanda tangan',
+  await n(`select count(*) n from public.pengaturan_surat
+            where nama='EDI RAHMAT MULYANA, S.I.K., M.H.'`) === 1)
+
+// UPDATE yang ditolak RLS TIDAK melempar galat — ia hanya menyentuh nol
+// baris. Karena itu yang diperiksa keadaan barisnya, bukan ada/tidaknya
+// galat; memeriksa galat di sini akan LULUS PALSU.
+await komit(ID.kanit1, () =>
+  db.query(`update public.pengaturan_surat set nama='DIUBAH KANIT'`))
+cek('U-AKN-35', 'Kanit TIDAK dapat mengubah pejabat penanda tangan',
+  await n(`select count(*) n from public.pengaturan_surat
+            where nama='EDI RAHMAT MULYANA, S.I.K., M.H.'`) === 1)
+
+await sebagai(ID.anggota1, async () =>
+  cek('U-AKN-36', 'Seluruh peran dapat MEMBACA pengaturan surat (dibutuhkan halaman cetak)',
+    await n(`select count(*) n from public.pengaturan_surat`) === 1))
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji Akun (Admin) lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
