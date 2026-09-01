@@ -53,6 +53,30 @@ export function KartuSesiTugas({
   const [galat, setGalat] = useState<string | null>(null)
   const izinTerputus = sesi ? sesi.izin_dicabut_pada !== null && sesi.izin_dipulihkan_pada === null : false
 
+  // Jeda sesaat sebelum kontrol "geser selesai tugas" mulai menanggapi
+  // sentuhan — begitu Mulai Tugas berhasil, tampilan berganti total dari
+  // tombol itu ke kartu ini, dan sentuhan yang masih menyentuh layar
+  // sepersekian detik kemudian bisa jatuh tepat di kontrol geser yang
+  // baru muncul menggantikannya (posisinya berdekatan di tata letak).
+  // Tanpa jeda ini, dialog "Selesaikan Sesi Tugas?" bisa muncul sendiri
+  // tepat setelah sesi baru saja dibuka.
+  const [siapAkhiri, setSiapAkhiri] = useState(false)
+  useEffect(() => {
+    // Kontrol geser hanya dirender saat sesi ada, dan alur aplikasi
+    // selalu kembali ke "belum ada sesi" sebelum sesi baru dibuka
+    // (tidak pernah langsung berpindah sesi-ke-sesi) — jadi siapAkhiri
+    // sudah pasti false dari sononya di sini, tidak perlu disetel
+    // ulang secara sinkron.
+    if (!sesi) return
+    const id = setTimeout(() => setSiapAkhiri(true), 1200)
+    return () => clearTimeout(id)
+    // Sengaja hanya sesi.id, bukan seluruh objek sesi — objek ini
+    // berubah tiap router.refresh() (mis. jumlah_titik bertambah),
+    // padahal jeda ini hanya perlu diulang saat SESI-nya benar-benar
+    // baru, bukan tiap kali datanya menyegarkan diri.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesi?.id])
+
   const [sptDipilih, setSptDipilih] = useState('')
   const [memulai, setMemulai] = useState(false)
   const [galatMulai, setGalatMulai] = useState<string | null>(null)
@@ -146,7 +170,13 @@ export function KartuSesiTugas({
     let sudahDiproses = false
 
     await BackgroundGeolocation.start(
-      { requestPermissions: true, stale: false },
+      // stale:true di sini SENGAJA beda dari watcher berkelanjutan di
+      // bawah — ini cuma untuk titik PEMBUKA sesi (kecepatan dibuka
+      // lebih penting daripada presisi satu titik ini), sementara jejak
+      // Rute sesudahnya tetap menuntut titik segar terus-menerus
+      // (BR-67). Tanpa ini, GPS dingin di lapangan terbuka bisa
+      // menunda pembukaan sesi puluhan detik menunggu kunci satelit.
+      { requestPermissions: true, stale: true },
       (lokasi, error) => {
         // Panggilan PERTAMA saja yang dipakai untuk membuka Sesi Tugas —
         // BackgroundGeolocation.start tetap berjalan sesudahnya, useEffect
@@ -332,7 +362,7 @@ export function KartuSesiTugas({
 
       {galat && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 10 }}>{galat}</p>}
 
-      <div className="geser" onClick={() => setTanya(true)}>
+      <div className="geser" onClick={() => { if (siapAkhiri) setTanya(true) }}>
         <div className="kepala"><Ikon nama="stop" /></div>
         <div className="tulis">Geser untuk selesai tugas</div>
       </div>
