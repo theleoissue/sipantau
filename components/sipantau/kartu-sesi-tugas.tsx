@@ -93,9 +93,6 @@ export function KartuSesiTugas({
   const idPengawas = useRef<number | null>(null)
   const sedangMengirim = useRef(false)
   const terakhirKirim = useRef(0)
-  // Menandai Titik sudah dikirim kode native sendiri, supaya panggilan
-  // balik JS tidak ikut mengirim yang sama sekali lagi.
-  const kirimLewatNative = useRef(false)
 
   // Selama sesi WEB ini berjalan (dan komponennya tetap terpasang di
   // tab ini — BR-65 mengingatkan: berhenti begitu tab ditutup), kirim
@@ -186,14 +183,12 @@ export function KartuSesiTugas({
               'x-sipantau-token': r.token,
             },
           }
-          kirimLewatNative.current = true
         }
       } catch {
         // Gagal menerbitkan token BUKAN alasan untuk tidak melacak sama
         // sekali. Pengawas tetap dinyalakan tanpa pengiriman native —
         // pelacakan berjalan normal selama aplikasi masih hidup, hanya
         // tidak bertahan setelah aplikasi ditutup.
-        kirimLewatNative.current = false
       }
       if (batal) return
 
@@ -220,13 +215,28 @@ export function KartuSesiTugas({
       (lokasi, error) => {
         if (batal || !lokasi) return
         if (error) { setGalatKirim(error.message); return }
-        // Pengiriman native aktif = kode native SUDAH mengirim Titik ini
-        // sendiri, sejajar dengan panggilan balik ini. Mengirim ulang
-        // dari sini berarti dua baris location_logs untuk satu posisi
-        // yang sama — jejak Rute ganda dan tabel tumbuh dua kali lipat.
-        // Jadi di sini cukup diam; jumlah Titik yang sebenarnya sudah
-        // ditampilkan kartu ini dari sesi.jumlah_titik.
-        if (kirimLewatNative.current) return
+        // JALUR INI TIDAK PERNAH LAGI DIBUNGKAM.
+        //
+        // Bentuk sebelumnya berhenti mengirim begitu token native
+        // berhasil diterbitkan, dengan anggapan kode native sudah
+        // mengirimnya sendiri. Anggapan itu SALAH dan berakibat parah:
+        // token terbit hanya membuktikan migrasinya terpasang, sama
+        // sekali BUKAN membuktikan Fungsi Tepi titik-native sudah
+        // di-deploy dan menjawab. Pustakanya tidak punya percobaan ulang
+        // dan tidak melaporkan kegagalan POST kembali ke JS ("failed
+        // POSTs are logged and dropped"), jadi ketika alamat itu
+        // menjawab 404 seluruh Titik lenyap TANPA satu pun tanda —
+        // posisi di peta membeku sepanjang sesi, dan baru berpindah
+        // ketika sesi ditutup lalu dibuka lagi (titik pembuka sesi
+        // lewat Server Action, bukan jalur native). Persis yang
+        // dilaporkan dari lapangan.
+        //
+        // Sekarang JS selalu mengirim — ia jalur yang andal dan
+        // melaporkan galatnya. Pengiriman native tinggal sebagai
+        // pelapis untuk keadaan yang JS memang tidak bisa capai:
+        // proses aplikasi sudah mati. Gandanya dicegah di basis data
+        // (kirim_titik_native, migrasi 0040), bukan dengan membungkam
+        // jalur yang justru paling dapat dipercaya.
         const kini = Date.now()
         if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
         sedangMengirim.current = true
@@ -250,7 +260,7 @@ export function KartuSesiTugas({
 
     nyalakanPengawas()
 
-    return () => { batal = true; kirimLewatNative.current = false; BackgroundGeolocation.stop() }
+    return () => { batal = true; BackgroundGeolocation.stop() }
     // sesi.id, BUKAN objek sesi: objek itu berganti identitas tiap kali
     // data sesi disegarkan (jumlah_titik bertambah), dan setiap
     // pergantian menjalankan ulang efek ini — artinya stop() lalu

@@ -124,6 +124,16 @@ cek('U-TN-03', 'Penanda perangkat DIIKAT saat penerbitan, bukan dikirim tiap Tit
 // Pengiriman Titik lewat token
 // =====================================================================
 
+// Titik pembuka sesi (ditulis buka_sesi_tugas) dituakan lebih dulu.
+// Penjaga Titik ganda (migrasi 0040) memang menolak Titik native yang
+// datang dalam 10 detik sesudah Titik lain — di lapangan Titik pembuka
+// dan Titik berikutnya berjarak belasan detik, bukan milidetik seperti
+// di dalam uji ini. Tanpa penuaan ini yang teruji bukan jalur native
+// melainkan penjaganya sendiri, yang sudah diuji tersendiri di bawah.
+await db.query(
+  `update public.location_logs set direkam_pada = direkam_pada - interval '60 seconds'
+    where sesi_tugas_id=$1`, [idSesi])
+
 const idTitik = await sebagaiService(async () =>
   (await db.query(`select public.kirim_titik_native($1,$2,$3,$4,$5,$6) id`,
     [token, -6.91, 107.61, 12, 1.4, 90])).rows[0].id)
@@ -199,6 +209,39 @@ cek('U-TN-14', 'Penerbitan ulang menghasilkan token yang berbeda', tokenBaru !==
     db.query(`select count(*) from public.token_sesi_native`)))
   cek('U-TN-17', 'Tabel token tidak terbaca peran authenticated (tanpa grant, RLS menyala)',
     e !== null && /permission denied|tidak memiliki hak/i.test(e))
+}
+
+// =====================================================================
+// Penjaga Titik ganda (migrasi 0040)
+//
+// Kedua jalur — JS lewat kirim_titik dan native lewat kirim_titik_native
+// — kini hidup berdampingan dan berangkat dari pembaruan lokasi yang
+// SAMA. Tanpa penjaga ini satu posisi tercatat dua kali.
+// =====================================================================
+{
+  const jml = async () => n(
+    `select count(*) n from public.location_logs where sesi_tugas_id=$1`, [idSesi])
+  const sebelum = await jml()
+
+  const hasilGanda = await sebagaiService(async () =>
+    (await db.query(`select public.kirim_titik_native($1,$2,$3,$4,$5,$6) id`,
+      [tokenBaru, -6.9001, 107.6001, 12, null, null])).rows[0].id)
+
+  cek('U-TN-19', 'Titik native dalam 10 detik sesudah Titik lain DIABAIKAN, tidak ganda',
+    hasilGanda === null && (await jml()) === sebelum)
+
+  // Mundurkan seluruh Titik melewati ambang — meniru keadaan proses
+  // aplikasi sudah mati sehingga jalur JS ikut mati bersamanya.
+  await db.query(
+    `update public.location_logs set direkam_pada = direkam_pada - interval '60 seconds'
+      where sesi_tugas_id=$1`, [idSesi])
+
+  const hasilSah = await sebagaiService(async () =>
+    (await db.query(`select public.kirim_titik_native($1,$2,$3,$4,$5,$6) id`,
+      [tokenBaru, -6.9002, 107.6002, 12, null, null])).rows[0].id)
+
+  cek('U-TN-20', 'Titik native SESUDAH ambang tetap direkam (aplikasi mati, JS ikut mati)',
+    hasilSah !== null && (await jml()) === sebelum + 1)
 }
 
 // Sesi ditutup = token mati dengan sendirinya, tanpa perlu dihapus.
