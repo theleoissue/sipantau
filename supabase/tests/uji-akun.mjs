@@ -243,6 +243,33 @@ await sebagai(ID.anggota1, async () =>
   cek('U-AKN-36', 'Seluruh peran dapat MEMBACA pengaturan surat (dibutuhkan halaman cetak)',
     await n(`select count(*) n from public.pengaturan_surat`) === 1))
 
+// =====================================================================
+// Kolom kehadiran dan posisi (migrasi 0041)
+//
+// Temuan audit peran Kanit: keempat kolom ini lolos daftar-larangan
+// fn_jaga_kolom_users karena ditambahkan ke tabel users SESUDAH penjaga
+// itu ditulis. Akibatnya orang yang sedang diawasi dapat memalsukan
+// bukti kehadirannya sendiri. Diuji dari dua arah.
+// =====================================================================
+{
+  const kolom = ['terakhir_terlihat', 'sedang_bertugas', 'posisi_terakhir_lat']
+  const nilai = { terakhir_terlihat: 'now()', sedang_bertugas: 'true', posisi_terakhir_lat: '99.9' }
+
+  for (const k of kolom) {
+    const e = await galat(() => sebagai(ID.anggota1, () =>
+      db.query(`update public.users set ${k}=${nilai[k]} where id=$1`, [ID.anggota1])))
+    cek('U-AKN-37 ' + k, 'Anggota TIDAK dapat memalsukan ' + k + ' miliknya sendiri',
+      e !== null && e.includes('KOLOM_TERKUNCI'))
+  }
+
+  for (const k of kolom) {
+    const e = await galat(() => sebagai(ID.kanit1, () =>
+      db.query(`update public.users set ${k}=${nilai[k]} where id=$1`, [ID.anggota1])))
+    cek('U-AKN-38 ' + k, 'Kanit TIDAK dapat memalsukan ' + k + ' anggota unitnya',
+      e !== null && e.includes('KOLOM_TERKUNCI'))
+  }
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji Akun (Admin) lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
