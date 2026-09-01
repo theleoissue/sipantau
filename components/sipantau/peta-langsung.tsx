@@ -74,6 +74,36 @@ export function PetaLangsung({
 
   useEffect(() => {
     const supabase = klienBrowser()
+
+    // Pelengkap satu baris untuk sesi yang BARU SAJA muncul lewat
+    // Realtime — payload postgres_changes tidak pernah membawa data
+    // gabungan tabel lain (KP-6.4-...), jadi nama pengguna dan nomor
+    // SPT diambil terpisah sekali per sesi begitu ia pertama terlihat,
+    // memakai bentuk select yang sama seperti posisiPetaAwal() (lib/
+    // gps/kueri.ts) supaya hasilnya konsisten.
+    async function isiSusulanNamaDanSpt(sesiId: string) {
+      const { data } = await supabase
+        .from('posisi_terkini')
+        .select('pengguna:pengguna_id ( nama ), penugasan:penugasan_id ( nomor_spt, judul )')
+        .eq('sesi_tugas_id', sesiId)
+        .maybeSingle()
+      if (!data) return
+      const pengguna = data.pengguna as unknown as { nama: string } | null
+      const penugasan = data.penugasan as unknown as { nomor_spt: string | null; judul: string } | null
+      setPosisi(prev => {
+        const ada = prev.get(sesiId)
+        if (!ada) return prev
+        const n = new Map(prev)
+        n.set(sesiId, {
+          ...ada,
+          nama: pengguna?.nama ?? ada.nama,
+          nomor_spt: penugasan?.nomor_spt ?? ada.nomor_spt,
+          judul: penugasan?.judul ?? ada.judul,
+        })
+        return n
+      })
+    }
+
     const kanal = supabase
       .channel('posisi-terkini-peta')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posisi_terkini' }, payload => {
@@ -90,11 +120,14 @@ export function PetaLangsung({
           return
         }
         const baris = payload.new as Record<string, unknown>
+        const idSesi = baris.sesi_tugas_id as string
+        let baruTerlihat = false
         setPosisi(prev => {
           const n = new Map(prev)
-          const ada = n.get(baris.sesi_tugas_id as string)
-          n.set(baris.sesi_tugas_id as string, {
-            sesi_tugas_id: baris.sesi_tugas_id as string,
+          const ada = n.get(idSesi)
+          baruTerlihat = !ada
+          n.set(idSesi, {
+            sesi_tugas_id: idSesi,
             penugasan_id: baris.penugasan_id as string,
             pengguna_id: baris.pengguna_id as string,
             unit_id: baris.unit_id as string,
@@ -107,13 +140,21 @@ export function PetaLangsung({
             direkam_pada: baris.direkam_pada as string,
             // Realtime tidak membawa nama/SPT (tidak digabung tabel
             // lain) — dipertahankan dari potret awal atau pembaruan
-            // sebelumnya, kosong bila sesi baru belum pernah terlihat.
+            // sebelumnya. Sesi yang BENAR-BENAR baru (belum pernah
+            // terlihat sama sekali di peta ini) diisi susulan di bawah.
             nama: ada?.nama ?? '—',
             nomor_spt: ada?.nomor_spt ?? null,
             judul: ada?.judul ?? '',
           })
           return n
         })
+
+        // Sesi baru (mis. Mulai Tugas baru saja ditekan) tidak pernah
+        // ada di potret awal halaman — tanpa ini penanda tampil dengan
+        // nama "—" dan nomor SPT jatuh ke UUID penugasan_id mentah
+        // sampai halaman dimuat ulang. Diisi susulan sekali saja per
+        // sesi, bukan pada setiap Titik yang masuk sesudahnya.
+        if (baruTerlihat) isiSusulanNamaDanSpt(idSesi)
       })
       .subscribe(status => setTerputus(status !== 'SUBSCRIBED'))
 
