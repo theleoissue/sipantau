@@ -10,8 +10,12 @@ export type JenisNotifikasi =
   | 'laporan_perlu_diperbaiki' | 'laporan_disetujui'
   | 'sesi_ditutup_keluar_aplikasi' | 'izin_lokasi_terputus' | 'sesi_menggantung'
   | 'akun_dinonaktifkan' | 'kata_sandi_direset'
+  // Ditambahkan migrasi 0029 bersama Modul 6.8 (LHP), sesudah daftar di
+  // bawah ditulis untuk Modul 6.9 — dan TERLEWAT di sisi TypeScript
+  // sampai halaman Pemberitahuan seorang Kanit mati total karenanya.
+  | 'lhp_difinalkan'
 
-export type TujuanNotifikasi = 'penugasan' | 'laporan' | 'akun' | 'tanpa_tujuan'
+export type TujuanNotifikasi = 'penugasan' | 'laporan' | 'akun' | 'tanpa_tujuan' | 'lhp'
 
 export interface Notifikasi {
   id: string
@@ -47,13 +51,28 @@ export const IKON_JENIS_NOTIFIKASI: Record<JenisNotifikasi, { ikon: string; bg: 
   sesi_menggantung:                { ikon: 'riwayat',     bg: 'var(--bg)',       warna: '#475569' },
   akun_dinonaktifkan:              { ikon: 'orang',       bg: 'var(--bg)',       warna: '#475569' },
   kata_sandi_direset:              { ikon: 'kunci_buka',  bg: 'var(--amber-bg)', warna: '#B45309' },
+  lhp_difinalkan:                  { ikon: 'berkas',      bg: 'var(--green-bg)', warna: '#047857' },
 }
+
+/** Dipakai bila jenis dari basis data BELUM dikenal peta di atas.
+ *
+ *  Ini bukan kemewahan. Daftar jenis notifikasi sudah sekali dipanjangkan
+ *  dari berkas migrasi modul lain (0029 menambah lhp_difinalkan saat
+ *  Modul 6.8 dibangun) tanpa sisi TypeScript ikut diperbarui, dan
+ *  akibatnya bukan satu baris yang tampil aneh melainkan SELURUH halaman
+ *  Pemberitahuan mati — sebab rupa yang undefined dibaca .bg-nya saat
+ *  render. Satu baris yang jenisnya belum dikenal tidak boleh sanggup
+ *  menjatuhkan halaman berisi puluhan baris lain yang baik-baik saja. */
+export const RUPA_NOTIFIKASI_BAKU = { ikon: 'lonceng', bg: 'var(--bg)', warna: '#475569' }
 
 /** KP-6.9-15: layar yang dibuka saat pemberitahuan ditekan. */
 export function tujuanRute(n: Pick<Notifikasi, 'tujuan_jenis' | 'tujuan_id'>): string | null {
   if (!n.tujuan_jenis || !n.tujuan_id) return null
   if (n.tujuan_jenis === 'penugasan') return `/penugasan/${n.tujuan_id}`
   if (n.tujuan_jenis === 'laporan') return `/laporan/${n.tujuan_id}`
+  // tujuan_id di sini adalah id LHP, BUKAN penugasan_id — migrasi 0030
+  // menyebutkannya terang-terangan pada finalkan_lhp().
+  if (n.tujuan_jenis === 'lhp') return `/lhp/${n.tujuan_id}`
   return null
 }
 

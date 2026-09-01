@@ -361,6 +361,39 @@ cek('U-NTF-25', 'Pemberitahuan sudah dibaca dan berumur >90 hari disusutkan (BR-
 cek('U-NTF-26', 'Pemberitahuan BELUM dibaca tidak pernah disusutkan berapa pun umurnya',
   await n(`select count(*) n from public.notifikasi where id=$1`, [idTuaBelumDibaca]) === 1)
 
+// =====================================================================
+// Penjaga penyimpangan basis data <-> tampilan
+//
+// Halaman Pemberitahuan seorang Kanit pernah MATI TOTAL karena migrasi
+// 0029 (Modul 6.8/LHP) memanjangkan daftar tertutup jenis notifikasi
+// tanpa lib/notifikasi/tipe.ts ikut diperbarui: jenis yang tidak
+// terdaftar menghasilkan rupa undefined, dan .bg dibaca saat render.
+// CLAUDE.md §11 menyebut kelas kegagalan ini sudah terjadi berulang —
+// jadi kecocokannya diperiksa mesin, bukan diserahkan pada ingatan.
+// =====================================================================
+{
+  const sqlBatas = (await db.query(`
+    select pg_get_constraintdef(oid) def
+      from pg_constraint where conname = 'chk_notifikasi_jenis'`)).rows[0].def
+  const jenisDb = [...sqlBatas.matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
+
+  const tipeTs = readFileSync(
+    fileURLToPath(new URL('../../lib/notifikasi/tipe.ts', import.meta.url)), 'utf8')
+  const blokPeta = tipeTs.split('IKON_JENIS_NOTIFIKASI')[1]
+  const jenisTs = [...blokPeta.matchAll(/^ {2}([a-z_]+):\s*\{/gm)].map(m => m[1]).sort()
+
+  const hilang = jenisDb.filter(j => !jenisTs.includes(j))
+  const berlebih = jenisTs.filter(j => !jenisDb.includes(j))
+
+  cek('U-NTF-27', 'Setiap jenis notifikasi basis data punya rupa di IKON_JENIS_NOTIFIKASI',
+    hilang.length === 0)
+  if (hilang.length) console.log(`         belum ada di tipe.ts: ${hilang.join(', ')}`)
+
+  cek('U-NTF-28', 'Tidak ada rupa di tipe.ts untuk jenis yang tidak dikenal basis data',
+    berlebih.length === 0)
+  if (berlebih.length) console.log(`         tidak ada di basis data: ${berlebih.join(', ')}`)
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji Notifikasi lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)

@@ -3,7 +3,10 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { tandaiSudahDibaca } from '@/app/(app)/pemberitahuan/aksi'
-import { IKON_JENIS_NOTIFIKASI, tujuanRute, labelWaktuNotifikasi, type Notifikasi } from '@/lib/notifikasi/tipe'
+import {
+  IKON_JENIS_NOTIFIKASI, RUPA_NOTIFIKASI_BAKU, tujuanRute, labelWaktuNotifikasi,
+  type Notifikasi,
+} from '@/lib/notifikasi/tipe'
 import { Ikon } from './ikon'
 
 /** KP-6.9-09 + KP-6.9-15 sekaligus: membuka pemberitahuan menandainya
@@ -14,7 +17,11 @@ import { Ikon } from './ikon'
 export function BarisNotifikasi({ n }: { n: Notifikasi }) {
   const router = useRouter()
   const [, mulai] = useTransition()
-  const rupa = IKON_JENIS_NOTIFIKASI[n.jenis]
+  // Jangan pernah membaca langsung tanpa cadangan: jenis datang dari
+  // basis data, dan daftarnya sudah pernah dipanjangkan dari migrasi
+  // modul lain tanpa berkas ini ikut diperbarui. Lihat keterangan pada
+  // RUPA_NOTIFIKASI_BAKU.
+  const rupa = IKON_JENIS_NOTIFIKASI[n.jenis] ?? RUPA_NOTIFIKASI_BAKU
   const rute = tujuanRute(n)
 
   return (
