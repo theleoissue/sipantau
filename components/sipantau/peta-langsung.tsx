@@ -223,7 +223,11 @@ export function PetaLangsung({
           penanda.current.set(pos.sesi_tugas_id, mkr)
         }
         penanda.current.get(pos.sesi_tugas_id)!.bindPopup(
-          `<b>${pos.nama}</b><br><span style="color:${wSpt}">●</span> ${pos.nomor_spt ?? pos.penugasan_id}${pos.judul ? ' — ' + pos.judul : ''}<br><small>${labelTerakhirTerlihat(pos.direkam_pada)}${pos.baterai_persen != null ? ' · ' + pos.baterai_persen + '% daya' : ''}${pos.izin_terputus ? '<br>Izin lokasi sedang terputus' : ''}</small>`,
+          `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`
+          + `<div class="av av-sm" style="background:${wSpt};color:#fff">${inisial(pos.nama)}</div>`
+          + `<b>${pos.nama}</b>`
+          + `</div>`
+          + `<span style="color:${wSpt}">●</span> ${pos.nomor_spt ?? pos.penugasan_id}${pos.judul ? ' — ' + pos.judul : ''}<br><small>${labelTerakhirTerlihat(pos.direkam_pada)}${pos.baterai_persen != null ? ' · ' + pos.baterai_persen + '% daya' : ''}${pos.izin_terputus ? '<br>Izin lokasi sedang terputus' : ''}</small>`,
         )
       }
     })
