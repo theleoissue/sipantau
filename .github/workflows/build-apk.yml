@@ -22,13 +22,19 @@ jobs:
         run: npm ci
 
       - name: Pasang JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: Pasang Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Izinkan gradlew dieksekusi
+        # Berkas ini dikomit dari Windows, yang tidak mengenal bit
+        # eksekusi Unix — tanpa ini ./gradlew gagal exit 126 (permission
+        # denied) di runner Linux, terlepas dari isi berkasnya sendiri.
+        run: chmod +x android/gradlew
 
       - name: Bangun APK debug
         working-directory: android
