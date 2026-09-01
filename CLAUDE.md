@@ -244,11 +244,23 @@ Kalau tokens tidak diganti, Shadcn akan memakai palet bawaannya dan hasilnya ber
 
 ## 8. Fungsi Tepi — daftar tertutup
 
-Hanya empat, dan tidak boleh bertambah tanpa revisi PRD tercatat:
+Tidak boleh bertambah tanpa revisi PRD tercatat:
 
-`reset-kata-sandi` · `buat-akun` · `nonaktifkan-akun` · `ekspor-unit`
+`reset-kata-sandi` · `buat-akun` · `nonaktifkan-akun` · `ekspor-unit` · `titik-native`
 
 Fungsi Tepi **hanya** untuk operasi yang mensyaratkan kunci istimewa. Dilarang dipakai sebagai tempat memindahkan logika yang seharusnya di RLS. Setiap Fungsi Tepi wajib memeriksa sendiri kewenangan pemanggilnya dari basis data, tidak percaya isi permintaan.
+
+### Revisi tercatat — `titik-native`, 1 September 2026
+
+Daftar semula **empat**. Butir kelima ditambahkan atas persetujuan eksplisit pemilik produk, sesudah tiga pilihan dibandingkan terbuka. Sebabnya: pustaka pelacakan mematikan layanan latar depannya sendiri begitu APK ditutup, kecuali tiap Titik ikut dikirim langsung dari kode native ke sebuah alamat — dan pada saat itu **tidak ada sesi masuk yang tersisa** untuk diperiksa, sehingga jalur itu menuntut kredensialnya sendiri.
+
+| Pilihan | Putusan |
+| --- | --- |
+| Jalur API Next.js + `service_role` | Ditolak — menaruh kunci `service_role` di env aplikasi |
+| Memberi hak kepada peran `anon` | Ditolak — menabrak §5.1, dan membuka tebakan token langsung di Supabase |
+| Fungsi Tepi `titik-native` | **Dipilih** — satu-satunya yang menjaga `anon` tetap nol hak *sekaligus* `service_role` tetap di luar Next.js |
+
+Ia tetap tunduk pada seluruh syarat di atas: tidak ada satu pun logika yang dipindah dari basis data ke sana — token, kepemilikan, sesi masih terbuka, dan kewajaran Titik semuanya diputuskan `kirim_titik_native` (migrasi 0038). Kredensialnya bukan sesi pengguna melainkan token sempit per Sesi Tugas (migrasi 0037): hanya boleh menambah Titik pada satu sesi, mati sendiri begitu sesi ditutup.
 
 ---
 

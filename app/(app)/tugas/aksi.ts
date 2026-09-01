@@ -81,6 +81,36 @@ export async function kirimTitikWeb(
 }
 
 /**
+ * Menerbitkan token Pengiriman Native (migrasi 0037/0038) untuk Sesi
+ * Tugas milik pemanggil sendiri. Dipanggil sekali tiap kali pengawas
+ * native dinyalakan — termasuk saat APK dibuka kembali pada sesi yang
+ * masih berjalan, sehingga penerbitan ulang otomatis mematikan token
+ * yang tertinggal di pemasangan sebelumnya.
+ *
+ * Tokennya dikembalikan APA ADANYA persis sekali di sini, lalu langsung
+ * diserahkan ke pustaka pelacakan untuk disimpan pada penyimpanan
+ * pribadi aplikasi. Tidak disimpan di mana pun oleh kode kita sendiri,
+ * dan tidak pernah bisa dibaca ulang dari basis data.
+ */
+export async function terbitkanTokenNative(
+  sesiId: string,
+  penandaPerangkat: string,
+): Promise<{ token?: string; galat?: string }> {
+  const supabase = await klienServer()
+  const { data, error } = await supabase.rpc('terbitkan_token_sesi_native', {
+    p_sesi_id: sesiId,
+    p_penanda_perangkat: penandaPerangkat,
+  })
+
+  if (error) {
+    if (error.message.includes('BUKAN_PEMEGANG')) return { galat: 'Sesi Tugas ini bukan milik Anda.' }
+    if (error.message.includes('SESI_TERTUTUP')) return { galat: 'Sesi Tugas ini sudah berakhir.' }
+    return { galat: `Gagal menyiapkan pelacakan latar: ${error.message}` }
+  }
+  return { token: data as string }
+}
+
+/**
  * Selesai Tugas (KP-6.4-24). BR-65 hanya membatasi PEMBUKAAN Sesi Tugas
  * pada bentuk Android — penutupan tetap tersedia penuh dari web, karena
  * seseorang yang perangkatnya rusak berhak mengakhiri sesinya sendiri

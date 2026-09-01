@@ -12,6 +12,14 @@ export function jsonRespons(data: unknown, status = 200): Response {
 
 const PEMETAAN: Array<[string, number]> = [
   ['TOKEN_TIDAK_SAH', 401],
+  // Pengiriman Native (0038). 410 dipilih dengan sengaja untuk
+  // SESI_TERTUTUP: kode itu berarti "sasarannya memang sudah tidak ada
+  // lagi, jangan diulang" — perangkat yang menerimanya tahu harus
+  // BERHENTI mengirim, bukan mencoba lagi seperti pada galat sementara.
+  ['SESI_TERTUTUP', 410],
+  ['SESI_TIDAK_DITEMUKAN', 404],
+  ['BUKAN_PEMEGANG', 403],
+  ['WAKTU_TIDAK_MASUK_AKAL', 400],
   ['PELAKU_TIDAK_AKTIF', 403],
   ['BUKAN_ADMIN', 403],
   ['TIDAK_BERWENANG', 403],

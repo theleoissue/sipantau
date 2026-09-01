@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
 import { BackgroundGeolocation } from '@capgo/background-geolocation'
-import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, kirimTitikWeb } from '@/app/(app)/tugas/aksi'
+import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, kirimTitikWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
 import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
@@ -93,6 +93,9 @@ export function KartuSesiTugas({
   const idPengawas = useRef<number | null>(null)
   const sedangMengirim = useRef(false)
   const terakhirKirim = useRef(0)
+  // Menandai Titik sudah dikirim kode native sendiri, supaya panggilan
+  // balik JS tidak ikut mengirim yang sama sekali lagi.
+  const kirimLewatNative = useRef(false)
 
   // Selama sesi WEB ini berjalan (dan komponennya tetap terpasang di
   // tab ini — BR-65 mengingatkan: berhenti begitu tab ditutup), kirim
@@ -158,8 +161,45 @@ export function KartuSesiTugas({
     if (!sesi || iniSesiWeb || !Capacitor.isNativePlatform()) return
     let batal = false
 
-    BackgroundGeolocation.start(
+    async function nyalakanPengawas() {
+      // Pengiriman Native: satu-satunya cara pelacakan bertahan setelah
+      // aplikasi DITUTUP. Sumber pustakanya menyatakannya sendiri pada
+      // handleOnDestroy() — layanan latar depan dimatikan begitu
+      // aplikasi dibongkar, KECUALI mode pengiriman native aktif, yang
+      // menyala hanya bila opsi url terisi. Dengan url terisi, layanan
+      // itu dijaga hidup sistem (START_STICKY) dan tetap mengirim Titik
+      // walau proses aplikasi sudah tidak ada lagi.
+      let opsiKirim: { url?: string; headers?: Record<string, string> } = {}
+      try {
+        const penanda = await penandaPerangkatNative()
+        const r = await terbitkanTokenNative(sesi!.id, penanda)
+        if (batal) return
+        if (r.token) {
+          opsiKirim = {
+            url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/titik-native`,
+            headers: {
+              // Kunci anon, bukan rahasia: ia memang sudah terbuka di
+              // sisi klien, dan di sini perannya cuma melewati gerbang
+              // Fungsi Tepi. Yang menjadi kredensial sesungguhnya adalah
+              // x-sipantau-token di bawahnya.
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              'x-sipantau-token': r.token,
+            },
+          }
+          kirimLewatNative.current = true
+        }
+      } catch {
+        // Gagal menerbitkan token BUKAN alasan untuk tidak melacak sama
+        // sekali. Pengawas tetap dinyalakan tanpa pengiriman native —
+        // pelacakan berjalan normal selama aplikasi masih hidup, hanya
+        // tidak bertahan setelah aplikasi ditutup.
+        kirimLewatNative.current = false
+      }
+      if (batal) return
+
+      await BackgroundGeolocation.start(
       {
+        ...opsiKirim,
         backgroundTitle: 'SiPANTAU sedang melacak Sesi Tugas',
         // backgroundMessage WAJIB ada: tanpa ini pustaka hanya menjamin
         // pembaruan saat aplikasi di depan layar (dokumentasi pustaka
@@ -180,6 +220,13 @@ export function KartuSesiTugas({
       (lokasi, error) => {
         if (batal || !lokasi) return
         if (error) { setGalatKirim(error.message); return }
+        // Pengiriman native aktif = kode native SUDAH mengirim Titik ini
+        // sendiri, sejajar dengan panggilan balik ini. Mengirim ulang
+        // dari sini berarti dua baris location_logs untuk satu posisi
+        // yang sama — jejak Rute ganda dan tabel tumbuh dua kali lipat.
+        // Jadi di sini cukup diam; jumlah Titik yang sebenarnya sudah
+        // ditampilkan kartu ini dari sesi.jumlah_titik.
+        if (kirimLewatNative.current) return
         const kini = Date.now()
         if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
         sedangMengirim.current = true
@@ -189,7 +236,7 @@ export function KartuSesiTugas({
         // ditolak — lihat keterangan panjang pada jalur web di atas.
         penandaPerangkatNative()
           .then(penanda =>
-            kirimTitikWeb(sesi.id, lokasi.latitude, lokasi.longitude, lokasi.accuracy, lokasi.speed, penanda),
+            kirimTitikWeb(sesi!.id, lokasi.latitude, lokasi.longitude, lokasi.accuracy, lokasi.speed, penanda),
           )
           .then(r => {
             if (r.galat) setGalatKirim(r.galat)
@@ -198,9 +245,12 @@ export function KartuSesiTugas({
           .catch(() => setGalatKirim('Titik gagal terkirim — jaringan terputus. Akan dicoba lagi.'))
           .finally(() => { sedangMengirim.current = false })
       },
-    )
+      )
+    }
 
-    return () => { batal = true; BackgroundGeolocation.stop() }
+    nyalakanPengawas()
+
+    return () => { batal = true; kirimLewatNative.current = false; BackgroundGeolocation.stop() }
     // sesi.id, BUKAN objek sesi: objek itu berganti identitas tiap kali
     // data sesi disegarkan (jumlah_titik bertambah), dan setiap
     // pergantian menjalankan ulang efek ini — artinya stop() lalu

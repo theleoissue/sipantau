@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "uji": "node supabase/tests/jalankan.mjs && node supabase/tests/uji-rls.mjs && node supabase/tests/uji-penugasan.mjs && node supabase/tests/uji-laporan.mjs && node supabase/tests/uji-rute.mjs && node supabase/tests/uji-gps.mjs && node supabase/tests/uji-notifikasi.mjs && node supabase/tests/uji-siklus-spt.mjs && node supabase/tests/uji-lhp.mjs && node supabase/tests/uji-akun.mjs && node supabase/tests/uji-manajemen-akun.mjs"
+    "uji": "node supabase/tests/jalankan.mjs && node supabase/tests/uji-rls.mjs && node supabase/tests/uji-penugasan.mjs && node supabase/tests/uji-laporan.mjs && node supabase/tests/uji-rute.mjs && node supabase/tests/uji-gps.mjs && node supabase/tests/uji-notifikasi.mjs && node supabase/tests/uji-siklus-spt.mjs && node supabase/tests/uji-lhp.mjs && node supabase/tests/uji-akun.mjs && node supabase/tests/uji-manajemen-akun.mjs && node supabase/tests/uji-titik-native.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
