@@ -10,6 +10,7 @@ export interface Akun {
   nama: string
   nrp: string
   pangkat: string | null
+  jabatan: string | null
   peran: Peran
   unit_id: string
   unit_nama: string

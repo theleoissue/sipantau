@@ -12,14 +12,14 @@ export async function daftarAkun(): Promise<Akun[]> {
   const supabase = await klienServer()
   const { data, error } = await supabase
     .from('users')
-    .select('id, nama, nrp, pangkat, peran, unit_id, aktif, terakhir_masuk, terakhir_terlihat, unit:unit_id ( nama ), posisi_terkini ( direkam_pada )')
+    .select('id, nama, nrp, pangkat, jabatan, peran, unit_id, aktif, terakhir_masuk, terakhir_terlihat, unit:unit_id ( nama ), posisi_terkini ( direkam_pada )')
     .neq('peran', 'pemeliharaan')
     .order('nama')
 
   if (error) throw new Error(`Gagal membaca daftar akun: ${error.message}`)
 
   return ((data ?? []) as unknown as {
-    id: string; nama: string; nrp: string; pangkat: string | null
+    id: string; nama: string; nrp: string; pangkat: string | null; jabatan: string | null
     peran: Akun['peran']; unit_id: string; aktif: boolean; terakhir_masuk: string | null
     terakhir_terlihat: string | null
     unit: { nama: string } | null
@@ -27,7 +27,7 @@ export async function daftarAkun(): Promise<Akun[]> {
   }[]).map(r => {
     const posisi = Array.isArray(r.posisi_terkini) ? r.posisi_terkini[0] : r.posisi_terkini
     return {
-      id: r.id, nama: r.nama, nrp: r.nrp, pangkat: r.pangkat, peran: r.peran,
+      id: r.id, nama: r.nama, nrp: r.nrp, pangkat: r.pangkat, jabatan: r.jabatan, peran: r.peran,
       unit_id: r.unit_id, unit_nama: r.unit?.nama ?? '—', aktif: r.aktif,
       terakhir_masuk: r.terakhir_masuk,
       terlihat_pada: posisi?.direkam_pada ?? r.terakhir_terlihat,

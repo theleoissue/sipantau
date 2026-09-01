@@ -40,6 +40,7 @@ export function FormulirAkun({
   const [nama, setNama] = useState(akun?.nama ?? '')
   const [nrp, setNrp] = useState(akun?.nrp ?? '')
   const [pangkat, setPangkat] = useState(akun?.pangkat ?? '')
+  const [jabatan, setJabatan] = useState(akun?.jabatan ?? '')
   const [peran, setPeran] = useState<Peran>(akun?.peran ?? 'anggota')
   const [unitId, setUnitId] = useState(akun?.unit_id ?? unitAktif[0]?.id ?? '')
   const [galat, setGalat] = useState<string | null>(null)
@@ -51,7 +52,7 @@ export function FormulirAkun({
     setGalat(null)
     mulai(async () => {
       if (modeSunting) {
-        const r = await suntingAkunAksi(akun.id, { nama, pangkat, peran, unit_id: unitId })
+        const r = await suntingAkunAksi(akun.id, { nama, pangkat, jabatan, peran, unit_id: unitId })
         if (r.galat) setGalat(r.galat)
         else onTutup()
       } else {
@@ -113,6 +114,26 @@ export function FormulirAkun({
             <label style={gaya.label}>Pangkat</label>
             <input style={gaya.input} value={pangkat} onChange={e => setPangkat(e.target.value)} placeholder="mis. BRIPDA" disabled={proses} />
           </div>
+
+          {/* Hanya pada mode sunting: pembuatan akun lewat Fungsi Tepi
+              buat-akun yang belum mengenal medan ini (lihat keterangan
+              pada IsianSuntingAkun). Diisi tepat sesudah akun jadi. */}
+          {modeSunting && (
+            <div style={gaya.bidang}>
+              <label style={gaya.label}>Jabatan</label>
+              <input
+                style={gaya.input}
+                value={jabatan}
+                onChange={e => setJabatan(e.target.value)}
+                placeholder="mis. BANIT I SUBDIT IV"
+                disabled={proses}
+              />
+              <p style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 5 }}>
+                Tercetak pada lampiran Surat Perintah. Kosongkan bila belum
+                ditetapkan — lampiran akan memakai kedudukan pada SPT.
+              </p>
+            </div>
+          )}
 
           <div style={gaya.bidang}>
             <label style={gaya.label}>Peran</label>
