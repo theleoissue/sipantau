@@ -6,6 +6,7 @@ import { daftarPersonel } from '@/lib/personel/kueri'
 import { FormulirLhp } from '@/components/sipantau/formulir-lhp'
 import { TombolBagikanWa } from '@/components/sipantau/tombol-bagikan-wa'
 import { Ikon } from '@/components/sipantau/ikon'
+import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'LHP Ringkas — Si PANTAU' }
 
@@ -15,6 +16,7 @@ export default async function RincianLhp({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  if (!idValid(id)) notFound()
 
   // Independen — daftarPersonel() tidak menerima argumen, tidak perlu
   // menunggu pengguna/lhp lebih dulu.

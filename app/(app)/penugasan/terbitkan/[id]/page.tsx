@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { satuPenugasan, personelDapatDipilih } from '@/lib/penugasan/kueri'
 import { WizardTerbitkan, type DrafAwal } from '../wizard'
+import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'Sunting Draf Penugasan — Si PANTAU' }
 
@@ -25,6 +26,7 @@ export default async function HalamanSuntingDraf({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  if (!idValid(id)) notFound()
 
   const [pengguna, spt, personel] = await Promise.all([
     wajibkanSudahSiap(),

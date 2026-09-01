@@ -5,6 +5,7 @@ import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { klienServer } from '@/lib/supabase/server'
 import { satuPenugasan } from '@/lib/penugasan/kueri'
 import { TombolCetak } from './tombol-cetak'
+import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'Surat Perintah — Si PANTAU' }
 
@@ -41,6 +42,7 @@ export default async function HalamanSprin({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  if (!idValid(id)) notFound()
   // Independen — satuPenugasan(id) tidak butuh hasil wajibkanSudahSiap(),
   // hanya perlu penjagaannya (redirect bila belum siap).
   const [, spt] = await Promise.all([

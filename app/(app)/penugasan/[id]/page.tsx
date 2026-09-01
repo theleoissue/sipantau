@@ -12,7 +12,7 @@ import { AksiSpt } from '@/components/sipantau/aksi-spt'
 import { KelolaTim } from '@/components/sipantau/kelola-tim'
 import { TombolSusunLhp } from '@/components/sipantau/tombol-susun-lhp'
 import { daftarPersonel } from '@/lib/personel/kueri'
-import { inisial } from '@/lib/utils'
+import { inisial, idValid } from '@/lib/utils'
 
 const LABEL_JENIS_MASALAH: Record<string, string> = {
   alamat_sasaran_fiktif: 'Alamat atau sasaran fiktif',
@@ -52,6 +52,7 @@ export default async function RincianPenugasan({
   searchParams: Promise<{ belumTerbit?: string }>
 }) {
   const { id } = await params
+  if (!idValid(id)) notFound()
   const { belumTerbit } = await searchParams
   const pengguna = await wajibkanSudahSiap()
 

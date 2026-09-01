@@ -5,6 +5,21 @@ export function cn(...kelas: ClassValue[]) {
   return twMerge(clsx(kelas))
 }
 
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Dipakai halaman rincian (mis. /penugasan/[id]) SEBELUM id dipakai
+ * pada kueri apa pun. Kolom id di seluruh tabel berjenis uuid — bila
+ * alamat diisi string yang bukan format itu sama sekali, PostgREST
+ * melempar "invalid input syntax for type uuid" yang tertangkap
+ * error.tsx (kegagalan sistem), padahal yang tepat adalah
+ * not-found.tsx (alamat ini memang tidak ada) — dua pesan yang berbeda
+ * maknanya bagi pengguna.
+ */
+export function idValid(id: string): boolean {
+  return POLA_UUID.test(id)
+}
+
 /** Inisial untuk avatar. "AKP Tito Witular" -> "TW" */
 export function inisial(nama: string): string {
   const kata = nama

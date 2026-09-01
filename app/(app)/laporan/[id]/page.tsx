@@ -7,6 +7,7 @@ import { PanelCatatan } from '@/components/sipantau/panel-catatan'
 import { FormulirSuntingLaporan } from '@/components/sipantau/formulir-sunting-laporan'
 import { UnggahFoto } from '@/components/sipantau/unggah-foto'
 import { Ikon } from '@/components/sipantau/ikon'
+import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'Rincian Laporan — Si PANTAU' }
 
@@ -29,6 +30,7 @@ export default async function RincianLaporan({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  if (!idValid(id)) notFound()
   // Dua ini tidak saling bergantung — satuLaporan(id) tidak butuh pengguna,
   // baru dipakai belakangan untuk cek akuPelapor dkk.
   const [pengguna, laporan] = await Promise.all([
