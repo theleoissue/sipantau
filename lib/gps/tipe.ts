@@ -82,6 +82,9 @@ export interface SesiRute {
   dibuka_pada: string
   ditutup_pada: string | null
   sebab_penutupan: SebabPenutupanSesi | null
+  /** Sesi dibuka pada hari unit pemegangnya Lepas Dinas (migrasi 0045).
+   *  Fakta, bukan pelanggaran — sistem menandai, manusia menilai. */
+  di_luar_jadwal: boolean
   jarak_tempuh_meter: number | null
   jumlah_titik: number
   diringkas_pada: string | null

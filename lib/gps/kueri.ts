@@ -156,7 +156,7 @@ export async function ruteSpt(penugasanId: string): Promise<SesiRute[]> {
     .from('sesi_tugas')
     .select(`
       id, pengguna_id, dibuka_pada, ditutup_pada, sebab_penutupan,
-      jarak_tempuh_meter, jumlah_titik, diringkas_pada,
+      jarak_tempuh_meter, jumlah_titik, diringkas_pada, di_luar_jadwal,
       lat_awal, lng_awal, lat_akhir, lng_akhir,
       pengguna:pengguna_id ( nama )
     `)
@@ -212,7 +212,7 @@ export async function ruteSayaLintasSpt(): Promise<(SesiRute & { nomor_spt: stri
     .from('sesi_tugas')
     .select(`
       id, pengguna_id, dibuka_pada, ditutup_pada, sebab_penutupan,
-      jarak_tempuh_meter, jumlah_titik, diringkas_pada,
+      jarak_tempuh_meter, jumlah_titik, diringkas_pada, di_luar_jadwal,
       lat_awal, lng_awal, lat_akhir, lng_akhir,
       penugasan:penugasan_id ( nomor_spt, judul )
     `)

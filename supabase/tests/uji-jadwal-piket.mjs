@@ -224,6 +224,110 @@ cek('U-JP-10', 'Kanit TIDAK dapat mengubah jadwal (RLS menyaring diam-diam)',
     hasil.includes(UNIT.dua))
 }
 
+// =====================================================================
+// Bagian 3 — pemberitahuan MENDESAK ikut sampai ke unit yang Piket
+//            (migrasi 0044)
+//
+// Sifatnya WAJIB menambah, tidak pernah mengurangi: penerima aslinya
+// harus tetap utuh. Diuji dari dua arah sekaligus.
+// =====================================================================
+{
+  // Bersihkan agar hitungannya tidak tercampur jadwal uji sebelumnya.
+  await db.query(`delete from public.jadwal_piket`)
+  await db.query(`delete from public.notifikasi`)
+
+  const hariIni = (await db.query(
+    `select (now() at time zone 'Asia/Jakarta')::date d`)).rows[0].d
+
+  // Kanit1 di Unit I. Unit II yang sedang Piket — jadi Kanit1 BUKAN
+  // penerima aslinya dan BUKAN pula unit piket.
+  const kanit2 = '00000000-0000-0000-0000-000000000007'
+  await db.exec(`
+    insert into auth.users (id) values ('${kanit2}') on conflict do nothing;
+    insert into public.users (id,nama,nrp,email_sistem,peran,unit_id,wajib_ganti_sandi)
+    values ('${kanit2}','Kanit Dua','0000007','0000007@sipantau.internal','kanit',
+            '${UNIT.dua}',false) on conflict (id) do nothing;`)
+
+  await db.query(
+    `insert into public.jadwal_piket (tanggal,unit_id,keadaan) values ($1,$2,'piket')`,
+    [hariIni, UNIT.dua])
+
+  // Kirim yang MENDESAK, ditujukan HANYA kepada anggota1.
+  await db.query(
+    `select public.fn_buat_notifikasi('spt_bermasalah', array[$1]::uuid[],
+       'uji','isi','penugasan',null,null,null,true,null)`, [ID.anggota1])
+
+  cek('U-JP-13', 'Penerima asli tetap menerima pemberitahuan mendesak',
+    await n(`select count(*) n from public.notifikasi where penerima_id=$1`, [ID.anggota1]) === 1)
+  cek('U-JP-14', 'Kanit unit yang sedang Piket IKUT menerima meski bukan tujuan asli',
+    await n(`select count(*) n from public.notifikasi where penerima_id=$1`, [kanit2]) === 1)
+  cek('U-JP-15', 'Kanit unit yang TIDAK piket tidak ikut menerima',
+    await n(`select count(*) n from public.notifikasi where penerima_id=$1`, [ID.kanit1]) === 0)
+
+  // Yang TIDAK mendesak tidak boleh ikut disebar — BR-75 membedakan
+  // keduanya, dan membanjiri unit piket dengan kabar rutin unit lain
+  // justru menenggelamkan yang mendesak.
+  await db.query(`delete from public.notifikasi`)
+  await db.query(
+    `select public.fn_buat_notifikasi('spt_diterbitkan', array[$1]::uuid[],
+       'uji','isi','penugasan',null,null,null,false,null)`, [ID.anggota1])
+  cek('U-JP-16', 'Pemberitahuan BIASA tidak ikut disebar ke unit Piket',
+    await n(`select count(*) n from public.notifikasi where penerima_id=$1`, [kanit2]) === 0)
+
+  // Tanpa jadwal, perilakunya wajib sama persis seperti sebelum 0044.
+  await db.query(`delete from public.jadwal_piket`)
+  await db.query(`delete from public.notifikasi`)
+  await db.query(
+    `select public.fn_buat_notifikasi('spt_bermasalah', array[$1]::uuid[],
+       'uji','isi','penugasan',null,null,null,true,null)`, [ID.anggota1])
+  cek('U-JP-17', 'Tanpa jadwal piket, penyebarannya persis seperti sebelum 0044',
+    await n(`select count(*) n from public.notifikasi`) === 1)
+}
+
+// =====================================================================
+// Bagian 4 — Sesi Tugas di luar jadwal DITANDAI, bukan dihalangi
+//            (migrasi 0045)
+// =====================================================================
+{
+  const hariIni = (await db.query(
+    `select (now() at time zone 'Asia/Jakarta')::date d`)).rows[0].d
+  const SPT = '20000000-0000-0000-0000-000000000009'
+  await db.exec(`
+    insert into public.penugasan
+      (id,nomor_spt,judul,unit_id,status,diterbitkan_oleh,diterbitkan_pada,tanggal_mulai,tanggal_batas)
+    values ('${SPT}','SP/9','Uji piket','${UNIT.satu}','berjalan','${ID.kasubdit}',
+            now(),current_date,current_date+7) on conflict do nothing;
+    insert into public.penugasan_pelaksana (penugasan_id,pelaksana_id,urutan,ditugaskan_pada)
+    values ('${SPT}','${ID.anggota1}',1,now()) on conflict do nothing;`)
+
+  // Unit I (unitnya anggota1) sedang LEPAS DINAS hari ini.
+  await db.query(`delete from public.jadwal_piket`)
+  await db.query(
+    `insert into public.jadwal_piket (tanggal,unit_id,keadaan) values ($1,$2,'lepas_dinas')`,
+    [hariIni, UNIT.satu])
+
+  const sesi = await sebagai(ID.anggota1, async () =>
+    (await db.query(`select id, di_luar_jadwal from public.buka_sesi_tugas($1,$2,$3,$4,$5)`,
+      [SPT, -6.9, 107.6, 15, 'android-piket'])).rows[0])
+
+  cek('U-JP-18', 'Sesi Tugas di hari Lepas Dinas TETAP TERBUKA (tidak dihalangi)',
+    sesi.id != null)
+  cek('U-JP-19', 'Sesi itu ditandai di_luar_jadwal',
+    sesi.di_luar_jadwal === true)
+
+  // Tutup, lalu buka lagi pada hari unitnya Piket — tidak boleh ditandai.
+  await sebagai(ID.anggota1, () =>
+    db.query(`select public.selesaikan_sesi_tugas($1)`, [sesi.id]))
+  await db.query(`update public.jadwal_piket set keadaan='piket'
+                   where tanggal=$1 and unit_id=$2`, [hariIni, UNIT.satu])
+
+  const sesi2 = await sebagai(ID.anggota1, async () =>
+    (await db.query(`select di_luar_jadwal from public.buka_sesi_tugas($1,$2,$3,$4,$5)`,
+      [SPT, -6.9, 107.6, 15, 'android-piket'])).rows[0])
+  cek('U-JP-20', 'Sesi pada hari unitnya Piket TIDAK ditandai',
+    sesi2.di_luar_jadwal === false)
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji jadwal piket lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
