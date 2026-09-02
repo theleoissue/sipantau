@@ -106,7 +106,12 @@ body.sudah-masuk #masuk{display:none}
 
 /* ═══════════════ BILAH SAMPING ═══════════════ */
 #sb{position:fixed;top:34px;left:0;bottom:0;width:var(--sb);background:var(--navy);display:flex;flex-direction:column;z-index:100;transition:width var(--t),transform var(--t)}
-.sb-merek{height:var(--hd);display:flex;align-items:center;gap:11px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
+/* justify-content:center — isinya kini SATU logo, bukan lagi ikon
+   ditambah dua baris teks yang memang harus rata kiri. Disetel di
+   aturan dasar dan TIDAK diubah aturan mana pun di bawah, supaya
+   letaknya tidak berpindah-pindah mengikuti lebar layar. */
+.sb-merek{height:var(--hd);display:flex;align-items:center;justify-content:center;
+  gap:11px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
 /* Ikon persegi, dipakai saat bilah samping menyempit. */
 .sb-tanda,.sb-logo-mini{width:34px;height:34px;flex-shrink:0;display:block;object-fit:contain}
 .sb-logo-mini{display:none}
@@ -733,7 +738,10 @@ tbody tr.bisa-klik{cursor:pointer}
   body.mini #sb{width:var(--sb)}
   body.mini .sb-logo-penuh,body.mini .sb-nama,body.mini .nav-i .lbl,body.mini .nav-i .cnt,body.mini .sb-cap{display:block}
   body.mini .sb-orang .meta{display:block}
-  body.mini .sb-merek,body.mini .sb-orang{justify-content:flex-start;padding-left:20px;padding-right:20px}
+  body.mini .sb-merek,body.mini .sb-orang{padding-left:20px;padding-right:20px}
+  /* Perataan HANYA untuk baris orang — kepala bilah samping tetap di
+     tengah pada lebar berapa pun. */
+  body.mini .sb-orang{justify-content:flex-start}
   body.mini .nav-i{justify-content:flex-start;padding:9px 10px}
   body.mini #rangka{margin-left:var(--sb)}
   .k-2{grid-template-columns:1fr}
@@ -742,7 +750,8 @@ tbody tr.bisa-klik{cursor:pointer}
   #sb{transform:translateX(-100%);width:var(--sb)!important;box-shadow:var(--sh-lg)}
   #sb .sb-logo-penuh,#sb .sb-nama,#sb .nav-i .lbl,#sb .nav-i .cnt,#sb .sb-cap{display:block!important}
   #sb .sb-orang .meta{display:block!important}
-  #sb .sb-merek,#sb .sb-orang{justify-content:flex-start!important;padding-left:20px!important;padding-right:20px!important}
+  #sb .sb-merek,#sb .sb-orang{padding-left:20px!important;padding-right:20px!important}
+  #sb .sb-orang{justify-content:flex-start!important}
   #sb .nav-i{justify-content:flex-start!important;padding:9px 10px!important}
   body.laci #sb{transform:translateX(0)}
   #rangka{margin-left:0!important}
