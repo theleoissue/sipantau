@@ -4,6 +4,9 @@ import { LABEL_PERAN } from '@/lib/supabase/types'
 import { statusSinyal, labelTerakhirTerlihat } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from '@/components/sipantau/ikon'
+import { LencanaPiket } from '@/components/sipantau/lencana-piket'
+import { piketPada } from '@/lib/piket/kueri'
+import { hariIniJakarta } from '@/lib/piket/tipe'
 
 export const metadata = { title: 'Status Personel — Si PANTAU' }
 
@@ -31,9 +34,13 @@ function waktuMasuk(iso: string | null): string {
 export default async function HalamanPersonel() {
   // Independen — daftarPersonel() tidak menerima argumen, lingkupnya
   // disaring RLS sendiri, tidak perlu menunggu pengguna lebih dulu.
-  const [pengguna, daftar] = await Promise.all([
+  // piketPada ikut ke dalam Promise.all yang sudah ada — ketiganya
+  // lepas satu sama lain, jadi tidak ada alasan menambah satu
+  // perjalanan bolak-balik berurutan hanya untuk sebuah lencana.
+  const [pengguna, daftar, piket] = await Promise.all([
     wajibkanSudahSiap(),
     daftarPersonel(),
+    piketPada(hariIniJakarta()),
   ])
 
   return (
@@ -84,7 +91,14 @@ export default async function HalamanPersonel() {
                       </div>
                     </td>
                     <td>{LABEL_PERAN[p.peran as keyof typeof LABEL_PERAN]}</td>
-                    {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && <td>{p.unit?.nama ?? '—'}</td>}
+                    {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && (
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {p.unit?.nama ?? '—'}{' '}
+                        {/* Keadaan piket melekat pada UNIT, bukan pada
+                            orangnya — karena itu lencananya di kolom ini. */}
+                        <LencanaPiket keadaan={p.unit_id ? piket.get(p.unit_id) : undefined} />
+                      </td>
+                    )}
                     <td>
                       {p.terlihat_pada ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, whiteSpace: 'nowrap' }}>
