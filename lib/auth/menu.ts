@@ -33,7 +33,6 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Semua Penugasan' },
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Semua Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
-      { id: 'piket',     rute: '/piket',     ikon: 'riwayat',     label: 'Jadwal Piket' },
       { id: 'personel',  rute: '/personel',  ikon: 'grafik',      label: 'Status Personel' },
       { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Administrasi' },
@@ -57,7 +56,6 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Semua Penugasan' },
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Semua Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
-      { id: 'piket',     rute: '/piket',     ikon: 'riwayat',     label: 'Jadwal Piket' },
       { id: 'personel',  rute: '/personel',  ikon: 'grafik',      label: 'Status Personel' },
       { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Administrasi' },
@@ -75,7 +73,6 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Kelola Penugasan' },
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Tinjau Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
-      { id: 'piket',     rute: '/piket',     ikon: 'riwayat',     label: 'Jadwal Piket' },
       { id: 'personel',  rute: '/personel',  ikon: 'orang',       label: 'Personel Unit' },
       { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Tugas Saya' },
@@ -93,7 +90,6 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Penugasan Saya' },
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Tinjau Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Tim' },
-      { id: 'piket',     rute: '/piket',     ikon: 'riwayat',     label: 'Jadwal Piket' },
       { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Tugas Saya' },
       { id: 'tugas',     rute: '/tugas',     ikon: 'satelit',     label: 'Sesi Tugas' },
@@ -118,7 +114,6 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       // tidak pernah terpasang, sehingga haknya ada tetapi tidak ada
       // satu pun jalan menuju ke sana.
       { id: 'peta',      rute: '/peta',      ikon: 'peta',    label: 'Peta Tim' },
-      { id: 'piket',     rute: '/piket',     ikon: 'riwayat',     label: 'Jadwal Piket' },
       { kelompok: 'Pelaporan' },
       { id: 'lapor',     rute: '/lapor',     ikon: 'lapor',   label: 'Kirim Laporan' },
       { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat', label: 'Riwayat Laporan' },
@@ -211,11 +206,6 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
 
   // Peta dan penugasan terbuka bagi peran organisasi, tetapi ISInya
   // disaring aturan akses baris menurut lingkup masing-masing.
-  // Jadwal piket dibuka SELURUH peran: Anggota perlu tahu kapan
-  // gilirannya, Panit perlu tahu unit mana yang sedang Piket. Yang
-  // dibatasi hanya PENYUSUNANNYA, dan itu ditegakkan RLS serta
-  // susun_jadwal_piket (migrasi 0042/0043) — bukan di sini.
-  { pola: /^\/piket(\/.*)?$/,                         peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
   { pola: /^\/peta(\/.*)?$/,                          peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
   { pola: /^\/penugasan(\/.*)?$/,                     peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
   { pola: /^\/beranda(\/.*)?$/,                       peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },

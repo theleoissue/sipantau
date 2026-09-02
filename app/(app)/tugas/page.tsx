@@ -84,19 +84,6 @@ export default async function HalamanTugas() {
                       {s.ditutup_pada
                         ? (s.sebab_penutupan ? LABEL_SEBAB_PENUTUPAN[s.sebab_penutupan] : '—')
                         : <span className="lc berjalan">Berjalan</span>}
-                      {/* Penanda sesi di luar jadwal piket (migrasi 0045).
-                          Ditulis sebagai FAKTA, bukan tuduhan — Prinsip
-                          Non-Menghakimi (CLAUDE.md §7.3). Sesinya sendiri
-                          berjalan penuh, tidak pernah dihalangi. */}
-                      {s.di_luar_jadwal && (
-                        <>
-                          <br />
-                          <span className="lencana-piket k-lepas_dinas"
-                                title="Unit Anda berstatus Lepas Dinas saat sesi ini dibuka">
-                            Di luar jadwal piket
-                          </span>
-                        </>
-                      )}
                     </td>
                   </tr>
                 ))}

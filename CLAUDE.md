@@ -312,30 +312,6 @@ Berurutan, tiap langkah bersandar pada yang sebelumnya.
 | 12 | Pemberitahuan dan lonceng | — |
 | 13 | pg_cron dan pekerjaan berjadwal | Terlihat di `cron.job_run_details` |
 
-### Modul tambahan di luar PRD — Jadwal Piket, 2 September 2026
-
-Ditambahkan atas permintaan pemilik produk, dengan acuan bentuk dokumen
-"JADWAL PIKET UNIT GAKKUM SATLANTAS POLRESTABES BANDUNG". **Tidak ada di
-PRD mana pun** — piket, regu, dan roster nihil di seluruh `docs/`. Dicatat
-di sini supaya sesi berikutnya tidak menyimpulkan modul ini sebagai kode
-liar tanpa dasar.
-
-Migrasi 0042–0045, halaman `/piket`, uji `uji-jadwal-piket.mjs`.
-
-Empat keputusan yang mengikat, dan alasannya ada di kepala tiap migrasi:
-
-1. **Baris per hari, bukan rumus.** Dokumen acuan menyimpang dua kali
-   dalam 38 hari (1 Sep mengulang 31 Agu, 7 Sep melompat). Jadwal piket
-   sungguhan disesuaikan tangan; rumus tidak akan pernah cocok.
-2. **Berapa unit yang berotasi adalah DATA.** Dokumen acuan tiga regu,
-   SiPANTAU empat unit — keduanya tertampung tanpa perubahan kode.
-3. **Menandai, bukan menghalangi.** Mengunci Sesi Tugas pada jadwal
-   ditolak: SPT terbit kapan saja, sehingga perintah mendadak di hari
-   Lepas Dinas tidak akan terekam sama sekali. Sejalan Prinsip
-   Non-Menghakimi (§7.3).
-4. **Penyusunan milik Kasubdit.** Asumsi yang dinyatakan terbuka — PRD
-   tidak membahas pemiliknya. Dipilih sebab jadwal ini lintas unit.
-
 **Ditunda ke tahap berikutnya:** kolase berkop, LHP ringkas, ekspor data, riwayat versi, antrean luring, pemberitahuan dorong.
 
 Langkah 4 sengaja diletakkan lebih awal. Kalau Capacitor bermasalah, lebih baik ketahuan di hari ketiga daripada hari kesebelas.

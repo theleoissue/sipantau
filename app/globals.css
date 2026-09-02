@@ -794,57 +794,6 @@ tbody tr.bisa-klik{cursor:pointer}
 
 a.nav-i { text-decoration: none; }
 
-/* ═══════════════ JADWAL PIKET ═══════════════
-   Bentuknya mengikuti dokumen resmi: baris unit, kolom tanggal, isinya
-   satu huruf. Tabel selebar sebulan pasti melampaui layar telepon, jadi
-   ia SELALU dibungkus .tw (overflow-x:auto) di komponennya — tanpa itu
-   body{overflow-x:hidden} memangkasnya diam-diam, cacat yang sudah
-   pernah terjadi pada tabel Rute Saya. */
-.piket-tabel{border-collapse:collapse;min-width:0;width:auto;font-size:12px}
-.piket-tabel th,.piket-tabel td{border:1px solid var(--line);padding:0;text-align:center}
-.piket-tabel thead th{background:#FAFBFD;font-weight:700;padding:4px 0;min-width:26px;
-  line-height:1.15}
-.piket-tabel thead th .tg{display:block;font-size:11px}
-.piket-tabel thead th .hr{display:block;font-size:9px;color:var(--ink-3);font-weight:600}
-/* Kolom unit menempel di kiri saat tabelnya digeser mendatar — tanpa
-   ini, menggeser ke tanggal 25 membuat baris kehilangan namanya. */
-.piket-tabel th.unit{position:sticky;left:0;z-index:1;background:#FAFBFD;
-  min-width:82px;text-align:left;padding:7px 10px;font-size:12px;white-space:nowrap}
-.piket-tabel tbody th.unit{font-weight:600}
-.piket-tabel .sel{display:block;width:100%;padding:7px 0;font-weight:700;font-size:11.5px;
-  position:relative;line-height:1.1}
-button.sel{cursor:pointer}
-button.sel:hover{outline:2px solid var(--primary);outline-offset:-2px}
-/* Titik penanda hari yang disunting tangan. */
-.piket-tabel .tanda{position:absolute;top:2px;right:2px;width:4px;height:4px;
-  border-radius:50%;background:var(--navy);opacity:.55}
-/* Kolom hari ini dan akhir pekan. Akhir pekan sengaja ditandai meski
-   dokumen acuan tidak membedakannya — pengawas tetap perlu melihatnya
-   saat menyusun giliran. */
-.piket-tabel .pekan{background:#F7F8FB}
-.piket-tabel thead th.kini{background:var(--gold);color:var(--navy)}
-.piket-tabel td.kini{box-shadow:inset 0 0 0 2px var(--gold)}
-.piket-tabel .k-piket{background:var(--green-bg);color:#047857}
-.piket-tabel .k-cadangan{background:var(--amber-bg);color:#B45309}
-.piket-tabel .k-lepas_dinas{background:var(--bg);color:var(--ink-3)}
-.piket-tabel .k-kosong{color:var(--line-2)}
-
-.piket-ket{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:11.5px;
-  color:var(--ink-2)}
-.piket-ket span{display:inline-flex;align-items:center;gap:6px}
-.piket-ket .kotak{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}
-.piket-ket .kotak.k-piket{background:var(--green-bg)}
-.piket-ket .kotak.k-cadangan{background:var(--amber-bg)}
-.piket-ket .kotak.k-lepas_dinas{background:var(--bg)}
-
-/* Lencana "sedang Piket" — dipakai beranda, peta, dan personel. */
-.lencana-piket{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;
-  font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;
-  border-radius:4px;white-space:nowrap}
-.lencana-piket.k-piket{background:var(--green-bg);color:#047857}
-.lencana-piket.k-cadangan{background:var(--amber-bg);color:#B45309}
-.lencana-piket.k-lepas_dinas{background:var(--bg);color:var(--ink-3)}
-
 /* ═══════════════════════════════════════════════════════════════════
    AREA AMAN TELEPON (bilah gestur Android / notch)
 
