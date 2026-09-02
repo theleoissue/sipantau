@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { PROFIL } from '@/lib/auth/menu'
@@ -34,7 +35,15 @@ export function BilahSamping({
   return (
     <aside id="sb">
       <div className="sb-merek">
-        <div className="sb-tanda">SP</div>
+        {/* Lambang resmi, menggantikan penanda sementara "SP". Ukuran
+            sumbernya 2x slot 34px supaya tetap tajam di layar rapat. */}
+        <Image
+          src="/logo-sipantau.png"
+          alt="SI PANTAU"
+          width={68} height={68}
+          className="sb-tanda"
+          priority
+        />
         <div className="sb-nama">
           SI PANTAU
           <small>Subdit IV Ditreskrimsus</small>

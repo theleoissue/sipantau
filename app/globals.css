@@ -67,7 +67,13 @@ a{color:inherit;text-decoration:none}
 #masuk{position:fixed;inset:0;z-index:300;background:var(--navy);display:grid;place-items:center;padding:24px}
 body.sudah-masuk #masuk{display:none}
 #masuk .kotak{width:100%;max-width:404px}
-#masuk .lambang{width:64px;height:64px;border-radius:16px;background:var(--gold);display:grid;place-items:center;margin:0 auto 22px;font-family:var(--display);font-weight:700;font-size:28px;color:var(--navy);letter-spacing:-.02em}
+/* Lambang resmi menggantikan penanda huruf "SP". Latar emas dan
+   aturan hurufnya dibuang — lambangnya sudah membawa bentuk kotak
+   membulat serta warnanya sendiri, dan menumpuknya di atas latar emas
+   justru bertabrakan. Ukuran serta jarak bawahnya dipertahankan persis
+   supaya tata letak halaman masuk tidak bergeser sedikit pun. */
+#masuk .lambang{width:64px;height:64px;display:block;margin:0 auto 22px;
+  object-fit:contain}
 #masuk h1{font-family:var(--display);font-size:38px;font-weight:700;letter-spacing:.07em;color:#fff;text-align:center;line-height:1}
 #masuk .sub{font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.44);text-align:center;margin-top:8px}
 #masuk .satuan{font-size:12.5px;color:rgba(255,255,255,.62);text-align:center;margin-top:20px;line-height:1.6}
@@ -101,7 +107,7 @@ body.sudah-masuk #masuk{display:none}
 /* ═══════════════ BILAH SAMPING ═══════════════ */
 #sb{position:fixed;top:34px;left:0;bottom:0;width:var(--sb);background:var(--navy);display:flex;flex-direction:column;z-index:100;transition:width var(--t),transform var(--t)}
 .sb-merek{height:var(--hd);display:flex;align-items:center;gap:11px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
-.sb-tanda{width:34px;height:34px;border-radius:8px;background:var(--gold);display:grid;place-items:center;flex-shrink:0;font-family:var(--display);font-weight:700;font-size:17px;color:var(--navy);letter-spacing:-.02em}
+.sb-tanda{width:34px;height:34px;flex-shrink:0;display:block;object-fit:contain}
 .sb-nama{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:.06em;color:#fff;line-height:1;white-space:nowrap}
 .sb-nama small{display:block;font-family:var(--body);font-size:9.5px;font-weight:500;letter-spacing:.09em;color:rgba(255,255,255,.42);margin-top:3px;text-transform:uppercase}
 .sb-orang{padding:16px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}

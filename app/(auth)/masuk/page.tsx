@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { FormulirMasuk } from './formulir-masuk'
 
 export const metadata = { title: 'Masuk — Si PANTAU' }
@@ -11,9 +12,16 @@ export default async function HalamanMasuk({
 
   return (
     <div className="kotak">
-      {/* Lambang sementara bergaya prototype. DILARANG membuat tiruan
-          lambang institusi; berkas resmi menunggu butir A-04. */}
-      <div className="lambang">SP</div>
+      {/* Lambang resmi SI PANTAU (butir A-04, diserahkan pemilik produk
+          2 September 2026) — menggantikan penanda sementara "SP" yang
+          sengaja dipakai selama berkasnya belum ada. */}
+      <Image
+        src="/logo-sipantau.png"
+        alt="Lambang SI PANTAU"
+        width={128} height={128}
+        className="lambang"
+        priority
+      />
       <h1>SI PANTAU</h1>
       <div className="sub">Sistem Pengawasan Anggota Terpadu</div>
       <div className="satuan">
