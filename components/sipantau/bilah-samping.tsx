@@ -39,15 +39,17 @@ export function BilahSamping({
             sekaligus — karena itu ia menggantikan ketiganya, bukan
             ditambahkan di sampingnya.
 
-            Dialasi warna terang dengan sengaja: tulisan pada logo ini
-            biru gelap (#0040A0), dan terhadap latar bilah samping
-            (#0F1C32) kontrasnya hanya 1,82:1 — jauh di bawah ambang
-            keterbacaan 4,5:1. Paketnya memang menamainya "Dark", yaitu
-            versi untuk latar TERANG, dan tidak menyediakan versi
-            terangnya. Alas ini yang membuatnya terbaca tanpa mengubah
-            satu piksel pun logonya. */}
+            Memakai varian TERANG, bukan berkas asli paketnya. Berkas
+            "Horizontal_Dark" itu dibuat untuk latar terang: tulisannya
+            biru gelap #0040A0, dan terhadap latar bilah samping
+            #0F1C32 kontrasnya cuma 1,82:1 — jauh di bawah ambang
+            keterbacaan 4,5:1. Percobaan pertama mengalasinya putih;
+            hasilnya seperti stiker tempel dan ditolak pemilik produk.
+            Varian ini menerangkan tulisannya saja (lambangnya tidak
+            disentuh sedikit pun) sehingga kontrasnya 11,6-15:1 dan
+            logonya menyatu langsung dengan bilah sampingnya. */}
         <Image
-          src="/logo-sipantau-horizontal.png"
+          src="/logo-sipantau-horizontal-terang.png"
           alt="SI PANTAU — Sistem Pengawasan Anggota Terpadu"
           width={485} height={190}
           className="sb-logo-penuh"

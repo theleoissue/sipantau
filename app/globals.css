@@ -111,20 +111,15 @@ body.sudah-masuk #masuk{display:none}
 .sb-tanda,.sb-logo-mini{width:34px;height:34px;flex-shrink:0;display:block;object-fit:contain}
 .sb-logo-mini{display:none}
 
-/* Logo mendatar beralas TERANG. Bukan selera: tulisan pada logo ini
-   biru gelap (#0040A0) dan terhadap latar bilah samping (#0F1C32)
-   kontrasnya 1,82:1 — jauh di bawah ambang keterbacaan 4,5:1, dan
-   CLAUDE.md §7.3 mensyaratkan kontras cukup. Paketnya menamainya
-   "Dark" karena memang untuk latar terang, dan versi terangnya tidak
-   disediakan. Alas ini membuatnya terbaca tanpa mengubah satu piksel
-   pun logonya. */
-/* Tinggi 46px: kepala bilah samping 64px, ditambah alas 5px atas-bawah
-   jadi 56px — tersisa 8px napas. Lebarnya dibiarkan mengikuti aspek
-   logo (2,55:1) sehingga alasnya memeluk logo, BUKAN dipaksa selebar
-   224px yang tersedia: pada lebar itu tingginya akan jadi 88px dan
-   melampaui kepala bilah sampingnya sendiri. */
-.sb-logo-penuh{height:46px;width:auto;max-width:100%;object-fit:contain;
-  background:#fff;border-radius:8px;padding:5px 10px;display:block}
+/* Tanpa alas apa pun — logonya memakai varian terang yang tulisannya
+   sudah kontras 11,6-15:1 terhadap latar bilah samping, jadi ia
+   menyatu langsung. Alas putih sempat dicoba ketika masih memakai
+   berkas asli yang gelap; hasilnya seperti stiker tempel.
+
+   Tinggi 46px pada kepala bilah samping 64px, lebarnya mengikuti aspek
+   logo (2,55:1). TIDAK dipaksa selebar 224px yang tersedia: pada lebar
+   itu tingginya jadi 88px dan melampaui kepalanya sendiri. */
+.sb-logo-penuh{height:46px;width:auto;max-width:100%;object-fit:contain;display:block}
 .sb-nama{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:.06em;color:#fff;line-height:1;white-space:nowrap}
 .sb-nama small{display:block;font-family:var(--body);font-size:9.5px;font-weight:500;letter-spacing:.09em;color:rgba(255,255,255,.42);margin-top:3px;text-transform:uppercase}
 .sb-orang{padding:16px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
