@@ -35,19 +35,33 @@ export function BilahSamping({
   return (
     <aside id="sb">
       <div className="sb-merek">
-        {/* Lambang resmi, menggantikan penanda sementara "SP". Ukuran
-            sumbernya 2x slot 34px supaya tetap tajam di layar rapat. */}
+        {/* Logo mendatar sudah memuat lambang, nama, DAN subjudulnya
+            sekaligus — karena itu ia menggantikan ketiganya, bukan
+            ditambahkan di sampingnya.
+
+            Dialasi warna terang dengan sengaja: tulisan pada logo ini
+            biru gelap (#0040A0), dan terhadap latar bilah samping
+            (#0F1C32) kontrasnya hanya 1,82:1 — jauh di bawah ambang
+            keterbacaan 4,5:1. Paketnya memang menamainya "Dark", yaitu
+            versi untuk latar TERANG, dan tidak menyediakan versi
+            terangnya. Alas ini yang membuatnya terbaca tanpa mengubah
+            satu piksel pun logonya. */}
+        <Image
+          src="/logo-sipantau-horizontal.png"
+          alt="SI PANTAU — Sistem Pengawasan Anggota Terpadu"
+          width={485} height={190}
+          className="sb-logo-penuh"
+          priority
+        />
+        {/* Bilah samping yang menyempit hanya menyisakan ruang selebar
+            ikon — logo mendatar tidak mungkin muat di situ. */}
         <Image
           src="/logo-sipantau.png"
           alt="SI PANTAU"
           width={68} height={68}
-          className="sb-tanda"
+          className="sb-logo-mini"
           priority
         />
-        <div className="sb-nama">
-          SI PANTAU
-          <small>Subdit IV Ditreskrimsus</small>
-        </div>
       </div>
 
       <div className="sb-orang">

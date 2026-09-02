@@ -107,7 +107,24 @@ body.sudah-masuk #masuk{display:none}
 /* ═══════════════ BILAH SAMPING ═══════════════ */
 #sb{position:fixed;top:34px;left:0;bottom:0;width:var(--sb);background:var(--navy);display:flex;flex-direction:column;z-index:100;transition:width var(--t),transform var(--t)}
 .sb-merek{height:var(--hd);display:flex;align-items:center;gap:11px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
-.sb-tanda{width:34px;height:34px;flex-shrink:0;display:block;object-fit:contain}
+/* Ikon persegi, dipakai saat bilah samping menyempit. */
+.sb-tanda,.sb-logo-mini{width:34px;height:34px;flex-shrink:0;display:block;object-fit:contain}
+.sb-logo-mini{display:none}
+
+/* Logo mendatar beralas TERANG. Bukan selera: tulisan pada logo ini
+   biru gelap (#0040A0) dan terhadap latar bilah samping (#0F1C32)
+   kontrasnya 1,82:1 — jauh di bawah ambang keterbacaan 4,5:1, dan
+   CLAUDE.md §7.3 mensyaratkan kontras cukup. Paketnya menamainya
+   "Dark" karena memang untuk latar terang, dan versi terangnya tidak
+   disediakan. Alas ini membuatnya terbaca tanpa mengubah satu piksel
+   pun logonya. */
+/* Tinggi 46px: kepala bilah samping 64px, ditambah alas 5px atas-bawah
+   jadi 56px — tersisa 8px napas. Lebarnya dibiarkan mengikuti aspek
+   logo (2,55:1) sehingga alasnya memeluk logo, BUKAN dipaksa selebar
+   224px yang tersedia: pada lebar itu tingginya akan jadi 88px dan
+   melampaui kepala bilah sampingnya sendiri. */
+.sb-logo-penuh{height:46px;width:auto;max-width:100%;object-fit:contain;
+  background:#fff;border-radius:8px;padding:5px 10px;display:block}
 .sb-nama{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:.06em;color:#fff;line-height:1;white-space:nowrap}
 .sb-nama small{display:block;font-family:var(--body);font-size:9.5px;font-weight:500;letter-spacing:.09em;color:rgba(255,255,255,.42);margin-top:3px;text-transform:uppercase}
 .sb-orang{padding:16px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
@@ -714,12 +731,12 @@ tbody tr.bisa-klik{cursor:pointer}
 /* ═══════════════ TANGGAP ═══════════════ */
 @media(max-width:1024px){
   body:not(.mini) #sb{width:var(--sb-mini)}
-  body:not(.mini) .sb-nama,body:not(.mini) .sb-orang .meta,body:not(.mini) .nav-i .lbl,body:not(.mini) .nav-i .cnt,body:not(.mini) .sb-cap{display:none}
+  body:not(.mini) .sb-logo-penuh,body:not(.mini) .sb-nama,body:not(.mini) .sb-orang .meta,body:not(.mini) .nav-i .lbl,body:not(.mini) .nav-i .cnt,body:not(.mini) .sb-cap{display:none}
   body:not(.mini) .sb-merek,body:not(.mini) .sb-orang{justify-content:center;padding-left:0;padding-right:0}
   body:not(.mini) .nav-i{justify-content:center;padding:11px 0}
   body:not(.mini) #rangka{margin-left:var(--sb-mini)}
   body.mini #sb{width:var(--sb)}
-  body.mini .sb-nama,body.mini .nav-i .lbl,body.mini .nav-i .cnt,body.mini .sb-cap{display:block}
+  body.mini .sb-logo-penuh,body.mini .sb-nama,body.mini .nav-i .lbl,body.mini .nav-i .cnt,body.mini .sb-cap{display:block}
   body.mini .sb-orang .meta{display:block}
   body.mini .sb-merek,body.mini .sb-orang{justify-content:flex-start;padding-left:20px;padding-right:20px}
   body.mini .nav-i{justify-content:flex-start;padding:9px 10px}
@@ -728,7 +745,7 @@ tbody tr.bisa-klik{cursor:pointer}
 }
 @media(max-width:768px){
   #sb{transform:translateX(-100%);width:var(--sb)!important;box-shadow:var(--sh-lg)}
-  #sb .sb-nama,#sb .nav-i .lbl,#sb .nav-i .cnt,#sb .sb-cap{display:block!important}
+  #sb .sb-logo-penuh,#sb .sb-nama,#sb .nav-i .lbl,#sb .nav-i .cnt,#sb .sb-cap{display:block!important}
   #sb .sb-orang .meta{display:block!important}
   #sb .sb-merek,#sb .sb-orang{justify-content:flex-start!important;padding-left:20px!important;padding-right:20px!important}
   #sb .nav-i{justify-content:flex-start!important;padding:9px 10px!important}
@@ -751,6 +768,14 @@ tbody tr.bisa-klik{cursor:pointer}
   #lb{padding:70px 12px}
   #lb .nav{width:38px;height:38px}
   #masuk .peran-pilih{grid-template-columns:1fr}
+}
+@media(max-width:1024px){
+  /* Muncul tepat ketika logo mendatar disembunyikan aturan di atas. */
+  body:not(.mini) .sb-logo-mini{display:block}
+}
+@media(max-width:768px){
+  /* Laci lebar penuh: logo mendatar kembali muat, ikonnya tidak perlu. */
+  #sb .sb-logo-mini{display:none!important}
 }
 @media(max-width:400px){.k-stat{grid-template-columns:1fr}}
 
