@@ -27,6 +27,42 @@ dibangun ulang.
 | --- | --- | --- |
 | `3264e5d` | Ikon notifikasi pelacakan (siluet putih), nama saluran Bahasa Indonesia, warna emas SiPANTAU | Notifikasi masih memakai ikon peluncur berwarna. Menurut README pustaka pelacakan, ikon salah tipe membuat notifikasi **dapat digeser hilang padahal seharusnya tidak**, sentuhan padanya membuka pengaturan alih-alih aplikasi, dan tulisannya bisa keliru. Saluran masih bernama "Background Tracking" |
 | menyusul | Ikon peluncur APK dari lambang resmi SI PANTAU — ikon lawas seluruh kerapatan, lapisan depan ikon adaptif, dan warna latarnya | Ikon aplikasi di HP masih memakai bawaan Capacitor (bola dunia putih), bukan lambang SI PANTAU |
+| menunggu domain | `capacitor.config.ts` → `server.url` pindah ke domain baru (pemindahan akun GitHub + Vercel, 5 September 2026) | Lihat bagian **Pemindahan alamat** di bawah — ini bukan sekadar tertunda, melainkan tenggat |
+
+## Pemindahan alamat — 5 September 2026
+
+Akun GitHub dan Vercel lama diblokir. Repo GitHub sudah hilang; alamat
+Vercel lama (`sipantau-seven.vercel.app`) masih menjawab 200 saat catatan
+ini ditulis, tetapi tidak dapat lagi menerima penempatan baru karena
+repo sumbernya tidak ada.
+
+Yang membuat ini berbeda dari baris tertunda lainnya: APK adalah
+pembungkus WebView yang menunjuk satu alamat, dan alamat itu **dipanggang
+ke dalam APK saat dibangun**. Begitu alamat lama benar-benar mati,
+seluruh APK yang sudah terpasang di HP anggota menjadi layar kosong
+serentak — bukan sebagian fitur yang tidak jalan, melainkan aplikasinya
+tidak terbuka sama sekali.
+
+Karena itu diputuskan memakai **domain sendiri**, bukan alamat
+`*.vercel.app` yang baru: dengan domain sendiri, perpindahan akun Vercel
+berikutnya cukup diselesaikan lewat DNS, dan APK di lapangan tidak perlu
+disentuh sama sekali. Alamat `*.vercel.app` menuntut pembangunan dan
+pemasangan ulang APK di setiap HP pada setiap perpindahan.
+
+Urutannya mengikat, dan tidak boleh dibalik:
+
+1. Domain didaftarkan dan diarahkan ke proyek Vercel yang baru
+2. Domain itu sudah benar-benar menjawab — diperiksa lebih dulu, bukan
+   dianggap sudah jalan
+3. Baru `capacitor.config.ts` disunting ke domain itu
+4. Baru APK dibangun ulang dan dipasang di seluruh HP
+
+Membangun APK sebelum domainnya menjawab menghasilkan APK yang menunjuk
+ke alamat mati, dan itu baru ketahuan sesudah terpasang di HP orang.
+
+Sekali pemasangan ulang ini tetap tidak terhindarkan — APK yang sekarang
+ada di lapangan menunjuk ke alamat lama. Yang dibeli oleh domain sendiri
+adalah pemasangan ulang **berikutnya**, bukan yang ini.
 
 ## Cara membangun
 
