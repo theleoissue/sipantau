@@ -27,7 +27,7 @@ dibangun ulang.
 | --- | --- | --- |
 | `3264e5d` | Ikon notifikasi pelacakan (siluet putih), nama saluran Bahasa Indonesia, warna emas SiPANTAU | Notifikasi masih memakai ikon peluncur berwarna. Menurut README pustaka pelacakan, ikon salah tipe membuat notifikasi **dapat digeser hilang padahal seharusnya tidak**, sentuhan padanya membuka pengaturan alih-alih aplikasi, dan tulisannya bisa keliru. Saluran masih bernama "Background Tracking" |
 | menyusul | Ikon peluncur APK dari lambang resmi SI PANTAU — ikon lawas seluruh kerapatan, lapisan depan ikon adaptif, dan warna latarnya | Ikon aplikasi di HP masih memakai bawaan Capacitor (bola dunia putih), bukan lambang SI PANTAU |
-| menunggu domain | `capacitor.config.ts` → `server.url` pindah ke domain baru (pemindahan akun GitHub + Vercel, 5 September 2026) | Lihat bagian **Pemindahan alamat** di bawah — ini bukan sekadar tertunda, melainkan tenggat |
+| `(baris ini)` | `capacitor.config.ts` → `server.url` pindah ke `https://www.sipantaujabar.my.id` (pemindahan akun GitHub + Vercel, 5 September 2026) | APK yang sudah terpasang di HP masih menunjuk `sipantau-seven.vercel.app` — akan menjadi layar kosong begitu alamat lama benar-benar mati. Sudah disunting di kode; **belum** ikut sampai HP sampai dibangun ulang |
 
 ## Pemindahan alamat — 5 September 2026
 
@@ -35,6 +35,13 @@ Akun GitHub dan Vercel lama diblokir. Repo GitHub sudah hilang; alamat
 Vercel lama (`sipantau-seven.vercel.app`) masih menjawab 200 saat catatan
 ini ditulis, tetapi tidak dapat lagi menerima penempatan baru karena
 repo sumbernya tidak ada.
+
+Domain baru `sipantaujabar.my.id` sudah didaftarkan, diarahkan ke
+proyek Vercel yang baru, dan **sudah dibuktikan menjawab** —
+`https://sipantaujabar.my.id/masuk` membuka halaman masuk sungguhan.
+Vercel mengalihkan alamat tanpa `www` ke `www.sipantaujabar.my.id`,
+jadi `capacitor.config.ts` langsung menunjuk ke alamat `www` supaya
+WebView tidak menempuh satu langkah pengalihan tambahan setiap dibuka.
 
 Yang membuat ini berbeda dari baris tertunda lainnya: APK adalah
 pembungkus WebView yang menunjuk satu alamat, dan alamat itu **dipanggang

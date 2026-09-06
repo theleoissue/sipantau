@@ -13,7 +13,10 @@ const config: CapacitorConfig = {
   appName: 'SiPANTAU',
   webDir: 'public',
   server: {
-    url: 'https://sipantau-seven.vercel.app',
+    // sipantaujabar.my.id (tanpa www) dialihkan Vercel ke www — dipakai
+    // di sini alamat www langsung supaya WebView tidak menempuh satu
+    // langkah pengalihan tambahan setiap kali dibuka.
+    url: 'https://www.sipantaujabar.my.id',
     cleartext: false,
   },
   // Disyaratkan @capgo/background-geolocation — tanpa ini pembaruan
