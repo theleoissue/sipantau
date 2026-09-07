@@ -31,32 +31,6 @@ export async function jumlahBelumDibaca(): Promise<number> {
   return count ?? 0
 }
 
-/** Q-08/BR-64: dikelompokkan menurut hari kalender Asia/Jakarta, BUKAN
- *  ::date polos yang membaca zona bawaan server (UTC). */
-export function kunciHariJakarta(iso: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Jakarta',
-  }).format(new Date(iso)) // 'en-CA' -> YYYY-MM-DD, urut leksikal benar
-}
-
-export function labelHari(kunci: string): string {
-  const hariIniJakarta = kunciHariJakarta(new Date().toISOString())
-  const kemarinJakarta = kunciHariJakarta(new Date(Date.now() - 24 * 3600_000).toISOString())
-  if (kunci === hariIniJakarta) return 'Hari ini'
-  if (kunci === kemarinJakarta) return 'Kemarin'
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta',
-  }).format(new Date(kunci + 'T00:00:00+07:00'))
-}
-
-export function kelompokkanPerHari(daftar: Notifikasi[]): { kunci: string; label: string; baris: Notifikasi[] }[] {
-  const peta = new Map<string, Notifikasi[]>()
-  for (const n of daftar) {
-    const kunci = kunciHariJakarta(n.dibuat_pada)
-    if (!peta.has(kunci)) peta.set(kunci, [])
-    peta.get(kunci)!.push(n)
-  }
-  return [...peta.entries()]
-    .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([kunci, baris]) => ({ kunci, label: labelHari(kunci), baris }))
-}
+// Pengelompokan per hari (kunciHariJakarta, labelHari, kelompokkanPerHari)
+// pindah ke ./tipe — dipakai juga komponen klien DaftarNotifikasi, yang
+// tidak boleh mengimpor berkas ini (klienServer menyeret next/headers).

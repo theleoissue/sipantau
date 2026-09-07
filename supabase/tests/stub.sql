@@ -57,6 +57,17 @@ $$;
 
 grant usage on schema public to anon, authenticated, service_role;
 
+-- Supabase sungguhan memberi hak DML dasar atas storage.objects/buckets
+-- kepada authenticated (RLS-nya sendiri yang membatasi baris/berkas
+-- mana yang tersentuh) — tanpa baris ini, SETIAP kebijakan RLS Storage
+-- proyek ini (wadah 'dokumentasi' sejak 0013, 'surat-spt' sejak 0048)
+-- gagal dengan "permission denied for schema storage" pada percobaan
+-- pertama, bukan ditolak RLS-nya — lulus-palsu yang menyamar sebagai
+-- lolos keamanan padahal cuma tidak pernah benar-benar diuji.
+grant usage on schema storage to anon, authenticated, service_role;
+grant select on storage.buckets to authenticated;
+grant select, insert, update, delete on storage.objects to authenticated;
+
 -- =====================================================================
 -- Tiruan PostGIS untuk uji lokal.
 --

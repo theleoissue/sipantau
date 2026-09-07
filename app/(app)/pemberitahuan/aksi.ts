@@ -2,9 +2,22 @@
 
 import { revalidatePath } from 'next/cache'
 import { klienServer } from '@/lib/supabase/server'
+import { daftarNotifikasi } from '@/lib/notifikasi/kueri'
+import type { Notifikasi } from '@/lib/notifikasi/tipe'
 
 export interface HasilTindakan {
   galat?: string
+}
+
+/** KP-6.9-13: dipanggil tombol "Muat lebih banyak" — daftarNotifikasi
+ *  sendiri sudah menerima offset/batas sejak awal ditulis, tetapi
+ *  halaman Pemberitahuan tidak pernah memanggilnya dengan argumen apa
+ *  pun sampai aksi ini ada, jadi baris ke-31 dan seterusnya tidak
+ *  pernah terjangkau. Bukan kebocoran (RLS tetap menyaring milik
+ *  sendiri), tetapi baris lama tidak terlihat siapa pun, termasuk
+ *  pemiliknya sendiri. */
+export async function muatNotifikasiLanjut(offset: number): Promise<Notifikasi[]> {
+  return daftarNotifikasi(offset)
 }
 
 /** KP-6.9-09: dibaca_pada terisi saat dibuka. RLS + trg_notifikasi_

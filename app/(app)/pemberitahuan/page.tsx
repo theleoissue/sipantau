@@ -1,14 +1,20 @@
-import { daftarNotifikasi, kelompokkanPerHari } from '@/lib/notifikasi/kueri'
-import { BarisNotifikasi } from '@/components/sipantau/baris-notifikasi'
+import { daftarNotifikasi, jumlahBelumDibaca } from '@/lib/notifikasi/kueri'
+import { DaftarNotifikasi } from '@/components/sipantau/daftar-notifikasi'
 import { TombolTandaiSemua } from '@/components/sipantau/tombol-tandai-semua'
 import { Ikon } from '@/components/sipantau/ikon'
 
 export const metadata = { title: 'Pemberitahuan — Si PANTAU' }
 
 export default async function HalamanPemberitahuan() {
-  const daftar = await daftarNotifikasi()
-  const belum = daftar.filter(n => !n.dibaca_pada).length
-  const kelompok = kelompokkanPerHari(daftar)
+  // Lepas satu sama lain: belum HARUS dihitung dari SELURUH baris milik
+  // pengguna (sama seperti lonceng di layout.tsx), bukan dari 30 baris
+  // pertama yang dimuat halaman ini — kalau tidak, angkanya akan salah
+  // begitu ada lebih dari 30 notifikasi dan sebagian belum dibaca ada
+  // di halaman kedua dan seterusnya.
+  const [daftar, belum] = await Promise.all([
+    daftarNotifikasi(),
+    jumlahBelumDibaca(),
+  ])
 
   return (
     <>
@@ -25,7 +31,6 @@ export default async function HalamanPemberitahuan() {
       <section className="kartu">
         <div className="kartu-h">
           <h3>{belum > 0 ? `${belum} belum dibaca` : 'Semua sudah dibaca'}</h3>
-          <span className="isyarat">{daftar.length} pemberitahuan</span>
         </div>
         <div className="kartu-b rata">
           {daftar.length === 0 ? (
@@ -34,12 +39,9 @@ export default async function HalamanPemberitahuan() {
               <h3>Belum ada pemberitahuan</h3>
               <p>Kabar tentang penugasan dan laporan akan muncul di sini.</p>
             </div>
-          ) : kelompok.map(({ kunci, label, baris }) => (
-            <div key={kunci}>
-              <div className="pb-hari">{label}</div>
-              {baris.map(n => <BarisNotifikasi key={n.id} n={n} />)}
-            </div>
-          ))}
+          ) : (
+            <DaftarNotifikasi awal={daftar} />
+          )}
         </div>
       </section>
     </>

@@ -362,6 +362,27 @@ export async function kembalikanDariBermasalah(penugasanId: string, alasan: stri
   return { sukses: 'Status dikembalikan ke berjalan.' }
 }
 
+/**
+ * Melampirkan pindaian surat perintah — BR-25/KP-6.2-45: tanpa ini
+ * tutup_spt ditolak basis data (chk_selesai_wajib_berkas, 0007).
+ * Berkasnya sendiri sudah terunggah ke Storage sebelum aksi ini
+ * dipanggil (components/sipantau/unggah-surat-spt.tsx); di sini hanya
+ * menautkan jalurnya ke baris penugasan lewat unggah_surat_spt (0048).
+ */
+export async function unggahSuratSptAksi(penugasanId: string, berkasPath: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('unggah_surat_spt', {
+    p_id: penugasanId, p_berkas_path: berkasPath,
+  })
+  if (error) {
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit yang dapat melampirkan berkas surat perintah.' }
+    if (error.message.includes('TIDAK_DITEMUKAN')) return { galat: 'Penugasan tidak ditemukan, bukan milik unit Anda, atau sudah tertutup.' }
+    return { galat: `Gagal menyimpan berkas: ${error.message}` }
+  }
+  revalidatePath(`/penugasan/${penugasanId}`)
+  return { sukses: 'Berkas surat perintah tersimpan.' }
+}
+
 export async function tutupSpt(penugasanId: string): Promise<HasilAksi> {
   const supabase = await klienServer()
   const { error } = await supabase.rpc('tutup_spt', { p_id: penugasanId })

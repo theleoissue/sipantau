@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
+import { klienServer } from '@/lib/supabase/server'
 import { satuPenugasan, lewatBatas, hariTerlampaui, riwayatPerpanjangan, bolehHapusPermanen } from '@/lib/penugasan/kueri'
 import { ruteSptDenganTitik } from '@/lib/gps/kueri'
 import { daftarLhp } from '@/lib/lhp/kueri'
@@ -10,6 +11,7 @@ import { Ikon } from '@/components/sipantau/ikon'
 import { RuteSpt } from '@/components/sipantau/rute-spt'
 import { AksiSpt } from '@/components/sipantau/aksi-spt'
 import { KelolaTim } from '@/components/sipantau/kelola-tim'
+import { UnggahSuratSpt } from '@/components/sipantau/unggah-surat-spt'
 import { TombolSusunLhp } from '@/components/sipantau/tombol-susun-lhp'
 import { daftarPersonel } from '@/lib/personel/kueri'
 import { inisial, idValid } from '@/lib/utils'
@@ -69,6 +71,18 @@ export default async function RincianPenugasan({
   ])
 
   if (!spt) notFound()
+
+  // Tautan bermasa berlaku terbatas — 15 menit, sama seperti foto
+  // dokumentasi laporan (docs/01-koreksi.md I.9). Wadah tertutup, tidak
+  // pernah tautan tetap.
+  let tautanBerkasSurat: string | null = null
+  if (spt.berkas_surat_path) {
+    const supabase = await klienServer()
+    const { data } = await supabase.storage
+      .from('surat-spt')
+      .createSignedUrl(spt.berkas_surat_path, 900)
+    tautanBerkasSurat = data?.signedUrl ?? null
+  }
 
   const lokasi = [...(spt.penugasan_lokasi ?? [])].sort((a, b) => a.urutan - b.urutan)
   const dasar = [...(spt.penugasan_dasar ?? [])].sort((a, b) => a.urutan - b.urutan)
@@ -171,6 +185,28 @@ export default async function RincianPenugasan({
             <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6, lineHeight: 1.6 }}>{belumTerbit}</p>
           </div>
         </div>
+      )}
+
+      {/* BR-25/KP-6.2-45: tanpa berkas ini tutup_spt ditolak basis data.
+          Ditampilkan hanya kepada Kanit pemilik pada SPT yang masih
+          dapat ditutup — draf belum punya "penutupan", selesai/
+          dibatalkan sudah lewat urusan ini. */}
+      {akuKanitPemilik && spt.status !== 'draf' && !['selesai', 'dibatalkan'].includes(spt.status) && (
+        <section className="kartu" style={{ marginBottom: 18 }}>
+          <div className="kartu-h">
+            <h3>Berkas Surat Perintah</h3>
+            {spt.berkas_surat_path && <span className="isyarat">Terlampir</span>}
+          </div>
+          <div className="kartu-b">
+            {tautanBerkasSurat && (
+              <p style={{ fontSize: 13, marginBottom: 12 }}>
+                <a href={tautanBerkasSurat} target="_blank" rel="noreferrer">Lihat berkas yang tersimpan</a>
+                <span style={{ color: 'var(--ink-3)' }}> — tautan berlaku 15 menit</span>
+              </p>
+            )}
+            <UnggahSuratSpt penugasanId={spt.id} sudahAda={!!spt.berkas_surat_path} />
+          </div>
+        </section>
       )}
 
       <div style={{ marginBottom: 18 }}>
