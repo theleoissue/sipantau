@@ -70,7 +70,12 @@ export async function masuk(
       }
     }
 
-    if (baris.wajib_ganti_sandi) redirect('/ganti-sandi-wajib')
+    // Paksaan ganti Kata Sandi Sementara (KP-6.1-07/08) SENGAJA TIDAK
+    // lagi ditegakkan di sini — lihat proxy.ts. Mengalihkan ke
+    // /ganti-sandi-wajib pada titik ini SAJA (tanpa mencabutnya juga
+    // di lib/auth/pengguna.ts) sebelumnya menghasilkan pantulan tanpa
+    // henti: proxy mengalihkan /ganti-sandi-wajib KELUAR ke beranda,
+    // sementara halaman beranda sendiri mengalihkan KEMBALI ke sana.
     peran = baris.peran
   } catch (e) {
     // redirect() bekerja dengan melempar; jangan ditelan sebagai galat.

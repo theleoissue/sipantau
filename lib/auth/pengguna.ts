@@ -38,19 +38,25 @@ export const penggunaSekarang = cache(async (): Promise<Pengguna | null> => {
 
 /**
  * Dipakai layout halaman setelah masuk. Mengembalikan pengguna, atau
- * mengalihkan bila belum masuk / akun nonaktif / kata sandi belum
- * diganti (KP-6.1-07, KP-6.1-24).
+ * mengalihkan bila belum masuk / akun nonaktif (KP-6.1-24).
  *
  * proxy.ts sudah menyaring hal yang sama lebih dahulu. Pemeriksaan
  * ganda di sini disengaja: proxy tidak berjalan pada seluruh jenis
  * permintaan, dan lapisan ini yang benar-benar memegang baris users.
+ *
+ * Paksaan ganti Kata Sandi Sementara (KP-6.1-07) SENGAJA TIDAK lagi
+ * diperiksa di sini — keputusan sadar pemilik produk 8 September 2026,
+ * lihat proxy.ts. Baris ini SEBELUMNYA memeriksa p.wajib_ganti_sandi
+ * dan mengalihkan ke /ganti-sandi-wajib; itu bertentangan langsung
+ * dengan pencabutan di proxy.ts (yang mengalihkan /ganti-sandi-wajib
+ * KELUAR ke beranda) dan mengakibatkan pantulan tanpa henti di antara
+ * keduanya — celah yang sesungguhnya terjadi, bukan hipotetis.
  */
 export async function wajibkanSudahSiap(): Promise<Pengguna> {
   const p = await penggunaSekarang()
 
   if (!p) redirect('/masuk')
   if (!p.aktif) redirect('/masuk?sebab=nonaktif')
-  if (p.wajib_ganti_sandi) redirect('/ganti-sandi-wajib')
 
   return p
 }

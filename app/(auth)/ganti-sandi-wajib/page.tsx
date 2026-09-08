@@ -2,10 +2,12 @@ import { FormulirGantiSandi } from './formulir'
 
 export const metadata = { title: 'Ganti Kata Sandi — Si PANTAU' }
 
-// Halaman buntu. Selama wajib_ganti_sandi menyala, proxy.ts mengembalikan
-// pengguna ke sini dari halaman mana pun (KP-6.1-07, KP-6.1-08).
-// Tidak ada jalan melewatinya (AM-6.1-04) — karena itu tidak ada tombol
-// "nanti saja" maupun tautan keluar di halaman ini.
+// Sejak 8 September 2026 halaman ini TIDAK LAGI buntu (keputusan sadar
+// pemilik produk, lihat proxy.ts) — tidak ada yang mengalihkan pengguna
+// ke sini secara paksa. Halaman tetap ada dan tetap bisa dibuka
+// (dituju manual, atau lewat pengaturan akun kelak), tapi ketiadaan
+// tombol "nanti saja"/tautan keluar di bawah ini sekarang cuma warisan
+// desain lama — bukan penegakan aktif apa pun.
 export default function HalamanGantiSandi() {
   return (
     <div className="kotak">
