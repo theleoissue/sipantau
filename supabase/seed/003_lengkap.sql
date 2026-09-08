@@ -46,7 +46,8 @@ from (values
   ('79020096', 'TRI WAHYU WIDODO, S.H.',             'AKP',      'kanit',    'Unit II'),
   ('73040181', 'Dr. H. PRIBADI ATMA, S.Pd., M.H.',   'KOMPOL',   'kanit',    'Unit III'),
   ('69120298', 'AJI SUSANTO, S.H., M.H.',            'KOMPOL',   'kanit',    'Unit IV'),
-  ('00000000', 'AKUN PEMELIHARAAN',                  null,       'pemeliharaan', null)
+  ('00000000', 'AKUN PEMELIHARAAN',                  null,       'pemeliharaan', null),
+  ('04042004', 'ADMIN SISTEM',                        '-',        'admin',    'Unit I')
 ) as d(nrp, nama, pangkat, peran, unit)
 join auth.users a on a.email = d.nrp || '@sipantau.internal'
 on conflict (id) do update set
@@ -59,9 +60,10 @@ on conflict (id) do update set
 select
   count(*)                                       as total_akun,
   count(*) filter (where peran = 'kasubdit')     as kasubdit,
+  count(*) filter (where peran = 'admin')        as admin,
   count(*) filter (where peran = 'kanit')        as kanit,
   count(*) filter (where peran = 'panit')        as panit,
   count(*) filter (where peran = 'anggota')      as anggota,
   count(*) filter (where peran = 'pemeliharaan') as pemeliharaan,
-  count(*) = 21                                  as lengkap
+  count(*) = 22                                  as lengkap
 from public.users;

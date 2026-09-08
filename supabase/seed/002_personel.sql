@@ -80,7 +80,15 @@ from (values
   -- (docs/10-modul-6.1-auth.md §2.5). Keberadaannya beserta nama
   -- pemegangnya WAJIB tercatat pada dokumen serah terima proyek —
   -- butir A-08 pada Lampiran A.
-  ('00000000', 'AKUN PEMELIHARAAN',                  null,       'pemeliharaan', null)
+  ('00000000', 'AKUN PEMELIHARAAN',                  null,       'pemeliharaan', null),
+
+  -- ---- Admin ----
+  -- Akun teknis Manajemen Akun (migrasi 0032, peran kelima di luar
+  -- empat peran organisasi — keputusan sadar mengubah PRD, lihat
+  -- komentar migrasi 0032/0033). unit_id wajib diisi (chk_users_unit_
+  -- sesuai_peran mengizinkan null hanya untuk 'pemeliharaan'), tidak
+  -- membatasi lingkup baca Admin yang sudah mencakup semua unit.
+  ('04042004', 'ADMIN SISTEM',                        '-',        'admin',    'Unit I')
 ) as d(nrp, nama, pangkat, peran, unit)
 join auth.users a on a.email = d.nrp || '@sipantau.internal'
 on conflict (id) do update set
@@ -98,9 +106,10 @@ on conflict (id) do update set
 select
   count(*)                                       as total_akun,
   count(*) filter (where peran = 'kasubdit')     as kasubdit,
+  count(*) filter (where peran = 'admin')        as admin,
   count(*) filter (where peran = 'kanit')        as kanit,
   count(*) filter (where peran = 'panit')        as panit,
   count(*) filter (where peran = 'anggota')      as anggota,
   count(*) filter (where peran = 'pemeliharaan') as pemeliharaan,
-  count(*) = 21                                  as lengkap
+  count(*) = 22                                  as lengkap
 from public.users;
