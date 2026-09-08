@@ -63,35 +63,155 @@ a{color:inherit;text-decoration:none}
 ::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
-/* ═══════════════ HALAMAN MASUK ═══════════════ */
-#masuk{position:fixed;inset:0;z-index:300;background:var(--navy);display:grid;place-items:center;padding:24px}
+/* ═══════════════ HALAMAN MASUK ═══════════════
+   Rombak visual 8 September 2026, DUA tahap. Tahap 1 dari spesifikasi
+   teks pemilik produk (kartu putih solid). Tahap 2 (blok ini) dari
+   TANGKAPAN LAYAR ACUAN yang menyusul — kartu KACA GELAP transparan,
+   tombol biru terang, bukan putih/navy seperti tahap 1. Screenshot
+   menang atas teks bila bertentangan (instruksi eksplisit pemilik
+   produk), jadi tahap 1 ditimpa di sini, bukan digabung.
+
+   PENYIMPANGAN SADAR dari palet terkunci CLAUDE.md §7.2, DIBATASI KETAT
+   pada halaman ini saja: tombol memakai var(--blue) — token itu SUDAH
+   ADA di palet (dipakai lencana status "Baru"), cuma belum pernah
+   dipakai sebagai warna tombol. Tidak ada satu warna BARU pun
+   ditambahkan ke :root; seluruhnya token lama dipakai ulang atau
+   dikunci lokal di dalam #masuk.
+
+   Foto Gedung Polda Jabar pada acuan TIDAK ada di repo ini — sisi kiri
+   karena itu tetap gradien navy dengan sedikit sorotan, bukan foto
+   sungguhan maupun foto acak dari luar. */
+#masuk{position:fixed;inset:0;z-index:300;overflow-y:auto;
+  background:
+    radial-gradient(ellipse 60% 55% at 12% 30%,rgba(4,10,20,.5),transparent 65%),
+    radial-gradient(ellipse 700px 500px at 85% 80%,rgba(37,99,235,.12),transparent 60%),
+    linear-gradient(160deg,#0A1729 0%,var(--navy) 46%,#0A1D36 100%);
+  display:grid;align-items:safe center;justify-items:center;padding:24px}
 body.sudah-masuk #masuk{display:none}
-#masuk .kotak{width:100%;max-width:404px}
-/* Lambang resmi menggantikan penanda huruf "SP". Latar emas dan
-   aturan hurufnya dibuang — lambangnya sudah membawa bentuk kotak
-   membulat serta warnanya sendiri, dan menumpuknya di atas latar emas
-   justru bertabrakan. Ukuran serta jarak bawahnya dipertahankan persis
-   supaya tata letak halaman masuk tidak bergeser sedikit pun. */
-#masuk .lambang{width:64px;height:64px;display:block;margin:0 auto 22px;
+
+/* Berkas cahaya diagonal — dekorasi murni, meniru garis terang tipis
+   pada acuan. Satu gradien pada pseudo-elemen, bukan gambar. */
+#masuk::after{content:'';position:absolute;top:-15%;right:9%;width:2px;height:140%;
+  background:linear-gradient(180deg,transparent,rgba(96,165,250,.32) 40%,rgba(96,165,250,.32) 60%,transparent);
+  transform:rotate(16deg);pointer-events:none;z-index:0}
+
+/* Moto Polri — pojok kiri bawah, di atas area yang mestinya jadi foto
+   gedung. Disembunyikan di bawah 1024px karena area itu ditempati
+   kartu pada layar sempit. */
+#masuk .moto{position:absolute;left:clamp(24px,4vw,64px);bottom:clamp(28px,6vh,60px);
+  display:flex;flex-direction:column;gap:6px;pointer-events:none;z-index:0}
+#masuk .moto span{font-size:11px;font-weight:600;letter-spacing:.26em;
+  color:rgba(255,255,255,.22);text-transform:uppercase}
+@media (max-width:1024px){#masuk .moto{display:none}}
+
+/* Peta Jawa Barat + tagline — dekorasi sekunder di sisi kanan, sangat
+   redup. Tidak ada berkas peta di repo; digambar sebagai siluet
+   sederhana (bukan lambang resmi, sekadar bentuk geografis generik)
+   supaya tidak pernah disalahartikan sebagai lambang instansi. */
+#masuk .peta-jabar{position:absolute;right:clamp(-60px,-3vw,20px);top:50%;
+  transform:translateY(-50%);width:min(400px,30vw);pointer-events:none;z-index:0}
+#masuk .peta-jabar svg{width:100%;height:auto;display:block;color:rgba(120,160,205,.14)}
+#masuk .peta-jabar .tagline{position:absolute;left:36px;top:50%;
+  transform:translateY(-50%);white-space:nowrap}
+#masuk .peta-jabar .tagline .garis{width:30px;height:1px;
+  background:rgba(180,205,235,.32);margin-bottom:9px}
+#masuk .peta-jabar .tagline div{font-size:12px;font-weight:600;letter-spacing:.24em;
+  color:rgba(180,205,235,.4);text-transform:uppercase;line-height:1.9}
+@media (max-width:1024px){#masuk .peta-jabar{opacity:.5}}
+@media (max-width:768px){#masuk .peta-jabar{display:none}}
+
+#masuk .kotak{position:relative;z-index:1;width:100%;
+  max-width:min(540px,calc(100vw - 40px))}
+
+#masuk .lambang{width:80px;height:80px;display:block;margin:0 auto 14px;
   object-fit:contain}
-#masuk h1{font-family:var(--display);font-size:38px;font-weight:700;letter-spacing:.07em;color:#fff;text-align:center;line-height:1}
-#masuk .sub{font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.44);text-align:center;margin-top:8px}
-#masuk .satuan{font-size:12.5px;color:rgba(255,255,255,.62);text-align:center;margin-top:20px;line-height:1.6}
-#masuk form{background:var(--card);border-radius:14px;padding:26px;margin-top:26px;box-shadow:var(--sh-lg)}
-#masuk .fg{margin-bottom:15px}
-#masuk label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
-#masuk input{width:100%;padding:11px 13px;border:1px solid var(--line-2);border-radius:var(--r-sm);font-size:14px;transition:all var(--t)}
-#masuk input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(27,42,74,.08)}
-#masuk .peran-pilih{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
-#masuk .peran-pilih button{padding:10px 8px;border:1px solid var(--line-2);border-radius:var(--r-sm);font-size:12.5px;font-weight:600;color:var(--ink-2);transition:all var(--t);text-align:left;line-height:1.35}
-#masuk .peran-pilih button small{display:block;font-size:10.5px;font-weight:500;color:var(--ink-3);margin-top:2px}
-#masuk .peran-pilih button:hover{border-color:var(--ink-3)}
-#masuk .peran-pilih button.on{border-color:var(--primary);background:#F8FAFC;color:var(--ink)}
-#masuk .peran-pilih button.on small{color:var(--primary)}
-#masuk .demo-nota{font-size:11px;color:var(--ink-3);line-height:1.5;background:var(--bg);padding:10px 12px;border-radius:var(--r-sm);margin-bottom:18px}
-#masuk .btn-masuk{width:100%;padding:12px;border-radius:var(--r-sm);background:var(--primary);color:#fff;font-size:14px;font-weight:600;transition:all var(--t)}
-#masuk .btn-masuk:hover{background:var(--navy)}
-#masuk .kaki{font-size:11px;color:rgba(255,255,255,.34);text-align:center;margin-top:22px;line-height:1.6}
+#masuk h1{font-family:var(--display);font-size:clamp(32px,4vw,44px);
+  font-weight:700;letter-spacing:.01em;color:#fff;text-align:center;line-height:1.1}
+/* Baris subjudul diapit garis tipis, bukan lagi diikuti pembagi emas
+   terpisah di bawahnya — mengikuti tangkapan layar acuan persis. */
+#masuk .sub-baris{display:flex;align-items:center;justify-content:center;
+  gap:clamp(10px,3vw,16px);margin-top:11px}
+#masuk .sub-baris .garis{width:26px;height:1px;background:rgba(220,230,242,.35);flex-shrink:0}
+#masuk .sub{font-size:12.5px;font-weight:500;letter-spacing:.2em;
+  text-transform:uppercase;color:rgba(220,230,242,.75);white-space:nowrap}
+#masuk .satuan{font-size:15px;color:rgba(255,255,255,.85);
+  text-align:center;margin-top:18px;line-height:1.45}
+
+/* Kartu kaca gelap — BUKAN putih solid. Ini yang paling berbeda dari
+   tahap 1: acuan menunjukkan transparansi+blur (glassmorphism) dengan
+   nuansa navy, bukan kartu putih terpisah dari latar. */
+#masuk form{background:rgba(13,25,45,.58);backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);
+  border-radius:20px;padding:clamp(24px,4vw,32px);
+  margin-top:clamp(20px,3.5vh,28px);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+
+#masuk .fg{margin-bottom:18px}
+#masuk label{display:block;font-size:13.5px;font-weight:600;
+  color:rgba(255,255,255,.92);margin-bottom:8px}
+#masuk .ic-wrap{position:relative}
+#masuk .ic-wrap .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  width:19px;height:19px;stroke-width:1.8;color:rgba(255,255,255,.4);pointer-events:none}
+/* text-overflow:ellipsis WAJIB pada lebar sangat sempit — placeholder
+   sepanjang "Masukkan kata sandi Anda" tidak muat di samping tombol
+   Perlihatkan (kanan) dan ikon gembok (kiri) sekaligus; tanpa ini
+   teksnya meluber ke zona padding dan bertindih dengan tombol itu,
+   bukan berhenti rapi di tepi kotak isian. */
+#masuk input{width:100%;height:52px;padding:0 16px 0 42px;
+  border:1px solid rgba(255,255,255,.14);border-radius:9px;font-size:14.5px;
+  color:#fff;background:rgba(255,255,255,.05);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  transition:border-color var(--t),box-shadow var(--t),background var(--t)}
+#masuk input::placeholder{color:rgba(255,255,255,.32)}
+#masuk input:focus{outline:none;border-color:#4C8DFF;background:rgba(255,255,255,.08);
+  box-shadow:0 0 0 3px rgba(76,141,255,.18)}
+
+/* var(--blue) dipakai ULANG di sini (bukan warna baru) — sudah ada di
+   :root untuk lencana status "Baru", dipinjam sebagai warna tombol
+   HANYA di halaman ini mengikuti acuan. */
+#masuk .btn-masuk{width:100%;height:54px;border-radius:9px;
+  background:linear-gradient(180deg,#3B82F6,var(--blue));
+  color:#fff;font-size:16px;font-weight:600;
+  box-shadow:0 10px 24px rgba(37,99,235,.35);
+  transition:filter var(--t),transform var(--t);
+  display:flex;align-items:center;justify-content:center;gap:8px}
+#masuk .btn-masuk svg{width:18px;height:18px;stroke-width:2}
+#masuk .btn-masuk:hover:not(:disabled){filter:brightness(1.08)}
+#masuk .btn-masuk:active:not(:disabled){transform:translateY(1px)}
+#masuk .btn-masuk:disabled{opacity:.72;cursor:default}
+#masuk .btn-masuk:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+#masuk .galat{display:flex;align-items:flex-start;gap:10px;min-height:48px;
+  background:rgba(220,38,38,.14);border:1px solid rgba(220,38,38,.35);
+  color:#FCA5A5;padding:12px 14px;border-radius:9px;font-size:12.5px;
+  line-height:1.5;margin-bottom:20px}
+#masuk .galat svg{width:17px;height:17px;stroke-width:2;flex-shrink:0;margin-top:1px;color:#F87171}
+
+#masuk .lupa-sandi{font-size:13px;color:rgba(180,205,235,.65);
+  text-align:center;margin-top:18px;line-height:1.5}
+
+#masuk .kaki-baris{display:flex;align-items:center;justify-content:center;
+  gap:12px;margin-top:clamp(24px,4vh,34px)}
+#masuk .kaki-baris .garis{width:22px;height:1px;background:rgba(200,215,232,.25);flex-shrink:0}
+#masuk .kaki{font-size:12.5px;color:rgba(200,215,232,.55);text-align:center;line-height:1.6}
+
+@media (max-width:640px){
+  #masuk .lambang{width:64px;height:64px}
+  #masuk h1{font-size:clamp(28px,8vw,34px)}
+  #masuk .sub{font-size:10px;letter-spacing:.16em}
+  #masuk .sub-baris .garis{width:16px}
+  #masuk .kotak{max-width:calc(100% - 32px)}
+  #masuk form{padding:24px}
+  #masuk input,#masuk .btn-masuk{height:48px}
+}
+/* Lebar sangat sempit (di bawah target terkecil 360px pada spesifikasi,
+   tapi bisa terjadi pada panel/webview yang dipersempit) — garis
+   pengapit dibuang dulu (murni dekoratif), subjudul boleh melipat dua
+   baris daripada meluber atau terpotong diam-diam. */
+@media (max-width:380px){
+  #masuk .sub-baris{gap:0}
+  #masuk .sub-baris .garis{display:none}
+  #masuk .sub{white-space:normal;text-align:center;font-size:9.5px}
+}
 
 /* ═══════════════ SPANDUK PRATINJAU ═══════════════ */
 #spanduk{position:fixed;top:0;left:0;right:0;height:34px;z-index:120;display:flex;align-items:center;justify-content:center;gap:10px;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#fff;transition:background var(--t)}
