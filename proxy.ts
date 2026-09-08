@@ -2,7 +2,9 @@
 // bernama `proxy` — bukan lagi middleware.ts/middleware. JANGAN membuat
 // ulang middleware.ts, konvensi itu sudah ditinggalkan.
 //
-// Menegakkan KP-6.1-03, 07, 08, 17, dan 24.
+// Menegakkan KP-6.1-03, 17, dan 24. KP-6.1-07/08 (paksaan ganti Kata
+// Sandi Sementara) sengaja TIDAK lagi ditegakkan di sini — lihat
+// komentar di dekat "SENGAJA DICABUT" di bawah.
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -48,7 +50,7 @@ export async function proxy(permintaan: NextRequest) {
 
   const { data: baris } = await supabase
     .from('users')
-    .select('peran, aktif, wajib_ganti_sandi')
+    .select('peran, aktif')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -63,15 +65,13 @@ export async function proxy(permintaan: NextRequest) {
 
   const peran = baris.peran as Peran
 
-  // ---- Kata Sandi Sementara wajib diganti dulu (KP-6.1-07, 08) ----
-  // Halaman ini buntu: tidak ada jalan melewatinya (AM-6.1-04).
-  if (baris.wajib_ganti_sandi) {
-    if (jalur === '/ganti-sandi-wajib') return jawaban
-    const ke = permintaan.nextUrl.clone()
-    ke.pathname = '/ganti-sandi-wajib'
-    ke.search = ''
-    return NextResponse.redirect(ke)
-  }
+  // KP-6.1-07/08/AM-6.1-04 (paksaan ganti Kata Sandi Sementara) SENGAJA
+  // DICABUT di sini — keputusan sadar pemilik produk 8 September 2026,
+  // bukan bug maupun tebakan. Penyimpangan dari PRD, dicatat supaya
+  // sesi berikutnya tidak mengiranya terlewat. Kolom wajib_ganti_sandi
+  // dan halaman /ganti-sandi-wajib TETAP ada (masih diisi buat-akun,
+  // reset-kata-sandi, dan seed) tetapi tidak lagi ditegakkan apa pun —
+  // pengguna boleh terus memakai kata sandi sementaranya tanpa batas.
 
   // Sudah masuk tapi membuka halaman masuk atau ganti sandi.
   if (jalur === '/masuk' || jalur === '/ganti-sandi-wajib' || jalur === '/') {
