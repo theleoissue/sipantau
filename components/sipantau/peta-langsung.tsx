@@ -354,6 +354,13 @@ export function PetaLangsung({
   }, [])
 
   useEffect(() => {
+    if (!petaSiap || !elPeta.current) return
+    const pengamat = new ResizeObserver(() => peta.current?.invalidateSize())
+    pengamat.observe(elPeta.current)
+    return () => pengamat.disconnect()
+  }, [petaSiap])
+
+  useEffect(() => {
     if (!peta.current) return
     import('leaflet').then(L => {
       const p = peta.current
@@ -518,8 +525,10 @@ export function PetaLangsung({
         )}
       </div>
 
-      <div id="peta-wadah">
-        <div id="peta" ref={elPeta} />
+      <div className="peta-langsung-wadah">
+        <div id="peta-wadah">
+          <div id="peta" ref={elPeta} />
+        </div>
         <div className="peta-panel">
           <div className="kepala">
             <h4>Sedang bertugas</h4>

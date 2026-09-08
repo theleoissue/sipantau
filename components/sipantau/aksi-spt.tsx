@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -54,7 +56,7 @@ export function AksiSpt({
   const [tanggalBaru, setTanggalBaru] = useState('')
   const [teksDialog, setTeksDialog] = useState('')
   const [galatTeksDialog, setGalatTeksDialog] = useState<string | null>(null)
-  const [, mulaiTerbit] = useTransition()
+  const [sedangTerbit, mulaiTerbit] = useTransition()
   const [galatTerbit, setGalatTerbit] = useState<string | null>(null)
 
   const bisaBermasalah = (isPelaksanaAktif || isPanitAktif) && ['baru', 'berjalan'].includes(status)
@@ -148,11 +150,7 @@ export function AksiSpt({
           uraian bebas, keduanya wajib (KP-6.2-32). Bukan DialogAksi
           biasa karena butuh pilihan jenis, bukan sekadar alasan bebas. */}
       {dialog === 'bermasalah' && (
-        <div
-          role="dialog" aria-modal="true"
-          onClick={e => { if (e.target === e.currentTarget) setDialog(null) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(10,17,30,.6)', display: 'grid', placeItems: 'center', padding: 20 }}
-        >
+        <DialogModal label="Tandai Penugasan Bermasalah" terkunci={sedangTerbit} onTutup={() => setDialog(null)}>
           <div style={{ background: 'var(--card)', borderRadius: 14, padding: 24, maxWidth: 420, width: '100%', boxShadow: 'var(--sh-lg)' }}>
             <h3 style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)' }}>Tandai Penugasan Bermasalah</h3>
             <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6, marginTop: 10 }}>
@@ -174,7 +172,7 @@ export function AksiSpt({
               <button className="btn btn-o" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setDialog(null)}>Batal</button>
               <button
                 className="btn btn-d" style={{ flex: 1, justifyContent: 'center' }}
-                disabled={!teksDialog.trim()}
+                disabled={sedangTerbit || !teksDialog.trim()}
                 onClick={() => mulaiTerbit(async () => {
                   const r = await tandaiBermasalah(penugasanId, jenisMasalah, teksDialog.trim())
                   if (r.galat) setGalatTeksDialog(r.galat)
@@ -185,7 +183,7 @@ export function AksiSpt({
               </button>
             </div>
           </div>
-        </div>
+        </DialogModal>
       )}
 
       <DialogAksi
@@ -243,11 +241,7 @@ export function AksiSpt({
       />
 
       {dialog === 'perpanjang' && (
-        <div
-          role="dialog" aria-modal="true"
-          onClick={e => { if (e.target === e.currentTarget) setDialog(null) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(10,17,30,.6)', display: 'grid', placeItems: 'center', padding: 20 }}
-        >
+        <DialogModal label="Perpanjang Batas Waktu" terkunci={sedangTerbit} onTutup={() => setDialog(null)}>
           <div style={{ background: 'var(--card)', borderRadius: 14, padding: 24, maxWidth: 400, width: '100%', boxShadow: 'var(--sh-lg)' }}>
             <h3 style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)' }}>Perpanjang Batas Waktu</h3>
             <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6, marginTop: 10 }}>
@@ -270,7 +264,7 @@ export function AksiSpt({
               </button>
               <button
                 className="btn btn-p" style={{ flex: 1, justifyContent: 'center' }}
-                disabled={!tanggalBaru || !teksDialog.trim()}
+                disabled={sedangTerbit || !tanggalBaru || !teksDialog.trim()}
                 onClick={() => mulaiTerbit(async () => {
                   const r = await perpanjangBatas(penugasanId, tanggalBaru, teksDialog.trim())
                   if (r.galat) setGalatTeksDialog(r.galat)
@@ -281,7 +275,7 @@ export function AksiSpt({
               </button>
             </div>
           </div>
-        </div>
+        </DialogModal>
       )}
 
       <DialogAksi

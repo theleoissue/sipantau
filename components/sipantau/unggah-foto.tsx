@@ -79,7 +79,7 @@ export function UnggahFoto({
         </div>
       )}
 
-      <div
+      <button type="button" disabled={mengunggah}
         className="jatuh"
         onClick={() => !mengunggah && kamera.current?.click()}
         style={{ opacity: mengunggah ? 0.6 : 1, pointerEvents: mengunggah ? 'none' : undefined }}
@@ -87,13 +87,13 @@ export function UnggahFoto({
         <Ikon nama="kamera" />
         <p>Ambil foto dengan kamera</p>
         <small>Koordinat dan waktu pengambilan ikut tersimpan</small>
-      </div>
+      </button>
       <input
         ref={kamera} type="file" accept="image/*" capture="environment" hidden
         onChange={e => { const f = e.target.files?.[0]; if (f) unggah(f, 'kamera'); e.target.value = '' }}
       />
 
-      <div
+      <button type="button" disabled={mengunggah}
         className="jatuh"
         style={{ marginTop: 9, padding: 15, opacity: mengunggah ? 0.6 : 1, pointerEvents: mengunggah ? 'none' : undefined }}
         onClick={() => !mengunggah && galeri.current?.click()}
@@ -101,7 +101,7 @@ export function UnggahFoto({
         <Ikon nama="gambar" />
         <p style={{ fontSize: 12.5 }}>Atau pilih dari galeri</p>
         <small>Ditandai lampiran karena waktu dan lokasinya tidak dapat dijamin</small>
-      </div>
+      </button>
       <input
         ref={galeri} type="file" accept="image/*" hidden
         onChange={e => { const f = e.target.files?.[0]; if (f) unggah(f, 'galeri'); e.target.value = '' }}

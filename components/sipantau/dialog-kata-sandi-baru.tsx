@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useState } from 'react'
 import { Ikon } from './ikon'
 
@@ -40,15 +42,7 @@ export function DialogKataSandiBaru({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed', inset: 0, zIndex: 500,
-        background: 'rgba(10,17,30,.7)',
-        display: 'grid', placeItems: 'center', padding: 20,
-      }}
-    >
+    <DialogModal label="Kata sandi baru" onTutup={onTutup} tutupLewatLatar={false}>
       <div style={{
         background: 'var(--card)', borderRadius: 14, padding: 28,
         maxWidth: 420, width: '100%', boxShadow: 'var(--sh-lg)',
@@ -93,6 +87,6 @@ export function DialogKataSandiBaru({
           Tutup
         </button>
       </div>
-    </div>
+    </DialogModal>
   )
 }

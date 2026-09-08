@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useState, useTransition } from 'react'
 import { buatAkunAksi, suntingAkunAksi } from '@/app/(app)/akun/aksi'
 import { LABEL_PERAN, emailSistemDari, type Peran } from '@/lib/supabase/types'
@@ -64,17 +66,7 @@ export function FormulirAkun({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={e => { if (e.target === e.currentTarget && !proses) onTutup() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 400,
-        background: 'rgba(10,17,30,.6)',
-        display: 'grid', placeItems: 'center', padding: 20,
-        overflowY: 'auto',
-      }}
-    >
+    <DialogModal label={modeSunting ? "Sunting akun" : "Tambah akun"} terkunci={proses} onTutup={onTutup}>
       <div style={{
         background: 'var(--card)', borderRadius: 14, padding: 24,
         maxWidth: 440, width: '100%', boxShadow: 'var(--sh-lg)',
@@ -165,6 +157,6 @@ export function FormulirAkun({
           </button>
         </div>
       </div>
-    </div>
+    </DialogModal>
   )
 }

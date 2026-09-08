@@ -26,11 +26,12 @@ export function BilahBawah({ peran }: { peran: Peran }) {
   if (butir.length === 0) return null
 
   return (
-    <nav id="bb">
+    <nav id="bb" aria-label="Navigasi utama">
       {butir.map(b => (
         <Link
           key={b.id}
           href={b.rute}
+          aria-current={jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'page' : undefined}
           className={jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'on' : ''}
         >
           <Ikon nama={b.ikon} />

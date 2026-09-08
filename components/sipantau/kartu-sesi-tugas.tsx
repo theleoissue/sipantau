@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
@@ -474,10 +476,10 @@ export function KartuSesiTugas({
 
       {galat && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 10 }}>{galat}</p>}
 
-      <div className="geser" onClick={() => { if (siapAkhiri) setTanya(true) }}>
-        <div className="kepala"><Ikon nama="stop" /></div>
-        <div className="tulis">Geser untuk selesai tugas</div>
-      </div>
+      <button type="button" className="btn sesi-selesai" disabled={!siapAkhiri || proses}
+        onClick={() => setTanya(true)}>
+        <Ikon nama="stop" /> Selesaikan tugas
+      </button>
 
       {process.env.NODE_ENV !== 'production' && (
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -497,16 +499,7 @@ export function KartuSesiTugas({
       )}
 
       {tanya && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={e => { if (e.target === e.currentTarget) setTanya(false) }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 400,
-            background: 'rgba(10,17,30,.6)',
-            display: 'grid', placeItems: 'center', padding: 20,
-          }}
-        >
+        <DialogModal label="Selesaikan Sesi Tugas?" terkunci={proses} onTutup={() => setTanya(false)}>
           <div style={{
             background: 'var(--card)', borderRadius: 14, padding: 24,
             maxWidth: 380, width: '100%', boxShadow: 'var(--sh-lg)',
@@ -537,7 +530,7 @@ export function KartuSesiTugas({
               </button>
             </div>
           </div>
-        </div>
+        </DialogModal>
       )}
     </div>
   )

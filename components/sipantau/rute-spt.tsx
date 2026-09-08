@@ -36,6 +36,7 @@ export function RuteSpt({
   lokasiSpt: { nama: string; lat: number | null; lng: number | null; radius_meter: number | null }[]
 }) {
   const [pilihan, setPilihan] = useState<string>('semua')
+  const [petaSiap, setPetaSiap] = useState(false)
   const elPeta = useRef<HTMLDivElement>(null)
   const peta = useRef<import('leaflet').Map | null>(null)
   const lapisan = useRef<import('leaflet').LayerGroup | null>(null)
@@ -50,12 +51,13 @@ export function RuteSpt({
         maxZoom: 19, attribution: '&copy; OpenStreetMap',
       }).addTo(peta.current)
       lapisan.current = L.layerGroup().addTo(peta.current)
+      setPetaSiap(true)
     })
     return () => { batal = true; peta.current?.remove(); peta.current = null }
   }, [])
 
   useEffect(() => {
-    if (!peta.current || !lapisan.current) return
+    if (!petaSiap || !peta.current || !lapisan.current) return
     import('leaflet').then(L => {
       const grup = lapisan.current
       const p = peta.current
@@ -75,8 +77,8 @@ export function RuteSpt({
 
       const sesiTampil = pilihan === 'semua' ? sesi : sesi.filter(s => s.id === pilihan)
 
-      sesiTampil.forEach((s, i) => {
-        const warna = PALET[i % PALET.length]
+      sesiTampil.forEach(s => {
+        const warna = PALET[sesi.findIndex(asli => asli.id === s.id) % PALET.length]
         const titik = titikPerSesi[s.id] ?? []
         // KP-6.4-42: garis hanya menghubungkan Titik yang TIDAK diragukan.
         const wajar = titik.filter(t => !t.diragukan_sebab)
@@ -108,7 +110,14 @@ export function RuteSpt({
 
       if (batas.length) p.fitBounds(batas, { padding: [40, 40], maxZoom: 15 })
     })
-  }, [pilihan, sesi, titikPerSesi, lokasiSpt])
+  }, [pilihan, sesi, titikPerSesi, lokasiSpt, petaSiap])
+
+  useEffect(() => {
+    if (!petaSiap || !elPeta.current) return
+    const pengamat = new ResizeObserver(() => peta.current?.invalidateSize())
+    pengamat.observe(elPeta.current)
+    return () => pengamat.disconnect()
+  }, [petaSiap])
 
   if (sesi.length === 0) {
     return (
@@ -121,26 +130,26 @@ export function RuteSpt({
   }
 
   return (
-    <div className="kisi" style={{ gridTemplateColumns: '1fr 280px', gap: 14, alignItems: 'start' }}>
-      <div id="peta-wadah" style={{ height: 420 }}>
+    <div className="kisi rute-spt">
+      <div id="peta-wadah">
         <div id="peta" ref={elPeta} />
       </div>
 
-      <div className="peta-panel" style={{ position: 'static', width: '100%', maxHeight: 460 }}>
+      <div className="peta-panel">
         <div className="kepala">
           <h4>Sesi</h4>
           <span>{sesi.length}</span>
         </div>
         <div className="daftar">
-          <div
+          <button type="button" aria-pressed={pilihan === 'semua'}
             className="peta-orang"
             style={{ fontWeight: pilihan === 'semua' ? 700 : 400 }}
             onClick={() => setPilihan('semua')}
           >
             <div className="meta"><div className="nm">Seluruh sesi sekaligus</div></div>
-          </div>
+          </button>
           {sesi.map((s, i) => (
-            <div
+            <button type="button" aria-pressed={pilihan === s.id}
               key={s.id}
               className="peta-orang"
               style={{ borderLeft: `3px solid ${PALET[i % PALET.length]}`, fontWeight: pilihan === s.id ? 700 : 400 }}
@@ -158,7 +167,7 @@ export function RuteSpt({
                   <div className="st" style={{ fontStyle: 'italic' }}>Titik sudah disusutkan · bentuk kasar</div>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useState, useTransition } from 'react'
 import { beriCatatan, setujuiLaporan, tarikLaporan } from '@/app/(app)/laporan/aksi'
 import type { CatatanLaporan } from '@/lib/laporan/tipe'
@@ -131,11 +133,7 @@ export function PanelCatatan({
         )}
 
         {tanyaTarik && (
-          <div
-            role="dialog" aria-modal="true"
-            onClick={e => { if (e.target === e.currentTarget) setTanyaTarik(false) }}
-            style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(10,17,30,.6)', display: 'grid', placeItems: 'center', padding: 20 }}
-          >
+          <DialogModal label="Tarik laporan ini?" terkunci={proses} onTutup={() => setTanyaTarik(false)}>
             <div style={{ background: 'var(--card)', borderRadius: 14, padding: 24, maxWidth: 400, width: '100%' }}>
               <h3 style={{ fontSize: 16, fontWeight: 650 }}>Tarik laporan ini?</h3>
               <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.6 }}>
@@ -152,7 +150,7 @@ export function PanelCatatan({
                         onClick={tarik} disabled={proses}>Ya, tarik</button>
               </div>
             </div>
-          </div>
+          </DialogModal>
         )}
       </div>
     </section>

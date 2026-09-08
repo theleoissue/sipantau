@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { TampilanPerangkat } from '@/components/sipantau/tampilan-perangkat'
 
 export const metadata: Metadata = {
   title: 'Si PANTAU — Sistem Pengawasan Anggota Terpadu',
@@ -14,6 +15,8 @@ export const viewport: Viewport = {
   themeColor: '#0F1C32',
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
   // Zoom TIDAK dikunci: sebagian pengguna membaca di bawah matahari
   // dan perlu memperbesar (docs/00-fondasi.md §10.5).
 }
@@ -21,7 +24,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body><TampilanPerangkat />{children}</body>
     </html>
   )
 }

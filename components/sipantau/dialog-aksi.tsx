@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useState, useTransition } from 'react'
 
 export interface HasilDialogAksi {
@@ -44,16 +46,7 @@ export function DialogAksi({
   if (!terbuka) return null
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={e => { if (e.target === e.currentTarget && !proses) { onTutup(); setAlasan(''); setGalat(null) } }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 400,
-        background: 'rgba(10,17,30,.6)',
-        display: 'grid', placeItems: 'center', padding: 20,
-      }}
-    >
+    <DialogModal label={judul} terkunci={proses} onTutup={() => { onTutup(); setAlasan(''); setGalat(null) }}>
       <div style={{
         background: 'var(--card)', borderRadius: 14, padding: 24,
         maxWidth: 420, width: '100%', boxShadow: 'var(--sh-lg)',
@@ -65,6 +58,7 @@ export function DialogAksi({
 
         {butuhAlasan && (
           <textarea
+            aria-label={labelAlasan}
             value={alasan}
             onChange={e => setAlasan(e.target.value)}
             placeholder={`${labelAlasan}…`}
@@ -77,7 +71,7 @@ export function DialogAksi({
           />
         )}
 
-        {galat && <p style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 10 }}>{galat}</p>}
+        {galat && <p role="alert" style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 10 }}>{galat}</p>}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
           <button
@@ -102,6 +96,6 @@ export function DialogAksi({
           </button>
         </div>
       </div>
-    </div>
+    </DialogModal>
   )
 }

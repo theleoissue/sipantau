@@ -1,5 +1,7 @@
 'use client'
 
+import { DialogModal } from './dialog-modal'
+
 import { useState, useTransition } from 'react'
 import { keluar, cekSedangBertugas } from '@/app/(app)/aksi-keluar'
 import { Ikon } from './ikon'
@@ -36,17 +38,7 @@ export function TombolKeluar() {
       </button>
 
       {tanya && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="judul-keluar"
-          onClick={e => { if (e.target === e.currentTarget) setTanya(false) }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 400,
-            background: 'rgba(10,17,30,.6)',
-            display: 'grid', placeItems: 'center', padding: 20,
-          }}
-        >
+        <DialogModal label="Keluar dari aplikasi?" terkunci={proses} onTutup={() => setTanya(false)}>
           <div
             style={{
               background: 'var(--card)', borderRadius: 14, padding: 24,
@@ -97,7 +89,7 @@ export function TombolKeluar() {
               </button>
             </div>
           </div>
-        </div>
+        </DialogModal>
       )}
     </>
   )

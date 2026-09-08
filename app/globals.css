@@ -32,7 +32,7 @@
 :root{
   --navy:#0F1C32; --navy-2:#16253F; --primary:#1B2A4A; --gold:#F5A623;
   --bg:#F4F6F9; --card:#FFFFFF; --line:#E2E7EF; --line-2:#CBD5E1;
-  --ink:#0F1C32; --ink-2:#475569; --ink-3:#94A3B8;
+  --ink:#0F1C32; --ink-2:#475569; --ink-3:#64748B;
   --blue:#2563EB; --amber:#D97706; --green:#059669; --red:#DC2626;
   --blue-bg:#DBEAFE; --amber-bg:#FEF3C7; --green-bg:#D1FAE5; --red-bg:#FEE2E2;
   --sb:264px; --sb-mini:76px; --hd:64px;
@@ -81,7 +81,7 @@ a{color:inherit;text-decoration:none}
    Foto Gedung Polda Jabar pada acuan TIDAK ada di repo ini — sisi kiri
    karena itu tetap gradien navy dengan sedikit sorotan, bukan foto
    sungguhan maupun foto acak dari luar. */
-#masuk{position:fixed;inset:0;z-index:300;overflow-y:auto;
+#masuk{position:fixed;inset:0;z-index:300;overflow-y:auto;overflow-x:hidden;
   background:
     radial-gradient(ellipse 60% 55% at 12% 30%,rgba(4,10,20,.5),transparent 65%),
     radial-gradient(ellipse 700px 500px at 85% 80%,rgba(37,99,235,.12),transparent 60%),
@@ -91,9 +91,9 @@ body.sudah-masuk #masuk{display:none}
 
 /* Berkas cahaya diagonal — dekorasi murni, meniru garis terang tipis
    pada acuan. Satu gradien pada pseudo-elemen, bukan gambar. */
-#masuk::after{content:'';position:absolute;top:-15%;right:9%;width:2px;height:140%;
-  background:linear-gradient(180deg,transparent,rgba(96,165,250,.32) 40%,rgba(96,165,250,.32) 60%,transparent);
-  transform:rotate(16deg);pointer-events:none;z-index:0}
+#masuk::after{content:'';position:fixed;inset:0;
+  background:linear-gradient(106deg,transparent 73%,rgba(96,165,250,.24) 73.1%,transparent 73.3%);
+  pointer-events:none;z-index:0}
 
 /* Moto Polri — pojok kiri bawah, di atas area yang mestinya jadi foto
    gedung. Disembunyikan di bawah 1024px karena area itu ditempati
@@ -199,7 +199,7 @@ body.sudah-masuk #masuk{display:none}
   #masuk h1{font-size:clamp(28px,8vw,34px)}
   #masuk .sub{font-size:10px;letter-spacing:.16em}
   #masuk .sub-baris .garis{width:16px}
-  #masuk .kotak{max-width:calc(100% - 32px)}
+  #masuk .kotak{max-width:420px}
   #masuk form{padding:24px}
   #masuk input,#masuk .btn-masuk{height:48px}
 }
@@ -967,11 +967,107 @@ a.nav-i { text-decoration: none; }
    bukan potongan darinya. Nilai aslinya di atas sengaja tidak diubah,
    mengikuti kebiasaan berkas ini (lihat blok PENYESUAIAN di atas).
    ═══════════════════════════════════════════════════════════════════ */
-#bb { height: calc(62px + env(safe-area-inset-bottom, 0px)); }
-#fab { bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
+#bb { height: calc(70px + var(--aman-bawah)); padding-bottom:var(--aman-bawah); }
+#fab { bottom: calc(90px + var(--aman-bawah)); }
 
 @media (max-width: 768px) {
   /* Ruang bebas di kaki halaman ikut tumbuh bersama bilah bawah,
      supaya baris terakhir daftar tidak tertutup bilah itu. */
-  #utama { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  #utama { padding-bottom: calc(104px + var(--aman-bawah)); }
+}
+
+/* WebView Capacitor 8 mengirim custom properties; browser memakai env().
+   Jangan menjumlahkan keduanya: beberapa WebView sudah memberi padding native. */
+:root{
+  --aman-atas:var(--safe-area-inset-top,env(safe-area-inset-top,0px));
+  --aman-bawah:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px));
+  --aman-kiri:var(--safe-area-inset-left,env(safe-area-inset-left,0px));
+  --aman-kanan:var(--safe-area-inset-right,env(safe-area-inset-right,0px));
+}
+html{scroll-padding-top:calc(var(--hd) + var(--aman-atas) + 16px)}
+#rangka{min-height:100dvh}
+#hd{height:calc(var(--hd) + var(--aman-atas));padding-top:var(--aman-atas);
+  padding-left:max(24px,var(--aman-kiri));padding-right:max(24px,var(--aman-kanan))}
+#sb{padding-top:var(--aman-atas);padding-bottom:var(--aman-bawah);padding-left:var(--aman-kiri)}
+#bb{padding-left:var(--aman-kiri);padding-right:var(--aman-kanan)}
+#masuk{padding:calc(24px + var(--aman-atas)) max(20px,var(--aman-kanan)) calc(24px + var(--aman-bawah)) max(20px,var(--aman-kiri))}
+body:has(.dialog-modal[open]){overflow:hidden}
+.btn{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center;line-height:1.45}
+.btn svg{flex-shrink:0}
+button:disabled{opacity:.55;cursor:not-allowed}
+.btn:disabled:hover{transform:none;box-shadow:none}
+.jatuh{display:block;width:100%}
+.jatuh svg{display:block;margin-left:auto;margin-right:auto}
+.sesi-kartu select{background:var(--card);color:var(--ink)}
+.sesi-kartu .spt-ket{overflow-wrap:anywhere}
+.sesi-selesai{margin-top:18px;width:100%;min-height:48px;justify-content:center;
+  background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.35);color:#fff}
+.cari:has(.cari-kirim) input{padding-right:66px}
+.cari-kirim{position:absolute;right:4px;top:4px;bottom:4px;padding:0 12px;
+  border-radius:5px;background:var(--primary);color:#fff;font-size:12px;font-weight:600}
+.rute-spt{grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}
+.rute-spt #peta-wadah{height:420px;min-height:0}
+.rute-spt > .peta-panel{position:static;width:100%;max-height:460px;margin-top:0;z-index:auto}
+.peta-langsung-wadah{position:relative;isolation:isolate}
+.peta-langsung-wadah > .peta-panel{z-index:1}
+button.peta-orang{width:100%;text-align:left}
+.peta-orang[aria-pressed="true"]{background:var(--blue-bg)}
+.peta-orang .st{flex-wrap:wrap;overflow-wrap:anywhere}
+
+/* Lapisan modal native tetap di atas semua kontrol Leaflet. */
+.dialog-modal{position:fixed;inset:0;margin:0;border:0;width:100%;max-width:none;
+  height:100%;max-height:none;background:transparent;color:var(--ink);
+  padding:calc(16px + var(--aman-atas)) max(16px,var(--aman-kanan)) calc(16px + var(--aman-bawah)) max(16px,var(--aman-kiri));
+  overflow-y:auto;overscroll-behavior:contain}
+.dialog-modal[open]{display:flex;flex-direction:column;align-items:center}
+.dialog-modal::backdrop{background:rgba(10,17,30,.65)}
+.dialog-modal > div{flex-shrink:0;margin-block:auto;overflow-wrap:anywhere}
+.dialog-modal input,.dialog-modal select,.dialog-modal textarea{max-width:100%}
+.dialog-modal textarea{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:8px}
+.dialog-modal .btn{min-height:44px}
+
+@media(max-width:900px){
+  .rute-spt{grid-template-columns:minmax(0,1fr)}
+  .rute-spt #peta-wadah,.peta-langsung-wadah #peta-wadah{height:clamp(260px,46dvh,420px);min-height:0}
+  .peta-langsung-wadah > .peta-panel{max-height:360px}
+  .rute-spt > .peta-panel{max-height:320px}
+}
+@media(max-width:768px){
+  #hd{padding-left:max(12px,var(--aman-kiri));padding-right:max(12px,var(--aman-kanan))}
+  #utama{padding-left:max(16px,var(--aman-kiri));padding-right:max(16px,var(--aman-kanan))}
+  .ikon-btn,.row-x{width:44px;height:44px}
+  .btn,.cip,.nav-i{min-height:44px}
+  .btn{padding:11px 14px}
+  .btn-sm{padding:9px 12px}
+  .kh{gap:14px;margin-bottom:18px}
+  .kh h1{font-size:28px;overflow-wrap:anywhere}
+  .kh-aksi{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:8px}
+  .kartu-h{flex-wrap:wrap;padding:14px 16px}
+  .kartu-b{padding:16px}
+  .spt .atas,.spt .bawah{flex-wrap:wrap}
+  .spt h4,.lok .nm,.dor .nm{overflow-wrap:anywhere}
+  .spt .bawah > .btn{margin-left:auto}
+  .fg input,.fg select,.fg textarea{font-size:16px;min-height:46px}
+  .fg input[type="checkbox"],.fg input[type="radio"]{min-height:0}
+  .fg .bantu{font-size:12px}
+  .k-stat{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat .lb{font-size:10.5px;letter-spacing:.03em}
+  .stat .vl{font-size:30px}
+  .stat .tr{flex-wrap:wrap}
+  .wiz-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .wiz-s{padding:9px 10px;border-radius:8px;min-height:44px}
+  .wiz-nav > .btn{flex:1 1 140px;justify-content:center}
+  .saring .cari{flex-basis:100%;max-width:none}
+  .cari input{min-height:46px}
+  .peta-filter-bar select{max-width:100%;width:100%}
+  #bb a{font-size:11px;line-height:1.2;gap:4px;padding:6px 3px;text-align:center}
+  .dialog-modal > div{padding:20px!important}
+  .dialog-modal input,.dialog-modal select,.dialog-modal textarea{font-size:16px!important;min-height:44px}
+}
+@media(max-width:380px){
+  .dialog-modal .btn{font-size:12px;padding:10px 8px}
+  .stat{padding:12px}
+}
+@media(max-width:480px){
+  .kh-aksi > :last-child:nth-child(odd){grid-column:1 / -1}
 }

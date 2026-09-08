@@ -24,12 +24,20 @@ export function PenyaringPenugasan({
   const router = useRouter()
   const params = useSearchParams()
   const [kueri, setKueri] = useState(kueriAwal)
+  const [awalTerekam, setAwalTerekam] = useState(kueriAwal)
   const [menunggu, mulaiTransisi] = useTransition()
 
-  function perbarui(kunci: string, nilai: string) {
+  if (awalTerekam !== kueriAwal) {
+    setAwalTerekam(kueriAwal)
+    setKueri(kueriAwal)
+  }
+
+  function perbarui(saring = saringAktif) {
     const p = new URLSearchParams(params.toString())
-    if (nilai && nilai !== 'semua') p.set(kunci, nilai)
-    else p.delete(kunci)
+    if (kueri.trim()) p.set('cari', kueri.trim())
+    else p.delete('cari')
+    if (saring !== 'semua') p.set('saring', saring)
+    else p.delete('saring')
     mulaiTransisi(() => router.replace(`/penugasan?${p.toString()}`))
   }
 
@@ -37,7 +45,7 @@ export function PenyaringPenugasan({
     <div className="saring" style={{ opacity: menunggu ? 0.6 : 1 }}>
       <form
         className="cari"
-        onSubmit={e => { e.preventDefault(); perbarui('cari', kueri) }}
+        onSubmit={e => { e.preventDefault(); perbarui() }}
       >
         <Ikon nama="cari" />
         <input
@@ -45,9 +53,9 @@ export function PenyaringPenugasan({
           placeholder="Cari nomor, judul, atau objek"
           value={kueri}
           onChange={e => setKueri(e.target.value)}
-          onBlur={() => perbarui('cari', kueri)}
           aria-label="Cari penugasan"
         />
+        <button type="submit" className="cari-kirim" disabled={menunggu}>Cari</button>
       </form>
 
       {SARING.map(f => (
@@ -55,7 +63,8 @@ export function PenyaringPenugasan({
           key={f}
           type="button"
           className={`cip ${saringAktif === f ? 'on' : ''}`}
-          onClick={() => perbarui('saring', f)}
+          aria-pressed={saringAktif === f}
+          onClick={() => perbarui(f)}
         >
           {f[0].toUpperCase() + f.slice(1)}
         </button>

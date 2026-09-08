@@ -25,6 +25,9 @@ const config: CapacitorConfig = {
   android: {
     useLegacyBridge: true,
   },
+  plugins: {
+    SystemBars: { insetsHandling: 'css' },
+  },
 };
 
 export default config;
