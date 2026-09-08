@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
 import type { PosisiPeta } from '@/lib/gps/tipe'
-import { statusSinyal, labelTerakhirTerlihat, jarakMeter, saringGoyangan, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from './ikon'
 
@@ -72,6 +72,9 @@ export function PetaLangsung({
   // ref ini secara langsung.
   const jejak = useRef<Map<string, [number, number][]>>(new Map())
   const garisJejak = useRef<Map<string, import('leaflet').Polyline>>(new Map())
+  // Titik yang jauh dari jejak tapi BELUM dikonfirmasi Titik berikutnya
+  // — lihat bersihkanJejak() di lib/gps/tipe.ts untuk alasan lengkapnya.
+  const calonJejak = useRef<Map<string, [number, number]>>(new Map())
   // requestAnimationFrame yang sedang berjalan per sesi, supaya Titik
   // baru yang masuk SEBELUM animasi sebelumnya selesai membatalkan yang
   // lama dulu — tanpa ini dua animasi berebut posisi marker yang sama.
@@ -173,7 +176,7 @@ export function PetaLangsung({
       }),
     ).then(hasil => {
       if (batal) return
-      for (const [id, titik] of hasil) jejak.current.set(id, saringGoyangan(titik))
+      for (const [id, titik] of hasil) jejak.current.set(id, bersihkanJejak(titik))
       // Memaksa efek gambar-ulang berjalan sekali lagi sekarang juga —
       // tanpa ini, jejak yang baru saja diisi tidak tergambar sampai
       // pembaruan berikutnya (Titik baru masuk, atau pencacang 20 detik).
@@ -243,19 +246,28 @@ export function PetaLangsung({
         // 0015), jadi setiap kejadian di sini adalah SATU Titik baru,
         // bukan penyalinan baris yang sudah ada.
         //
-        // Goyangan GPS disaring DI SINI JUGA, bukan cuma pada pengisian
-        // riwayat awal — seseorang yang diam di tempat (jaga pos) tetap
-        // menerima Titik yang bergeser acak akibat sinyal memantul dari
-        // bangunan, dan tanpa penyaring ini garis hidupnya membentuk pola
-        // bintang berduri di peta alih-alih diam di satu tempat. Penanda
-        // (marker) TETAP bergerak mengikuti Titik mentah apa adanya di
-        // bawah — cuma GARISNYA yang tidak ikut menambah segmen baru bila
-        // pergeserannya di bawah ambang.
+        // Goyangan DAN lompatan disaring DI SINI JUGA, bukan cuma pada
+        // pengisian riwayat awal — versi satu-Titik dari bersihkanJejak()
+        // di lib/gps/tipe.ts (baca komentar lengkapnya di sana: goyangan
+        // kecil dibuang langsung, lompatan besar ditahan dulu sebagai
+        // calon sampai Titik BERIKUTNYA menguatkannya). Penanda (marker)
+        // TETAP bergerak mengikuti Titik mentah apa adanya di bawah —
+        // cuma GARISNYA yang tertunda/tidak menambah segmen baru.
         const titikBaru: [number, number] = [Number(baris.lat), Number(baris.lng)]
         const sudah = jejak.current.get(idSesi) ?? []
         const terakhirDigambar = sudah[sudah.length - 1]
-        if (!terakhirDigambar || jarakMeter(terakhirDigambar, titikBaru) >= AMBANG_GOYANGAN_METER) {
-          jejak.current.set(idSesi, [...sudah, titikBaru])
+        if (!terakhirDigambar) {
+          jejak.current.set(idSesi, [titikBaru])
+        } else if (jarakMeter(terakhirDigambar, titikBaru) < AMBANG_GOYANGAN_METER) {
+          calonJejak.current.delete(idSesi) // sudah kembali dekat — calon lama gugur
+        } else {
+          const calon = calonJejak.current.get(idSesi)
+          if (calon && jarakMeter(calon, titikBaru) < AMBANG_GOYANGAN_METER) {
+            jejak.current.set(idSesi, [...sudah, calon, titikBaru])
+            calonJejak.current.delete(idSesi)
+          } else {
+            calonJejak.current.set(idSesi, titikBaru)
+          }
         }
 
         let perluIsiSusulan = false
@@ -362,6 +374,7 @@ export function PetaLangsung({
       for (const [id, garis] of garisJejak.current) {
         if (!idAktif.has(id)) {
           garis.remove(); garisJejak.current.delete(id); jejak.current.delete(id)
+          calonJejak.current.delete(id)
           const raf = animasiAktif.current.get(id)
           if (raf != null) { cancelAnimationFrame(raf); animasiAktif.current.delete(id) }
         }

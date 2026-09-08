@@ -133,19 +133,53 @@ export function jarakMeter(a: [number, number], b: [number, number]): number {
 export const AMBANG_GOYANGAN_METER = 20
 
 /**
- * Membuang Titik yang cuma bergeser dalam rentang goyangan dari Titik
- * TERAKHIR YANG SUDAH DIPERTAHANKAN — bukan dari Titik mentah
- * sebelumnya. Sengaja begitu: pergeseran lambat yang genuinely
- * berpindah tempat (beberapa meter tiap Titik, bertahan searah) tetap
- * terekam begitu akumulasinya melewati ambang, bukan terhapus diam-
- * diam karena tiap langkahnya sendiri-sendiri terlalu kecil.
+ * Membersihkan Titik mentah jadi jejak yang layak digambar, dua lapis:
+ *
+ * 1. GOYANGAN KECIL — Titik yang cuma bergeser dalam rentang goyangan
+ *    dari Titik TERAKHIR YANG SUDAH DIPERTAHANKAN (bukan dari Titik
+ *    mentah sebelumnya) dibuang. Pergeseran lambat yang genuinely
+ *    berpindah tempat tetap terekam begitu akumulasinya melewati
+ *    ambang, bukan terhapus diam-diam karena tiap langkahnya sendiri
+ *    terlalu kecil.
+ *
+ * 2. LOMPATAN BESAR — TERBUKTI KURANG oleh pengujian langsung terhadap
+ *    data uji berisi lompatan sesekali (bukan cuma tebakan): sinyal
+ *    yang terpantul PARAH dari bangunan bisa melenceng 80-150 meter
+ *    sekaligus, jauh melewati ambang goyangan, dan lapis pertama saja
+ *    meloloskannya begitu saja — lalu titik SALAH itu jadi acuan baru
+ *    bagi Titik sesudahnya, membuat pola melompat keluar-masuk di
+ *    sekitar tiap lompatan.
+ *
+ *    Ditutup dengan syarat KONFIRMASI: Titik yang jauh dari Titik
+ *    terakhir TIDAK langsung dipertahankan — ditahan dulu sebagai
+ *    "calon". Baru dipertahankan (bersama calonnya) bila Titik
+ *    BERIKUTNYA juga jauh dari yang lama DAN dekat dengan calon itu —
+ *    dua bacaan berturut-turut yang saling menguatkan menunjuk tempat
+ *    baru yang sama, bukan satu kali salah lalu kembali. Kalau Titik
+ *    berikutnya ternyata dekat lagi ke tempat lama, calon itu terbukti
+ *    cuma lompatan sesaat dan dibuang, tidak pernah ikut tergambar.
+ *
+ *    Akibatnya jejak tertunda SATU Titik untuk gerakan sungguhan —
+ *    tidak terasa, karena penanda sendiri sudah dianimasikan halus
+ *    ~12 detik per Titik (peta-langsung.tsx).
  */
-export function saringGoyangan(titik: [number, number][]): [number, number][] {
+export function bersihkanJejak(titik: [number, number][]): [number, number][] {
   if (titik.length === 0) return []
   const hasil: [number, number][] = [titik[0]]
+  let calon: [number, number] | null = null
   for (let i = 1; i < titik.length; i++) {
+    const t = titik[i]
     const terakhir = hasil[hasil.length - 1]
-    if (jarakMeter(terakhir, titik[i]) >= AMBANG_GOYANGAN_METER) hasil.push(titik[i])
+    if (jarakMeter(terakhir, t) < AMBANG_GOYANGAN_METER) {
+      calon = null // ternyata sudah kembali dekat — calon lama gugur
+      continue
+    }
+    if (calon && jarakMeter(calon, t) < AMBANG_GOYANGAN_METER) {
+      hasil.push(calon, t)
+      calon = null
+    } else {
+      calon = t
+    }
   }
   return hasil
 }
