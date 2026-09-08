@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
 import type { PosisiPeta } from '@/lib/gps/tipe'
-import { statusSinyal, labelTerakhirTerlihat } from '@/lib/gps/tipe'
+import { statusSinyal, labelTerakhirTerlihat, jarakMeter, saringGoyangan, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from './ikon'
 
@@ -173,7 +173,7 @@ export function PetaLangsung({
       }),
     ).then(hasil => {
       if (batal) return
-      for (const [id, titik] of hasil) jejak.current.set(id, titik)
+      for (const [id, titik] of hasil) jejak.current.set(id, saringGoyangan(titik))
       // Memaksa efek gambar-ulang berjalan sekali lagi sekarang juga —
       // tanpa ini, jejak yang baru saja diisi tidak tergambar sampai
       // pembaruan berikutnya (Titik baru masuk, atau pencacang 20 detik).
@@ -242,9 +242,21 @@ export function PetaLangsung({
         // SEKALI per Titik (kunci utamanya sesi_tugas_id, lihat migrasi
         // 0015), jadi setiap kejadian di sini adalah SATU Titik baru,
         // bukan penyalinan baris yang sudah ada.
+        //
+        // Goyangan GPS disaring DI SINI JUGA, bukan cuma pada pengisian
+        // riwayat awal — seseorang yang diam di tempat (jaga pos) tetap
+        // menerima Titik yang bergeser acak akibat sinyal memantul dari
+        // bangunan, dan tanpa penyaring ini garis hidupnya membentuk pola
+        // bintang berduri di peta alih-alih diam di satu tempat. Penanda
+        // (marker) TETAP bergerak mengikuti Titik mentah apa adanya di
+        // bawah — cuma GARISNYA yang tidak ikut menambah segmen baru bila
+        // pergeserannya di bawah ambang.
         const titikBaru: [number, number] = [Number(baris.lat), Number(baris.lng)]
         const sudah = jejak.current.get(idSesi) ?? []
-        jejak.current.set(idSesi, [...sudah, titikBaru])
+        const terakhirDigambar = sudah[sudah.length - 1]
+        if (!terakhirDigambar || jarakMeter(terakhirDigambar, titikBaru) >= AMBANG_GOYANGAN_METER) {
+          jejak.current.set(idSesi, [...sudah, titikBaru])
+        }
 
         let perluIsiSusulan = false
         setPosisi(prev => {

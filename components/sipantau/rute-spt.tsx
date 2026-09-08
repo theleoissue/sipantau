@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { SesiRute, TitikRute } from '@/lib/gps/tipe'
-import { LABEL_SEBAB_PENUTUPAN } from '@/lib/gps/tipe'
+import { LABEL_SEBAB_PENUTUPAN, saringGoyangan } from '@/lib/gps/tipe'
 import { Ikon } from './ikon'
 
 const PALET = ['#2563EB', '#DC2626', '#059669', '#D97706', '#7C3AED', '#DB2777', '#0891B2', '#65A30D']
@@ -81,10 +81,14 @@ export function RuteSpt({
         // KP-6.4-42: garis hanya menghubungkan Titik yang TIDAK diragukan.
         const wajar = titik.filter(t => !t.diragukan_sebab)
 
-        if (wajar.length >= 2) {
-          const garis: [number, number][] = wajar.map(t => [t.lat, t.lng])
-          L.polyline(garis, { color: warna, weight: 3.5, opacity: .85 }).addTo(grup)
-          garis.forEach(g => batas.push(g))
+        // Goyangan GPS disaring HANYA untuk garisnya — titik awal/akhir
+        // di bawah tetap memakai wajar[0]/wajar.at(-1) apa adanya, supaya
+        // waktu mulai dan selesai yang ditampilkan adalah Titik
+        // sungguhan pertama dan terakhir, bukan hasil saringan.
+        const garisBersih = saringGoyangan(wajar.map(t => [t.lat, t.lng]))
+        if (garisBersih.length >= 2) {
+          L.polyline(garisBersih, { color: warna, weight: 3.5, opacity: .85 }).addTo(grup)
+          garisBersih.forEach(g => batas.push(g))
         } else if (s.diringkas_pada && s.lat_awal != null && s.lat_akhir != null) {
           // KP-6.4-43: Titik satuan sudah disusutkan — garis kasar
           // putus-putus dari Ringkasan Rute yang tersisa.

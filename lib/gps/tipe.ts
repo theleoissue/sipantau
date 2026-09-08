@@ -98,3 +98,54 @@ export interface TitikRute {
   direkam_pada: string
   diragukan_sebab: string | null
 }
+
+// ---------------------------------------------------------------------
+// Penyaringan goyangan GPS (jitter) — dipakai rute-spt.tsx (riwayat)
+// DAN peta-langsung.tsx (jejak hidup). Satu definisi bersama supaya
+// keduanya menegakkan ambang yang sama persis, bukan dua tempat yang
+// diam-diam berbeda (CLAUDE.md §11).
+//
+// BUKAN soal akurasi/lompatan — itu sudah ditegakkan server lewat
+// diragukan_sebab (KP-6.4-14/15). Ini murni gejala LAIN: seseorang yang
+// diam di tempat (jaga pos, menunggu) tetap menerima Titik yang
+// bergeser acak beberapa puluh meter akibat sinyal memantul dari
+// bangunan (multipath) — nilai akurasi yang dilaporkan perangkat bisa
+// saja tetap "baik" meski posisinya keliru, karena akurasi itu tingkat
+// keyakinan perangkat sendiri, bukan jaminan kebenaran. Titik-titik itu
+// LOLOS kedua pemeriksaan server, lalu tersambung garis lurus berurutan
+// waktu, membentuk pola bintang berduri di peta — bukan jalur
+// sungguhan.
+// ---------------------------------------------------------------------
+
+/** Jarak antara dua koordinat dalam meter (Haversine) — cukup akurat
+ *  untuk jarak sependek ini, jauh di bawah presisi GPS itu sendiri. */
+export function jarakMeter(a: [number, number], b: [number, number]): number {
+  const R = 6371000
+  const dLat = (b[0] - a[0]) * Math.PI / 180
+  const dLng = (b[1] - a[1]) * Math.PI / 180
+  const lat1 = a[0] * Math.PI / 180
+  const lat2 = b[0] * Math.PI / 180
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+/** Di bawah ini dianggap goyangan, bukan gerakan sungguhan. */
+export const AMBANG_GOYANGAN_METER = 20
+
+/**
+ * Membuang Titik yang cuma bergeser dalam rentang goyangan dari Titik
+ * TERAKHIR YANG SUDAH DIPERTAHANKAN — bukan dari Titik mentah
+ * sebelumnya. Sengaja begitu: pergeseran lambat yang genuinely
+ * berpindah tempat (beberapa meter tiap Titik, bertahan searah) tetap
+ * terekam begitu akumulasinya melewati ambang, bukan terhapus diam-
+ * diam karena tiap langkahnya sendiri-sendiri terlalu kecil.
+ */
+export function saringGoyangan(titik: [number, number][]): [number, number][] {
+  if (titik.length === 0) return []
+  const hasil: [number, number][] = [titik[0]]
+  for (let i = 1; i < titik.length; i++) {
+    const terakhir = hasil[hasil.length - 1]
+    if (jarakMeter(terakhir, titik[i]) >= AMBANG_GOYANGAN_METER) hasil.push(titik[i])
+  }
+  return hasil
+}
