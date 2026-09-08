@@ -72,6 +72,64 @@ export function PetaLangsung({
   // ref ini secara langsung.
   const jejak = useRef<Map<string, [number, number][]>>(new Map())
   const garisJejak = useRef<Map<string, import('leaflet').Polyline>>(new Map())
+  // requestAnimationFrame yang sedang berjalan per sesi, supaya Titik
+  // baru yang masuk SEBELUM animasi sebelumnya selesai membatalkan yang
+  // lama dulu — tanpa ini dua animasi berebut posisi marker yang sama.
+  const animasiAktif = useRef<Map<string, number>>(new Map())
+
+  /**
+   * Menggeser penanda (dan ujung garis jejaknya) halus dari `dari` ke
+   * `ke`, alih-alih melompat langsung — trik yang sama dipakai GMaps
+   * dan Strava. Data GPS-nya TIDAK berubah (tetap satu Titik per ~15
+   * detik); yang berubah cuma cara satu Titik itu ditampilkan.
+   *
+   * DURASI dipilih agak di bawah jeda pengiriman Titik yang wajar,
+   * supaya animasi biasanya sempat selesai SEBELUM Titik berikutnya
+   * datang — bukan disamakan persis, karena jalur native dan jalur web
+   * tidak menjamin jeda yang identik. Titik yang datang lebih awal dari
+   * itu tetap aman: animasi lama dibatalkan, yang baru mulai dari
+   * posisi kunjung terakhir (bukan dari awal), jadi tidak pernah
+   * terlihat melompat mundur.
+   *
+   * garisJejak menampilkan array DASAR (seluruh Titik kecuali yang
+   * sedang dituju) ditambah satu titik ekor yang bergerak — jejak.current
+   * sendiri sudah berisi tujuan akhirnya sejak Titik itu tiba (kebenaran
+   * data selalu mutakhir; animasi ini murni lapisan tampilan).
+   */
+  const DURASI_ANIMASI_MS = 12_000
+
+  const animasiKe = useCallback((idSesi: string, dari: [number, number], ke: [number, number]) => {
+    const sebelumnya = animasiAktif.current.get(idSesi)
+    if (sebelumnya != null) cancelAnimationFrame(sebelumnya)
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      penanda.current.get(idSesi)?.setLatLng(ke)
+      const garis = garisJejak.current.get(idSesi)
+      const dasar = jejak.current.get(idSesi) ?? []
+      if (garis && dasar.length >= 1) garis.setLatLngs(dasar)
+      return
+    }
+
+    const mulai = performance.now()
+    const frame = (sekarang: number) => {
+      const t = Math.min(1, (sekarang - mulai) / DURASI_ANIMASI_MS)
+      const e = 1 - (1 - t) ** 3 // ease-out kubik — cepat di awal, melambat mendekati tujuan
+      const lat = dari[0] + (ke[0] - dari[0]) * e
+      const lng = dari[1] + (ke[1] - dari[1]) * e
+
+      penanda.current.get(idSesi)?.setLatLng([lat, lng])
+      const garis = garisJejak.current.get(idSesi)
+      const dasar = jejak.current.get(idSesi) ?? []
+      if (garis && dasar.length >= 1) garis.setLatLngs([...dasar.slice(0, -1), [lat, lng]])
+
+      if (t < 1) {
+        animasiAktif.current.set(idSesi, requestAnimationFrame(frame))
+      } else {
+        animasiAktif.current.delete(idSesi)
+      }
+    }
+    animasiAktif.current.set(idSesi, requestAnimationFrame(frame))
+  }, [])
 
   // Status Terakhir terlihat menua seiring waktu meski tidak ada
   // pembaruan data — perlu render ulang berkala supaya warnanya benar
@@ -236,6 +294,7 @@ export function PetaLangsung({
 
   useEffect(() => {
     let batal = false
+    const animasi = animasiAktif.current
     import('leaflet').then(L => {
       if (batal || !elPeta.current || peta.current) return
       peta.current = L.map(elPeta.current, { zoomControl: true, attributionControl: true })
@@ -259,6 +318,8 @@ export function PetaLangsung({
     })
     return () => {
       batal = true
+      for (const raf of animasi.values()) cancelAnimationFrame(raf)
+      animasi.clear()
       peta.current?.remove()
       peta.current = null
     }
@@ -283,35 +344,47 @@ export function PetaLangsung({
       // Garis jejak ikut dibuang begitu sesinya tidak lagi aktif —
       // sama seperti penanda. Riwayatnya tetap ada (location_logs
       // permanen), cuma tidak digambar hidup lagi di peta ini; itu
-      // urusan halaman Rute.
+      // urusan halaman Rute. Animasi yang sedang berjalan untuk sesi
+      // itu ikut dibatalkan — tanpa ini rAF-nya terus memanggil
+      // setLatLng pada penanda yang sudah dihapus dari peta.
       for (const [id, garis] of garisJejak.current) {
-        if (!idAktif.has(id)) { garis.remove(); garisJejak.current.delete(id); jejak.current.delete(id) }
+        if (!idAktif.has(id)) {
+          garis.remove(); garisJejak.current.delete(id); jejak.current.delete(id)
+          const raf = animasiAktif.current.get(id)
+          if (raf != null) { cancelAnimationFrame(raf); animasiAktif.current.delete(id) }
+        }
       }
 
       for (const pos of daftar) {
         const wSpt = warnaSpt(pos.penugasan_id)
         const wCincin = WARNA_CINCIN[statusSinyal(pos.direkam_pada)]
         const ikonHtml = `<div class="penanda" style="background:${wSpt};border-color:${wCincin}"><span>${inisial(pos.nama)}</span></div>`
+        const tujuan: [number, number] = [pos.lat, pos.lng]
 
         // Garis jejak SEBELUM penanda, supaya penanda (dan balonnya)
         // selalu tergambar DI ATAS garis, bukan tertutup olehnya.
+        //
+        // Kemunculan PERTAMA garis (belum ada sama sekali di peta ini,
+        // entah baru muncul atau sudah diisi riwayat dari location_logs
+        // saat halaman dibuka) digambar utuh langsung — tidak ada yang
+        // perlu dianimasikan karena belum pernah tergambar sebelumnya.
+        // Pemanjangan BERIKUTNYA (Titik baru masuk lewat Realtime)
+        // diserahkan ke animasiKe() lewat cabang "bergerak" di bawah,
+        // supaya ujung garis ikut bergeser halus bersama penandanya.
         const titikJejak = jejak.current.get(pos.sesi_tugas_id) ?? []
-        if (titikJejak.length >= 2) {
-          const garisAda = garisJejak.current.get(pos.sesi_tugas_id)
-          if (garisAda) {
-            garisAda.setLatLngs(titikJejak)
-          } else {
-            const garisBaru = L.polyline(titikJejak, { color: wSpt, weight: 3.5, opacity: .85 }).addTo(p)
-            garisJejak.current.set(pos.sesi_tugas_id, garisBaru)
-          }
+        if (!garisJejak.current.has(pos.sesi_tugas_id) && titikJejak.length >= 2) {
+          const garisBaru = L.polyline(titikJejak, { color: wSpt, weight: 3.5, opacity: .85 }).addTo(p)
+          garisJejak.current.set(pos.sesi_tugas_id, garisBaru)
         }
 
         const ada = penanda.current.get(pos.sesi_tugas_id)
         if (ada) {
-          ada.setLatLng([pos.lat, pos.lng])
+          const sekarang = ada.getLatLng()
+          const bergerak = sekarang.lat !== tujuan[0] || sekarang.lng !== tujuan[1]
           ada.setIcon(L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }))
+          if (bergerak) animasiKe(pos.sesi_tugas_id, [sekarang.lat, sekarang.lng], tujuan)
         } else {
-          const mkr = L.marker([pos.lat, pos.lng], {
+          const mkr = L.marker(tujuan, {
             icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }),
           }).addTo(p)
           penanda.current.set(pos.sesi_tugas_id, mkr)
@@ -334,7 +407,7 @@ export function PetaLangsung({
     // "Sedang bertugas" di render biasa). Tanpa ini, keduanya beku
     // pada nilai saat titik GPS TERAKHIR masuk, tidak pernah mengejar
     // waktu berjalan sampai ada titik baru atau halaman dimuat ulang.
-  }, [posisi, filterSpt, petaSiap, tik])
+  }, [posisi, filterSpt, petaSiap, tik, animasiKe])
 
   // Titik lokasi SPT — penanda TETAP, tidak berubah lewat Realtime
   // (bukan posisi personel). BR-67: koordinat digambar apa adanya,
