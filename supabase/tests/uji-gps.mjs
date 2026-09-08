@@ -241,6 +241,39 @@ cek('U-GPS-07', 'Titik berlompatan tidak wajar tetap tersimpan dan ditandai',
   (await db.query(`select diragukan_sebab from public.location_logs where id=$1`, [idTitikLompat]))
     .rows[0].diragukan_sebab === 'lompatan_tidak_wajar')
 
+// U-GPS-06b/06c — KP-6.4-14 DIPERKETAT (migrasi 0051): ambang 30 meter,
+// bukan 100 seperti tertulis PRD (keputusan sadar pemilik produk,
+// dicatat di 0051, sisi permintaan GPS sudah di titik maksimal jadi
+// satu-satunya tuas yang tersisa adalah ambang penerimaan ini). Kedua
+// titik memakai koordinat SAMA PERSIS dengan Titik pertama sesi (jarak
+// nol) supaya pemeriksaan lompatan tidak ikut tersentuh — sama seperti
+// isolasi pada U-GPS-06.
+let idAkurasiTepatBatas
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  const r = await db.query(
+    `select public.kirim_titik($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as id`,
+    [idSesiA1Baru, -6.91, 107.61, 29, null, null, 86, 'gps',
+     '31000000-0000-0000-0000-000000000001', t(70),
+     'android-hp-2', 'android-hp-2'])
+  idAkurasiTepatBatas = r.rows[0].id
+})
+cek('U-GPS-06b', 'Titik 29m (di bawah ambang baru 30m) TETAP wajar',
+  (await db.query(`select diragukan_sebab from public.location_logs where id=$1`, [idAkurasiTepatBatas]))
+    .rows[0].diragukan_sebab === null)
+
+let idAkurasiLewatBatasBaru
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  const r = await db.query(
+    `select public.kirim_titik($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as id`,
+    [idSesiA1Baru, -6.91, 107.61, 31, null, null, 85, 'gps',
+     '31000000-0000-0000-0000-000000000002', t(80),
+     'android-hp-2', 'android-hp-2'])
+  idAkurasiLewatBatasBaru = r.rows[0].id
+})
+cek('U-GPS-06c', 'Titik 31m (di atas ambang baru 30m) DITANDAI — dahulu wajar di bawah ambang lama 100m',
+  (await db.query(`select diragukan_sebab from public.location_logs where id=$1`, [idAkurasiLewatBatasBaru]))
+    .rows[0].diragukan_sebab === 'akurasi_buruk')
+
 // U-GPS-08 — KP-6.4-19: antrean_id kembar tidak membuat baris kedua.
 const jumlahSebelum = await n(`select count(*) n from public.location_logs where sesi_tugas_id=$1`, [idSesiA1Baru])
 await sebagaiTanpaRollback(ID.anggota1, async () => {
