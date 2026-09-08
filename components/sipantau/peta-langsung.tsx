@@ -64,12 +64,69 @@ export function PetaLangsung({
   const penanda = useRef<Map<string, import('leaflet').Marker>>(new Map())
   const lokasiLayer = useRef<import('leaflet').LayerGroup | null>(null)
 
+  // Jejak yang tumbuh hidup selagi Sesi Tugas berjalan — beda dari
+  // Rute (riwayat) di rincian SPT, yang cuma termuat sekali saat
+  // halaman dibuka. Ref, bukan state: berubah tiap Titik masuk (bisa
+  // sangat sering dengan banyak personel aktif), dan tidak perlu
+  // memicu render ulang React — efek gambar-ulang di bawah membaca
+  // ref ini secara langsung.
+  const jejak = useRef<Map<string, [number, number][]>>(new Map())
+  const garisJejak = useRef<Map<string, import('leaflet').Polyline>>(new Map())
+
   // Status Terakhir terlihat menua seiring waktu meski tidak ada
   // pembaruan data — perlu render ulang berkala supaya warnanya benar
   // (KP-6.4-33..35), bukan hanya saat posisi berubah.
   useEffect(() => {
     const id = setInterval(() => paksaRenderUlang(v => v + 1), 20_000)
     return () => clearInterval(id)
+  }, [])
+
+  // Mengisi jejak sesi yang SUDAH berjalan saat halaman pertama dibuka
+  // — tanpa ini, garisnya baru mulai terlihat dari Titik pertama yang
+  // masuk SETELAH halaman dibuka, padahal sesinya sendiri mungkin
+  // sudah berjalan berjam-jam. location_logs dibaca langsung (bukan
+  // lewat titikSesi() di lib/gps/kueri.ts — itu server-only, memakai
+  // klienServer yang menyeret next/headers, tidak boleh masuk bundel
+  // klien), dengan penyaring diragukan_sebab yang sama seperti Rute
+  // (riwayat) di rute-spt.tsx.
+  //
+  // KP-6.4-42 hanya diterapkan DI SINI (pengisian awal), TIDAK pada
+  // Titik yang menyusul lewat Realtime di bawah — payload posisi_terkini
+  // tidak membawa kolom diragukan_sebab sama sekali (tabel itu memang
+  // tidak punya kolom itu), jadi tidak ada yang bisa disaring di jalur
+  // hidup tanpa kueri tambahan per Titik, yang meniadakan tujuan
+  // memakai Realtime. Diterima sebagai penyederhanaan sadar: kalau
+  // suatu Titik ternyata diragukan, itu baru diketahui SESUDAHNYA (dari
+  // Titik berikutnya), dan tinjauan resmi lewat halaman Rute tetap
+  // menyaringnya dengan benar — jejak hidup ini sekadar gambaran
+  // "sedang terjadi", bukan catatan resmi.
+  useEffect(() => {
+    let batal = false
+    const supabase = klienBrowser()
+    Promise.all(
+      posisiAwal.map(async p => {
+        const { data } = await supabase
+          .from('location_logs')
+          .select('lat, lng, diragukan_sebab')
+          .eq('sesi_tugas_id', p.sesi_tugas_id)
+          .is('diragukan_sebab', null)
+          .order('direkam_pada', { ascending: true })
+        return [p.sesi_tugas_id, (data ?? []).map(t => [Number(t.lat), Number(t.lng)] as [number, number])] as const
+      }),
+    ).then(hasil => {
+      if (batal) return
+      for (const [id, titik] of hasil) jejak.current.set(id, titik)
+      // Memaksa efek gambar-ulang berjalan sekali lagi sekarang juga —
+      // tanpa ini, jejak yang baru saja diisi tidak tergambar sampai
+      // pembaruan berikutnya (Titik baru masuk, atau pencacang 20 detik).
+      setPosisi(p => new Map(p))
+    })
+    return () => { batal = true }
+    // Sengaja HANYA sekali saat pemasangan (posisiAwal adalah potret,
+    // bukan sesuatu yang disinkronkan berulang) — sesi yang muncul
+    // BELAKANGAN lewat Realtime mulai jejaknya dari titik pertama yang
+    // sungguh terlihat komponen ini, tidak perlu pengisian riwayat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -111,6 +168,7 @@ export function PetaLangsung({
         if (payload.eventType === 'DELETE') {
           const lama = payload.old as { sesi_tugas_id?: string }
           if (lama?.sesi_tugas_id) {
+            jejak.current.delete(lama.sesi_tugas_id)
             setPosisi(prev => {
               const n = new Map(prev)
               n.delete(lama.sesi_tugas_id!)
@@ -121,6 +179,15 @@ export function PetaLangsung({
         }
         const baris = payload.new as Record<string, unknown>
         const idSesi = baris.sesi_tugas_id as string
+
+        // Menambah ke garis yang tumbuh — posisi_terkini di-UPSERT TEPAT
+        // SEKALI per Titik (kunci utamanya sesi_tugas_id, lihat migrasi
+        // 0015), jadi setiap kejadian di sini adalah SATU Titik baru,
+        // bukan penyalinan baris yang sudah ada.
+        const titikBaru: [number, number] = [Number(baris.lat), Number(baris.lng)]
+        const sudah = jejak.current.get(idSesi) ?? []
+        jejak.current.set(idSesi, [...sudah, titikBaru])
+
         let perluIsiSusulan = false
         setPosisi(prev => {
           const n = new Map(prev)
@@ -213,11 +280,32 @@ export function PetaLangsung({
       for (const [id, m] of penanda.current) {
         if (!idAktif.has(id)) { m.remove(); penanda.current.delete(id) }
       }
+      // Garis jejak ikut dibuang begitu sesinya tidak lagi aktif —
+      // sama seperti penanda. Riwayatnya tetap ada (location_logs
+      // permanen), cuma tidak digambar hidup lagi di peta ini; itu
+      // urusan halaman Rute.
+      for (const [id, garis] of garisJejak.current) {
+        if (!idAktif.has(id)) { garis.remove(); garisJejak.current.delete(id); jejak.current.delete(id) }
+      }
 
       for (const pos of daftar) {
         const wSpt = warnaSpt(pos.penugasan_id)
         const wCincin = WARNA_CINCIN[statusSinyal(pos.direkam_pada)]
         const ikonHtml = `<div class="penanda" style="background:${wSpt};border-color:${wCincin}"><span>${inisial(pos.nama)}</span></div>`
+
+        // Garis jejak SEBELUM penanda, supaya penanda (dan balonnya)
+        // selalu tergambar DI ATAS garis, bukan tertutup olehnya.
+        const titikJejak = jejak.current.get(pos.sesi_tugas_id) ?? []
+        if (titikJejak.length >= 2) {
+          const garisAda = garisJejak.current.get(pos.sesi_tugas_id)
+          if (garisAda) {
+            garisAda.setLatLngs(titikJejak)
+          } else {
+            const garisBaru = L.polyline(titikJejak, { color: wSpt, weight: 3.5, opacity: .85 }).addTo(p)
+            garisJejak.current.set(pos.sesi_tugas_id, garisBaru)
+          }
+        }
+
         const ada = penanda.current.get(pos.sesi_tugas_id)
         if (ada) {
           ada.setLatLng([pos.lat, pos.lng])
