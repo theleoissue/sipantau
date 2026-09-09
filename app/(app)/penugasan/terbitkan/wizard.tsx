@@ -42,6 +42,29 @@ type Dasar = { jenis: string; nomor: string; tanggal: string; keterangan: string
 type Lokasi = { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }
 type DrafLokal = Record<string, unknown>
 
+function namaSerupa(a: string, b: string) {
+  const bersih = (nilai: string) => nilai.toLocaleLowerCase('id-ID')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+  const kiri = bersih(a)
+  const kanan = bersih(b)
+  return kiri === kanan || (Math.min(kiri.length, kanan.length) >= 5 && (kiri.includes(kanan) || kanan.includes(kiri)))
+}
+
+function cocokkanTimScan(data: DataScanSprin, personel: Personel[]) {
+  const tim = data.tim ?? []
+  const namaPanit = tim
+    .filter(anggota => ['panit', 'penanggung_jawab', 'ketua_tim'].includes(anggota.peran))
+    .map(anggota => anggota.nama)
+  const namaPelaksana = [...data.personel, ...tim
+    .filter(anggota => anggota.peran === 'pelaksana')
+    .map(anggota => anggota.nama)]
+
+  return {
+    panit: personel.filter(p => namaPanit.some(nama => namaSerupa(nama, p.nama))).map(p => p.id),
+    pelaksana: personel.filter(p => namaPelaksana.some(nama => namaSerupa(nama, p.nama))).map(p => p.id),
+  }
+}
+
 export interface DrafAwal {
   id: string
   nomor_spt: string | null
@@ -105,12 +128,13 @@ export function WizardTerbitkan({
       { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' },
     ],
   )
-  const [lokasi, setLokasi] = useState<Lokasi[]>(draf?.lokasi.length ? draf.lokasi : [
-    { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' },
-  ])
+  const [lokasi, setLokasi] = useState<Lokasi[]>(draf?.lokasi.length ? draf.lokasi : scanAwal?.lokasi?.length
+    ? scanAwal.lokasi.map(l => ({ nama: l.nama, alamat: l.alamat || '', keterangan: l.keterangan || '', lat: '', lng: '', radius: '300' }))
+    : [{ nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' }])
   const [titikAktif, setTitikAktif] = useState(0)
-  const [panit, setPanit] = useState<string[]>([])
-  const [pelaksana, setPelaksana] = useState<string[]>([])
+  const timAwal = scanAwal ? cocokkanTimScan(scanAwal, personel) : { panit: [], pelaksana: [] }
+  const [panit, setPanit] = useState<string[]>(timAwal.panit)
+  const [pelaksana, setPelaksana] = useState<string[]>(timAwal.pelaksana)
   const [statusScan, setStatusScan] = useState(
     scanAwal
       ? 'Hasil scan yang disetujui sudah mengisi keterangan penugasan. Periksa kembali, lalu lengkapi lokasi, dasar, Panit, dan susunan tim.'
@@ -195,15 +219,18 @@ export function WizardTerbitkan({
     if (['normal', 'penting', 'urgent'].includes(data.prioritas)) setPrioritas(data.prioritas)
     setMulaiTgl(data.tanggal_mulai || mulaiTgl); setBatasTgl(data.tanggal_batas || batasTgl)
     if (data.dasar?.length) setDasar(data.dasar)
-    const nama = data.personel.map(n => n.toLowerCase().replace(/[^a-z]/g, ''))
-    const cocok = personel.filter(p => nama.includes(p.nama.toLowerCase().replace(/[^a-z]/g, ''))).map(p => p.id)
-    if (cocok.length) setPelaksana(cocok)
+    if (data.lokasi?.length) setLokasi(data.lokasi.map(l => ({
+      nama: l.nama, alamat: l.alamat || '', keterangan: l.keterangan || '', lat: '', lng: '', radius: '300',
+    })))
+    const cocok = cocokkanTimScan(data, personel)
+    if (cocok.panit.length) setPanit(cocok.panit)
+    if (cocok.pelaksana.length) setPelaksana(cocok.pelaksana)
     const terisi = [
       data.nomor_spt && 'nomor SPRIN', data.judul && 'judul', data.objek && 'objek',
       data.sasaran && 'sasaran', data.uraian_tugas && 'uraian', data.tanggal_mulai && 'tanggal mulai', data.tanggal_batas && 'batas waktu',
     ].filter(Boolean)
     setStatusScan(
-      `Hasil scan mengisi ${terisi.length ? terisi.join(', ') : 'form yang terbaca'}.${data.dasar?.length ? ` ${data.dasar.length} dasar penugasan ditemukan.` : ''}${cocok.length ? ` ${cocok.length} personel berhasil dicocokkan.` : ' Personel belum dipilih otomatis; periksa susunan tim.'} Lengkapi lokasi dan Panit sebelum menerbitkan.`,
+      `Hasil scan mengisi ${terisi.length ? terisi.join(', ') : 'form yang terbaca'}.${data.dasar?.length ? ` ${data.dasar.length} dasar penugasan ditemukan.` : ''}${data.lokasi?.length ? ` ${data.lokasi.length} kandidat lokasi dimasukkan tanpa koordinat.` : ''}${cocok.panit.length ? ` ${cocok.panit.length} Panit/PJ yang tertulis berhasil dicocokkan.` : ''}${cocok.pelaksana.length ? ` ${cocok.pelaksana.length} pelaksana berhasil dicocokkan.` : ' Periksa susunan tim.'} Pilih koordinat lokasi di peta sebelum menerbitkan.`,
     )
   }
 
@@ -521,8 +548,9 @@ export function WizardTerbitkan({
                 Tempat-tempat yang tercantum pada surat, berurutan.
                 Sekurang-kurangnya satu titik wajib berkoordinat — tanpa itu
                 sistem tidak punya pembanding untuk menetapkan status lokasi
-                laporan. Titik tanpa koordinat tetap boleh ada dan bukan
-                kekurangan data.
+                laporan. Kandidat dari hasil scan belum memiliki koordinat:
+                cari tempatnya, lalu ketuk pin pratinjau di peta untuk
+                menyetujui titik yang akan dipakai.
               </p>
 
               {/* KP-6.2-16: tiga cara menetapkan koordinat — peta+pin dan
