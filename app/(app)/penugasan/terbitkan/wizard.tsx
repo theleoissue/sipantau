@@ -102,6 +102,11 @@ export function WizardTerbitkan({
   const [titikAktif, setTitikAktif] = useState(0)
   const [panit, setPanit] = useState<string[]>([])
   const [pelaksana, setPelaksana] = useState<string[]>([])
+  const [statusScan, setStatusScan] = useState(
+    scanAwal
+      ? 'Hasil scan yang disetujui sudah mengisi keterangan penugasan. Periksa kembali, lalu lengkapi lokasi, dasar, Panit, dan susunan tim.'
+      : '',
+  )
   const [statusSimpanOtomatis, setStatusSimpanOtomatis] = useState('')
   const drafLokalSiap = useRef(false)
 
@@ -175,6 +180,13 @@ export function WizardTerbitkan({
     const nama = data.personel.map(n => n.toLowerCase().replace(/[^a-z]/g, ''))
     const cocok = personel.filter(p => nama.includes(p.nama.toLowerCase().replace(/[^a-z]/g, ''))).map(p => p.id)
     if (cocok.length) setPelaksana(cocok)
+    const terisi = [
+      data.nomor_spt && 'nomor SPRIN', data.judul && 'judul', data.objek && 'objek',
+      data.sasaran && 'sasaran', data.uraian_tugas && 'uraian', data.tanggal_mulai && 'tanggal mulai',
+    ].filter(Boolean)
+    setStatusScan(
+      `Hasil scan mengisi ${terisi.length ? terisi.join(', ') : 'form yang terbaca'}.${cocok.length ? ` ${cocok.length} personel berhasil dicocokkan.` : ' Personel belum dipilih otomatis; periksa susunan tim.'} Lengkapi lokasi, dasar, dan Panit sebelum menerbitkan.`,
+    )
   }
 
   const calonPanit = personel.filter(p => p.peran === 'panit')
@@ -266,8 +278,8 @@ export function WizardTerbitkan({
         ))}
       </div>
 
-      {!draf && statusSimpanOtomatis && (
-        <p className="bantu" role="status" style={{ margin: '0 0 12px' }}>{statusSimpanOtomatis}</p>
+      {!draf && (statusScan || statusSimpanOtomatis) && (
+        <p className="bantu" role="status" style={{ margin: '0 0 12px' }}>{statusScan || statusSimpanOtomatis}</p>
       )}
 
       {galat && (
