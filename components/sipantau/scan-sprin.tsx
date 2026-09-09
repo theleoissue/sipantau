@@ -136,7 +136,15 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       if (berkas.length) tambah(berkas)
     }} />
     {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
-    {native && Capacitor.getPlatform() !== 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />{halaman.length ? 'Tambah foto' : 'Scan kamera'}</button>}
+    {/* Cadangan di Android: kamera bawaan lalu dirapikan lewat dialog
+        OpenCV.js di WebView. Tidak menyentuh plugin native sama sekali,
+        jadi tetap tersedia bila pemindai native gagal terbuka. */}
+    {native && <button type="button" className={Capacitor.getPlatform() === 'android' ? 'btn btn-o' : 'btn btn-p'} disabled={sibuk} onClick={bukaKamera}>
+      <Ikon nama="kamera" />
+      {Capacitor.getPlatform() === 'android'
+        ? (halaman.length ? 'Tambah foto biasa' : 'Kamera biasa')
+        : (halaman.length ? 'Tambah foto' : 'Scan kamera')}
+    </button>}
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah DOCX / PDF / foto</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
       <span><b>{halaman.length}</b> {halaman.length === 1 ? 'berkas siap dipindai' : 'halaman/berkas siap dipindai'}</span>
