@@ -25,12 +25,30 @@ export function ScanSprin({ onHasil }: { onHasil: (data: NonNullable<HasilScanSp
   }
   function bukaKamera() {
     mulai(async () => {
+      let foto
       try {
-        const foto = await Camera.getPhoto({ quality: 95, resultType: CameraResultType.Uri, source: CameraSource.Camera, allowEditing: true, correctOrientation: true })
-        if (!foto.webPath) throw new Error('Foto tidak tersedia')
-        const blob = await fetch(foto.webPath).then(r => r.blob())
-        await proses(new File([blob], `scan-sprin.${foto.format ?? 'jpeg'}`, { type: blob.type || 'image/jpeg' }))
-      } catch { setPesan('Kamera dibatalkan atau tidak dapat dibuka.') }
+        // Uri file tidak selalu boleh dibaca ulang oleh WebView Android
+        // setelah kamera ditutup. Base64 berasal langsung dari plugin,
+        // sehingga foto yang sudah dipotret tidak hilang pada tahap ini.
+        foto = await Camera.getPhoto({ quality: 95, resultType: CameraResultType.Base64, source: CameraSource.Camera, allowEditing: true, correctOrientation: true })
+      } catch {
+        setPesan('Pengambilan foto dibatalkan atau kamera tidak dapat dibuka.')
+        return
+      }
+
+      if (!foto.base64String) {
+        setPesan('Foto diterima, tetapi datanya tidak lengkap. Coba potret ulang atau gunakan Unggah berkas.')
+        return
+      }
+
+      try {
+        const data = atob(foto.base64String)
+        const bytes = new Uint8Array(data.length)
+        for (let i = 0; i < data.length; i++) bytes[i] = data.charCodeAt(i)
+        await proses(new File([bytes], `scan-sprin.${foto.format ?? 'jpeg'}`, { type: `image/${foto.format ?? 'jpeg'}` }))
+      } catch {
+        setPesan('Foto sudah diambil, tetapi tidak dapat disiapkan untuk dipindai. Coba ulang atau gunakan Unggah berkas.')
+      }
     })
   }
   return <section className="scan-sprin">
