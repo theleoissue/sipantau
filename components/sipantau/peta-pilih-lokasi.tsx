@@ -9,6 +9,12 @@ interface TitikPeta {
   lng: string
 }
 
+interface HasilCari {
+  lat: string
+  lon: string
+  display_name: string
+}
+
 /**
  * Peta pemilih titik lokasi wizard Terbitkan — melengkapi KP-6.2-16
  * (tiga cara menetapkan koordinat: pin di peta, ketik lintang/bujur,
@@ -18,10 +24,9 @@ interface TitikPeta {
  *  - Klik di peta   → koordinat TITIK AKTIF pindah ke situ.
  *  - Seret pin      → koordinat titik itu sendiri yang berubah.
  *  - Klik pin lain  → titik itu jadi aktif.
- *  - Pencarian (Nominatim, countrycodes=id) HANYA menggeser pandangan
- *    peta — tidak langsung menjatuhkan pin. Hasil geocoding nama
- *    tempat sering hanya perkiraan area, bukan titik presisi; pengguna
- *    tetap yang mengonfirmasi titik pastinya lewat klik.
+ *  - Pencarian menampilkan hasil sebagai pin pratinjau. Pin itu BARU
+ *    dipakai setelah pengguna mengetuknya, karena hasil geocoding nama
+ *    tempat dapat berupa perkiraan area.
  *
  * Kotak lintang/bujur manual di wizard TETAP ada di luar komponen ini
  * (cara kedua dari tiga) — komponen ini murni menambahkan dua cara
@@ -41,9 +46,12 @@ export function PetaPilihLokasi({
   const elPeta = useRef<HTMLDivElement>(null)
   const peta = useRef<import('leaflet').Map | null>(null)
   const penanda = useRef<import('leaflet').Marker[]>([])
+  const penandaHasil = useRef<import('leaflet').Marker | null>(null)
   const [cari, setCari] = useState('')
   const [mencari, setMencari] = useState(false)
   const [galatCari, setGalatCari] = useState<string | null>(null)
+  const [hasilCari, setHasilCari] = useState<HasilCari[]>([])
+  const [hasilTerpilih, setHasilTerpilih] = useState<HasilCari | null>(null)
 
   // Bacaan terkini lewat ref supaya efek pemasangan-sekali di bawah
   // tidak perlu didaftarkan ulang tiap kali titik/aktif berubah —
@@ -114,17 +122,45 @@ export function PetaPilihLokasi({
     return () => { batal = true }
   }, [titik, aktif])
 
+  // Hasil pencarian hanya berupa pratinjau. Mengetuk pin inilah yang
+  // menjadi persetujuan eksplisit untuk memakai koordinatnya.
+  useEffect(() => {
+    let batal = false
+    import('leaflet').then(L => {
+      if (batal || !peta.current) return
+      penandaHasil.current?.remove()
+      penandaHasil.current = null
+      if (!hasilTerpilih) return
+
+      const ikon = L.divIcon({
+        className: 'peta-pin-pratinjau', iconSize: [34, 42], iconAnchor: [17, 42],
+        html: '<div class="peta-pin-pratinjau-isi">?</div>',
+      })
+      const marker = L.marker([Number(hasilTerpilih.lat), Number(hasilTerpilih.lon)], { icon: ikon })
+        .addTo(peta.current)
+        .bindTooltip('Ketuk pin ini untuk memakai lokasi', { direction: 'top', offset: [0, -36] })
+      marker.on('click', () => {
+        onUbahRef.current(aktifRef.current, Number(hasilTerpilih.lat).toFixed(6), Number(hasilTerpilih.lon).toFixed(6))
+      })
+      penandaHasil.current = marker
+    })
+    return () => { batal = true }
+  }, [hasilTerpilih])
+
   async function cariLokasi() {
     if (!cari.trim()) return
     setMencari(true)
     setGalatCari(null)
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=id&q=${encodeURIComponent(cari.trim())}`
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(cari.trim())}`
       const res = await fetch(url, { headers: { 'Accept-Language': 'id' } })
-      const data = await res.json() as { lat: string; lon: string }[]
+      const data = await res.json() as HasilCari[]
       if (data.length > 0 && peta.current) {
-        peta.current.setView([Number(data[0].lat), Number(data[0].lon)], 14, { animate: true })
+        pilihHasil(data[0])
+        setHasilCari(data)
       } else {
+        setHasilCari([])
+        setHasilTerpilih(null)
         setGalatCari(`Lokasi "${cari}" tidak ditemukan. Coba nama lain.`)
       }
     } catch {
@@ -134,9 +170,14 @@ export function PetaPilihLokasi({
     }
   }
 
+  function pilihHasil(hasil: HasilCari) {
+    setHasilTerpilih(hasil)
+    peta.current?.setView([Number(hasil.lat), Number(hasil.lon)], 16, { animate: true })
+  }
+
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ position: 'relative', isolation: 'isolate' }}>
+    <div className="peta-pilih-lokasi">
+      <div className="peta-pilih-lokasi-wadah">
         <div className="peta-cari">
           <input
             type="text" value={cari} placeholder="Cari lokasi, mis. Cikarang Barat…"
@@ -147,11 +188,22 @@ export function PetaPilihLokasi({
             {mencari ? <span style={{ fontSize: 11 }}>…</span> : <Ikon nama="cari" />}
           </button>
         </div>
-        <div ref={elPeta} style={{ height: 280, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-2)' }} />
+        <div ref={elPeta} className="peta-pilih-lokasi-kanvas" />
       </div>
       {galatCari && <p style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 6 }}>{galatCari}</p>}
-      <p style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.5 }}>
-        Klik titik yang ingin ditandai di bawah supaya jadi aktif (ditandai emas di peta), lalu klik di peta untuk menjatuhkan pinnya. Pin dapat diseret untuk penyesuaian halus.
+      {hasilCari.length > 0 && (
+        <div className="peta-hasil-cari" aria-label="Hasil pencarian lokasi">
+          <p>Pilih hasil untuk melihat pin pratinjau, lalu ketuk pinnya di peta untuk memakai lokasi.</p>
+          {hasilCari.map((hasil, i) => (
+            <button key={`${hasil.lat}-${hasil.lon}`} type="button" onClick={() => pilihHasil(hasil)}
+                    className={hasilTerpilih === hasil ? 'on' : undefined}>
+              <span>{i + 1}</span>{hasil.display_name}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="peta-pilih-lokasi-bantu">
+        Pilih titik tugas di bawah agar aktif (emas). Klik peta untuk menjatuhkan pin, atau gunakan hasil pencarian sebagai pratinjau lalu ketuk pinnya untuk mengonfirmasi. Pin dapat diseret untuk penyesuaian halus.
       </p>
     </div>
   )
