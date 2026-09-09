@@ -492,8 +492,8 @@ tbody tr.bisa-klik{cursor:pointer}
 .peta-pilih-lokasi-wadah .peta-cari{top:12px;left:62px;right:12px;max-width:420px}
 .peta-pilih-lokasi-wadah .peta-cari input{min-width:0;flex:1}
 .peta-pin-pratinjau{background:transparent;border:0}
-.peta-pin-pratinjau-isi{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--primary);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,28,50,.35);display:grid;place-items:center;color:transparent;font-size:0}
-.peta-pin-pratinjau-isi::after{content:'?';transform:rotate(45deg);color:#fff;font:700 16px var(--body)}
+.peta-pin-pratinjau-isi{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--primary);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,28,50,.35);display:grid;place-items:center}
+.peta-pin-pratinjau-isi span{width:10px;height:10px;border-radius:50%;background:#fff;transform:rotate(45deg);box-shadow:0 0 0 2px rgba(15,28,50,.15)}
 .peta-hasil-cari{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden}
 .peta-hasil-cari p{padding:10px 12px;background:var(--bg);border-bottom:1px solid var(--line);font-size:11.5px;color:var(--ink-2);line-height:1.5}
 .peta-hasil-cari button{display:flex;width:100%;align-items:flex-start;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:12px;line-height:1.45;color:var(--ink-2)}

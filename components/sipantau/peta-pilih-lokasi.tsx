@@ -134,7 +134,7 @@ export function PetaPilihLokasi({
 
       const ikon = L.divIcon({
         className: 'peta-pin-pratinjau', iconSize: [34, 42], iconAnchor: [17, 42],
-        html: '<div class="peta-pin-pratinjau-isi">?</div>',
+        html: '<div class="peta-pin-pratinjau-isi"><span></span></div>',
       })
       const marker = L.marker([Number(hasilTerpilih.lat), Number(hasilTerpilih.lon)], { icon: ikon })
         .addTo(peta.current)
