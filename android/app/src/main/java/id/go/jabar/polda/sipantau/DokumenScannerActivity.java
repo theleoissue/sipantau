@@ -35,7 +35,7 @@ public class DokumenScannerActivity extends ComponentActivity {
   private static final int STABIL_MINIMUM=7;
   private final ExecutorService executor=Executors.newSingleThreadExecutor();
   private final ArrayList<String> halaman=new ArrayList<>();
-  private ImageCapture capture; private TextView status; private Bingkai bingkai; private int batas, stabil; private boolean mengambil;
+  private ImageCapture capture; private TextView status; private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya;
   private Point[] sudutTerakhir, sudutUntukFoto;
 
   @Override public void onCreate(Bundle state) {
@@ -62,7 +62,7 @@ public class DokumenScannerActivity extends ComponentActivity {
   }
   private void analisis(@NonNull ImageProxy gambar){try{
     Point[] sudut=temukanDokumen(gambar);
-    runOnUiThread(()->{bingkai.setSudut(sudut);if(sudut==null||mengambil){stabil=0;return;}stabil=stabil(sudut,sudutTerakhir)?stabil+1:1;sudutTerakhir=salin(sudut);sudutUntukFoto=salin(sudut);if(stabil>=STABIL_MINIMUM){status.setText("Dokumen stabil — memindai halaman…");ambil();}else status.setText("Tahan halaman sampai bingkai hijau stabil");});
+    runOnUiThread(()->{bingkai.setSudut(sudut);if(sudut==null){stabil=0;menungguHalamanBerikutnya=false;return;}if(mengambil)return;if(menungguHalamanBerikutnya){status.setText("Halaman tersimpan. Arahkan ke halaman berikutnya.");return;}stabil=stabil(sudut,sudutTerakhir)?stabil+1:1;sudutTerakhir=salin(sudut);sudutUntukFoto=salin(sudut);if(stabil>=STABIL_MINIMUM){status.setText("Dokumen stabil — memindai halaman…");ambil();}else status.setText("Tahan halaman sampai bingkai hijau stabil");});
   }finally{gambar.close();}}
   /** Mengembalikan sudut TL, TR, BR, BL dalam koordinat 0..1. */
   private Point[] temukanDokumen(ImageProxy gambar){
@@ -70,15 +70,17 @@ public class DokumenScannerActivity extends ComponentActivity {
     Mat abu=new Mat(h,w,CvType.CV_8UC1);abu.put(0,0,piksel);double skala=480d/Math.max(w,h);Mat kecil=new Mat();Imgproc.resize(abu,kecil,new Size(w*skala,h*skala));Imgproc.GaussianBlur(kecil,kecil,new Size(5,5),0);Mat tepi=new Mat();Imgproc.Canny(kecil,tepi,45,135);
     List<MatOfPoint> kontur=new ArrayList<>();Imgproc.findContours(tepi,kontur,new Mat(),Imgproc.RETR_LIST,Imgproc.CHAIN_APPROX_SIMPLE);Point[] hasil=null;double terbesar=0;
     for(MatOfPoint bentuk:kontur){MatOfPoint2f asal=new MatOfPoint2f(bentuk.toArray()),dekat=new MatOfPoint2f();Imgproc.approxPolyDP(asal,dekat,Imgproc.arcLength(asal,true)*.02,true);double luas=Imgproc.contourArea(bentuk);if(dekat.total()==4&&luas>terbesar&&luas>kecil.rows()*kecil.cols()*.18){hasil=dekat.toArray();terbesar=luas;}asal.release();dekat.release();bentuk.release();}
-    abu.release();kecil.release();tepi.release();if(hasil==null)return null;for(Point p:hasil){p.x/=w*skala;p.y/=h*skala;}return urutkan(hasil);
+    abu.release();kecil.release();tepi.release();if(hasil==null)return null;for(Point p:hasil){p.x/=w*skala;p.y/=h*skala;putarKeTampilan(p,gambar.getImageInfo().getRotationDegrees());}return urutkan(hasil);
   }
+  /** CameraX memberi koordinat frame sensor; samakan dengan JPEG berorientasi tegak dan overlay. */
+  private void putarKeTampilan(Point p,int derajat){double x=p.x,y=p.y;if(derajat==90){p.x=1-y;p.y=x;}else if(derajat==180){p.x=1-x;p.y=1-y;}else if(derajat==270){p.x=y;p.y=1-x;}}
   private Point[] urutkan(Point[] titik){Point[] r=new Point[4];for(Point p:titik){double jumlah=p.x+p.y,beda=p.x-p.y;if(r[0]==null||jumlah<r[0].x+r[0].y)r[0]=p;if(r[2]==null||jumlah>r[2].x+r[2].y)r[2]=p;if(r[1]==null||beda>r[1].x-r[1].y)r[1]=p;if(r[3]==null||beda<r[3].x-r[3].y)r[3]=p;}return r;}
   private boolean stabil(Point[] a,Point[] b){if(b==null)return false;double d=0;for(int i=0;i<4;i++)d+=Math.hypot(a[i].x-b[i].x,a[i].y-b[i].y);return d<.035;}
   private Point[] salin(Point[] sumber){if(sumber==null)return null;Point[] r=new Point[sumber.length];for(int i=0;i<sumber.length;i++)r[i]=new Point(sumber[i].x,sumber[i].y);return r;}
   private void ambil(){
     if(mengambil||capture==null||halaman.size()>=batas)return;mengambil=true;stabil=0;status.setText("Memproses halaman…");Point[] sudut=salin(sudutUntukFoto);File mentah=new File(getCacheDir(),"sprin-"+System.nanoTime()+".jpg");
     capture.takePicture(new ImageCapture.OutputFileOptions.Builder(mentah).build(),executor,new ImageCapture.OnImageSavedCallback(){
-      @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults hasil){String bersih=bersihkan(mentah,sudut);runOnUiThread(()->{halaman.add(Uri.fromFile(new File(bersih)).toString());mengambil=false;status.setText(halaman.size()+" halaman siap. Arahkan ke halaman berikutnya atau tekan Selesai.");if(halaman.size()>=batas)selesai();});}
+      @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults hasil){String bersih=bersihkan(mentah,sudut);runOnUiThread(()->{halaman.add(Uri.fromFile(new File(bersih)).toString());mengambil=false;menungguHalamanBerikutnya=true;status.setText(halaman.size()+" halaman siap. Arahkan ke halaman berikutnya atau tekan Selesai.");if(halaman.size()>=batas)selesai();});}
       @Override public void onError(@NonNull ImageCaptureException e){runOnUiThread(()->{mengambil=false;status.setText("Foto gagal. Coba lagi.");});}
     });
   }
