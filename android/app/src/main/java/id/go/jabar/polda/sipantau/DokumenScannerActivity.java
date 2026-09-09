@@ -36,19 +36,21 @@ public class DokumenScannerActivity extends ComponentActivity {
   private final ExecutorService executor=Executors.newSingleThreadExecutor();
   private final ArrayList<String> halaman=new ArrayList<>();
   private ImageCapture capture; private Camera kamera; private TextView status, ringkasan; private Button tombolSelesai, tombolFlash; private LinearLayout thumbnail;
-  private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya, flashMenyala;
+  private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya, flashMenyala, opencvSiap;
   private Point[] sudutTerakhir, sudutUntukFoto;
 
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
-    if(!OpenCVLoader.initLocal()){gagal("OPENCV_GAGAL_DIMUAT");return;}
+    // Kamera harus selalu dapat dibuka. OpenCV meningkatkan auto-crop, tetapi
+    // kegagalannya tidak boleh memblokir pengambilan foto SPRIN.
+    try { opencvSiap=OpenCVLoader.initLocal(); } catch(Throwable ignored) { opencvSiap=false; }
     batas=Math.max(1,Math.min(8,getIntent().getIntExtra(EXTRA_MAKS_HALAMAN,8)));
     FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.BLACK);
     PreviewView preview=new PreviewView(this);preview.setScaleType(PreviewView.ScaleType.FILL_CENTER);root.addView(preview,new FrameLayout.LayoutParams(-1,-1));
     bingkai=new Bingkai(this);root.addView(bingkai,new FrameLayout.LayoutParams(-1,-1));
     LinearLayout atas=new LinearLayout(this);atas.setGravity(Gravity.CENTER_VERTICAL);atas.setPadding(dp(14),dp(18),dp(14),0);
     Button tutup=new Button(this);tutup.setText("×");tutup.setTextSize(28);tutup.setOnClickListener(v->batal());atas.addView(tutup,new LinearLayout.LayoutParams(dp(58),dp(54)));
-    status=new TextView(this);status.setTextColor(Color.WHITE);status.setTextSize(16);status.setGravity(Gravity.CENTER);status.setText("Arahkan kamera ke seluruh halaman SPRIN");atas.addView(status,new LinearLayout.LayoutParams(0,dp(54),1));
+    status=new TextView(this);status.setTextColor(Color.WHITE);status.setTextSize(16);status.setGravity(Gravity.CENTER);status.setText(opencvSiap?"Arahkan kamera ke seluruh halaman SPRIN":"Kamera siap. Tekan Ambil foto untuk memindai.");atas.addView(status,new LinearLayout.LayoutParams(0,dp(54),1));
     tombolFlash=new Button(this);tombolFlash.setText("Lampu");tombolFlash.setOnClickListener(v->ubahFlash());atas.addView(tombolFlash,new LinearLayout.LayoutParams(dp(88),dp(54)));root.addView(atas,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
     HorizontalScrollView strip=new HorizontalScrollView(this);strip.setHorizontalScrollBarEnabled(false);thumbnail=new LinearLayout(this);thumbnail.setPadding(dp(16),0,dp(16),0);strip.addView(thumbnail);FrameLayout.LayoutParams stripLetak=new FrameLayout.LayoutParams(-1,dp(76),Gravity.BOTTOM);stripLetak.setMargins(0,0,0,dp(102));root.addView(strip,stripLetak);
     ringkasan=new TextView(this);ringkasan.setTextColor(Color.WHITE);ringkasan.setTextSize(14);ringkasan.setGravity(Gravity.CENTER);ringkasan.setText("0 / "+batas+" halaman");FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(-1,dp(26),Gravity.BOTTOM);rp.setMargins(0,0,0,dp(78));root.addView(ringkasan,rp);
@@ -67,9 +69,10 @@ public class DokumenScannerActivity extends ComponentActivity {
     }catch(Exception e){gagal("KAMERA_TIDAK_TERSEDIA");}},ContextCompat.getMainExecutor(this));
   }
   private void analisis(@NonNull ImageProxy gambar){try{
+    if(!opencvSiap)return;
     Point[] sudut=temukanDokumen(gambar);
     runOnUiThread(()->{bingkai.setSudut(sudut);if(sudut==null){stabil=0;menungguHalamanBerikutnya=false;return;}if(mengambil)return;if(menungguHalamanBerikutnya){status.setText("Halaman tersimpan. Arahkan ke halaman berikutnya.");return;}stabil=stabil(sudut,sudutTerakhir)?stabil+1:1;sudutTerakhir=salin(sudut);sudutUntukFoto=salin(sudut);if(stabil>=STABIL_MINIMUM){status.setText("Dokumen stabil — memindai halaman…");ambil();}else status.setText("Tahan halaman sampai bingkai hijau stabil");});
-  }finally{gambar.close();}}
+  }catch(Throwable galat){opencvSiap=false;runOnUiThread(()->{bingkai.setSudut(null);status.setText("Kamera siap. Tekan Ambil foto untuk memindai.");});}finally{gambar.close();}}
   /** Mengembalikan sudut TL, TR, BR, BL dalam koordinat 0..1. */
   private Point[] temukanDokumen(ImageProxy gambar){
     int w=gambar.getWidth(),h=gambar.getHeight(),stride=gambar.getPlanes()[0].getRowStride();ByteBuffer buffer=gambar.getPlanes()[0].getBuffer().duplicate();byte[] piksel=new byte[w*h];for(int y=0;y<h;y++){buffer.position(y*stride);buffer.get(piksel,y*w,w);}
@@ -91,7 +94,7 @@ public class DokumenScannerActivity extends ComponentActivity {
     });
   }
   /** Crop perspektif, perataan cahaya, dan kontras halaman dalam satu proses lokal. */
-  private String bersihkan(File mentah,Point[] normal){Mat sumber=Imgcodecs.imread(mentah.getAbsolutePath());if(sumber.empty())return mentah.getAbsolutePath();putarSesuaiExif(sumber,mentah);Mat jadi=cropPerspektif(sumber,normal);Mat abu=new Mat();Imgproc.cvtColor(jadi,abu,Imgproc.COLOR_BGR2GRAY);Mat latar=new Mat();Imgproc.GaussianBlur(abu,latar,new Size(31,31),0);Core.divide(abu,latar,abu,255);Imgproc.adaptiveThreshold(abu,abu,255,Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY,31,9);File keluar=new File(getCacheDir(),"scan-"+System.nanoTime()+".jpg");Imgcodecs.imwrite(keluar.getAbsolutePath(),abu);sumber.release();jadi.release();abu.release();latar.release();mentah.delete();return keluar.getAbsolutePath();}
+  private String bersihkan(File mentah,Point[] normal){if(!opencvSiap)return mentah.getAbsolutePath();try{Mat sumber=Imgcodecs.imread(mentah.getAbsolutePath());if(sumber.empty())return mentah.getAbsolutePath();putarSesuaiExif(sumber,mentah);Mat jadi=cropPerspektif(sumber,normal);Mat abu=new Mat();Imgproc.cvtColor(jadi,abu,Imgproc.COLOR_BGR2GRAY);Mat latar=new Mat();Imgproc.GaussianBlur(abu,latar,new Size(31,31),0);Core.divide(abu,latar,abu,255);Imgproc.adaptiveThreshold(abu,abu,255,Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY,31,9);File keluar=new File(getCacheDir(),"scan-"+System.nanoTime()+".jpg");Imgcodecs.imwrite(keluar.getAbsolutePath(),abu);sumber.release();jadi.release();abu.release();latar.release();mentah.delete();return keluar.getAbsolutePath();}catch(Throwable galat){opencvSiap=false;return mentah.getAbsolutePath();}}
   private Mat cropPerspektif(Mat sumber,Point[] normal){if(normal==null||normal.length!=4)return kecilkan(sumber,1800);Point[] p=new Point[4];for(int i=0;i<4;i++)p[i]=new Point(normal[i].x*sumber.cols(),normal[i].y*sumber.rows());double lebar=Math.max(Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),Math.hypot(p[2].x-p[3].x,p[2].y-p[3].y));double tinggi=Math.max(Math.hypot(p[3].x-p[0].x,p[3].y-p[0].y),Math.hypot(p[2].x-p[1].x,p[2].y-p[1].y));if(lebar<200||tinggi<200)return kecilkan(sumber,1800);MatOfPoint2f asal=new MatOfPoint2f(p),tujuan=new MatOfPoint2f(new Point(0,0),new Point(lebar-1,0),new Point(lebar-1,tinggi-1),new Point(0,tinggi-1));Mat trans=Imgproc.getPerspectiveTransform(asal,tujuan);Mat hasil=new Mat();Imgproc.warpPerspective(sumber,hasil,trans,new Size(lebar,tinggi),Imgproc.INTER_CUBIC,Core.BORDER_REPLICATE,Scalar.all(0));asal.release();tujuan.release();trans.release();Mat ringkas=kecilkan(hasil,1800);hasil.release();return ringkas;}
   private Mat kecilkan(Mat sumber,int maksimum){double f=Math.min(1d,maksimum/(double)Math.max(sumber.cols(),sumber.rows()));if(f==1d)return sumber.clone();Mat hasil=new Mat();Imgproc.resize(sumber,hasil,new Size(sumber.cols()*f,sumber.rows()*f));return hasil;}
   private void putarSesuaiExif(Mat gambar,File berkas){try{int o=new ExifInterface(berkas.getAbsolutePath()).getAttributeInt(ExifInterface.TAG_ORIENTATION,ExifInterface.ORIENTATION_NORMAL);if(o==ExifInterface.ORIENTATION_ROTATE_90)Core.rotate(gambar,gambar,Core.ROTATE_90_CLOCKWISE);else if(o==ExifInterface.ORIENTATION_ROTATE_180)Core.rotate(gambar,gambar,Core.ROTATE_180);else if(o==ExifInterface.ORIENTATION_ROTATE_270)Core.rotate(gambar,gambar,Core.ROTATE_90_COUNTERCLOCKWISE);}catch(IOException ignored){}}

@@ -50,7 +50,6 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   const [antrianKoreksi, setAntrianKoreksi] = useState<File[]>([])
   const [pesan, setPesan] = useState('')
   const [native, setNative] = useState(false)
-  const [tampilkanCadanganKamera, setTampilkanCadanganKamera] = useState(false)
   const [menyiapkan, setMenyiapkan] = useState(false)
   const [memindai, mulai] = useTransition()
 
@@ -119,7 +118,6 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       else if (kode.includes('OPENCV_GAGAL_DIMUAT')) setPesan('Komponen pemrosesan dokumen tidak berhasil dimuat. Tutup aplikasi lalu buka kembali, kemudian coba lagi.')
       else if (kode.includes('KAMERA_TIDAK_TERSEDIA')) setPesan('Kamera belakang tidak dapat digunakan saat ini. Tutup aplikasi lain yang memakai kamera lalu coba lagi.')
       else setPesan('Pemindai dokumen tidak dapat dibuka. Coba lagi atau gunakan unggah halaman / PDF.')
-      setTampilkanCadanganKamera(true)
     } finally { setMenyiapkan(false) }
   }
 
@@ -132,7 +130,6 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       if (berkas.length) tambah(berkas)
     }} />
     {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
-    {native && Capacitor.getPlatform() === 'android' && tampilkanCadanganKamera && <button type="button" className="btn btn-o" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />Kamera biasa (cadangan)</button>}
     {native && Capacitor.getPlatform() !== 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />{halaman.length ? 'Tambah foto' : 'Scan kamera'}</button>}
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah halaman / PDF</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
