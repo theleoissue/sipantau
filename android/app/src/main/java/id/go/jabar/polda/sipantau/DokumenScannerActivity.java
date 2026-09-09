@@ -39,7 +39,6 @@ public class DokumenScannerActivity extends ComponentActivity {
     GmsDocumentScannerOptions opsi = new GmsDocumentScannerOptions.Builder()
       .setGalleryImportAllowed(false)
       .setPageLimit(batas)
-      .setCaptureMode(GmsDocumentScannerOptions.CAPTURE_MODE_AUTO)
       // Hanya JPEG: PDF tidak dipakai oleh Gemini dan pembuatannya menambah waktu.
       .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
       .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
