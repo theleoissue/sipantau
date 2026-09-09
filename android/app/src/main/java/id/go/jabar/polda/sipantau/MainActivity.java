@@ -13,5 +13,6 @@ public class MainActivity extends BridgeActivity {
     // yang dibangun sebelum berkas plugin otomatis Capacitor dibuat.
     registerPlugin(AppPlugin.class);
     registerPlugin(CameraPlugin.class);
+    registerPlugin(DokumenScannerPlugin.class);
   }
 }

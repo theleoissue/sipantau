@@ -5,9 +5,12 @@ import { scanSprin, type HasilScanSprin } from '@/app/(app)/penugasan/aksi'
 import { Ikon } from './ikon'
 import { PratinjauScanSprin } from './pratinjau-scan-sprin'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 
 const MAKS_HALAMAN = 8
+
+type HasilPemindaiDokumen = { pages: string[] }
+const DokumenScanner = registerPlugin<{ scan(options: { pageLimit: number }): Promise<HasilPemindaiDokumen> }>('DokumenScanner')
 
 function dariBase64(base64: string, tipe: string) {
   const data = atob(base64)
@@ -55,16 +58,18 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     return () => window.clearTimeout(timer)
   }, [])
 
-  function tambah(tambahan: File[]) {
+  function tambah(tambahan: File[], perluKoreksi = true) {
     const tersisa = MAKS_HALAMAN - halaman.length - antrianKoreksi.length
     if (tersisa <= 0) { setPesan(`Maksimal ${MAKS_HALAMAN} halaman sekali pindai.`); return }
     const dipakai = tambahan.slice(0, tersisa)
     // Foto (kamera atau JPG/PNG/WebP) dirapikan dulu lewat dialog koreksi;
     // PDF sudah berupa dokumen jadi, langsung ditambahkan apa adanya.
-    const foto = dipakai.filter(b => b.type !== 'application/pdf')
+    const foto = perluKoreksi ? dipakai.filter(b => b.type !== 'application/pdf') : []
     const pdf = dipakai.filter(b => b.type === 'application/pdf')
     if (foto.length) setAntrianKoreksi(sebelum => [...sebelum, ...foto])
-    if (pdf.length) setHalaman(sebelum => [...sebelum, ...pdf])
+    // JPEG dari ML Kit sudah diperbaiki perspektif, rotasi, bayangan dan
+    // noda secara native. Jangan buka crop kedua di WebView.
+    if (pdf.length || !perluKoreksi) setHalaman(sebelum => [...sebelum, ...(perluKoreksi ? pdf : dipakai)])
     setPesan(tambahan.length > tersisa ? `Hanya ${MAKS_HALAMAN} halaman pertama yang ditambahkan.` : '')
   }
 
@@ -95,6 +100,24 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     } finally { setMenyiapkan(false) }
   }
 
+  async function bukaPemindaiDokumen() {
+    setMenyiapkan(true)
+    setPesan('Menyiapkan pemindai dokumen…')
+    try {
+      const hasil = await DokumenScanner.scan({ pageLimit: MAKS_HALAMAN - halaman.length })
+      if (!hasil.pages?.length) { setPesan('Tidak ada halaman yang dipilih dari pemindai.'); return }
+      const berkas = hasil.pages.map((base64, i) => new File(
+        [dariBase64(base64, 'image/jpeg')], `scan-sprin-${Date.now()}-${i + 1}.jpg`, { type: 'image/jpeg' },
+      ))
+      tambah(berkas, false)
+      setPesan(`${berkas.length} halaman sudah dipindai dan dibersihkan. Tekan “Pindai” untuk membaca SPRIN.`)
+    } catch (galat) {
+      const kode = galat instanceof Error ? galat.message : ''
+      if (kode.includes('PEMINDAIAN_DIBATALKAN')) setPesan('Pemindaian dibatalkan.')
+      else setPesan('Pemindai dokumen tidak dapat dibuka. Pastikan Google Play services aktif, lalu coba lagi.')
+    } finally { setMenyiapkan(false) }
+  }
+
   const sibuk = menyiapkan || memindai || antrianKoreksi.length > 0
   return <section className="scan-sprin">
     <div><strong>Scan SPRIN</strong><p>Tambahkan setiap halaman dari kamera atau unggah PDF/foto. Semua halaman dibaca bersama sebagai satu SPRIN.</p></div>
@@ -103,7 +126,8 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       e.target.value = ''
       if (berkas.length) tambah(berkas)
     }} />
-    {native && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />{halaman.length ? 'Tambah foto' : 'Scan kamera'}</button>}
+    {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
+    {native && Capacitor.getPlatform() !== 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />{halaman.length ? 'Tambah foto' : 'Scan kamera'}</button>}
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah halaman / PDF</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
       <span><b>{halaman.length}</b> {halaman.length === 1 ? 'berkas siap dipindai' : 'halaman/berkas siap dipindai'}</span>
