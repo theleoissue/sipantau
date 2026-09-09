@@ -53,6 +53,23 @@ interface IsianDasarLokasi {
   lokasi: { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }[]
 }
 
+/**
+ * Isi SPT yang masih boleh dikoreksi sesudah surat diterbitkan.
+ * Nomor SPT dan tanggal mulai dikunci oleh pemicu basis data (0046),
+ * sedangkan batas waktu wajib melalui perpanjangBatas() agar alasannya
+ * dan riwayat perpanjangannya tercatat.
+ */
+interface IsianRevisiPenugasan {
+  judul: string
+  jenis_kegiatan: string
+  objek: string | null
+  sasaran: string | null
+  uraian_tugas: string | null
+  nomor_lp: string | null
+  sumber_informasi: string | null
+  prioritas: string
+}
+
 interface IsianTerbitkan extends IsianDasarLokasi {
   panit: string[]
   pelaksana: string[]
@@ -317,6 +334,55 @@ export async function perbaruiDraf(penugasanId: string, isian: IsianDasarLokasi)
       }),
     )
     if (error) return { galat: `Gagal menyimpan titik lokasi: ${error.message}` }
+  }
+
+  revalidatePath(`/penugasan/${penugasanId}`)
+  revalidatePath('/penugasan')
+  redirect(`/penugasan/${penugasanId}`)
+}
+
+/**
+ * KP-6.2-38: Kanit pemilik dapat memperbaiki isi SPT yang masih aktif.
+ * Penguncian kolom, kepemilikan unit, dan pencatatan nilai lama/baru
+ * tetap ditegakkan oleh RLS serta trg_catat_sunting_spt di basis data.
+ */
+export async function revisiPenugasan(
+  penugasanId: string,
+  isian: IsianRevisiPenugasan,
+): Promise<HasilAksi> {
+  if (!isian.judul.trim()) return { galat: 'Judul penugasan wajib diisi.' }
+
+  const supabase = await klienServer()
+  const { data: existing, error: galatBaca } = await supabase
+    .from('penugasan')
+    .select('status')
+    .eq('id', penugasanId)
+    .maybeSingle<{ status: string }>()
+
+  if (galatBaca || !existing) return { galat: 'Penugasan tidak ditemukan atau Anda tidak berwenang.' }
+  if (!['baru', 'berjalan', 'bermasalah'].includes(existing.status)) {
+    return { galat: 'Revisi hanya tersedia untuk penugasan yang masih aktif.' }
+  }
+
+  const { error } = await supabase
+    .from('penugasan')
+    .update({
+      judul: isian.judul.trim(),
+      jenis_kegiatan: isian.jenis_kegiatan,
+      objek: isian.objek?.trim() || null,
+      sasaran: isian.sasaran?.trim() || null,
+      uraian_tugas: isian.uraian_tugas?.trim() || null,
+      nomor_lp: isian.nomor_lp?.trim() || null,
+      sumber_informasi: isian.sumber_informasi?.trim() || null,
+      prioritas: isian.prioritas,
+    })
+    .eq('id', penugasanId)
+
+  if (error) {
+    if (error.message.includes('row-level security')) {
+      return { galat: 'Hanya Kanit unit pemilik yang dapat merevisi penugasan.' }
+    }
+    return { galat: `Gagal menyimpan revisi: ${error.message}` }
   }
 
   revalidatePath(`/penugasan/${penugasanId}`)

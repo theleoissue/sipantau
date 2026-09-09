@@ -5,7 +5,7 @@ import { satuPenugasan, personelDapatDipilih } from '@/lib/penugasan/kueri'
 import { WizardTerbitkan, type DrafAwal } from '../wizard'
 import { idValid } from '@/lib/utils'
 
-export const metadata = { title: 'Sunting Draf Penugasan — Si PANTAU' }
+export const metadata = { title: 'Sunting Penugasan — Si PANTAU' }
 
 /**
  * Menyunting draf yang sudah tersimpan — perbaikan atas tautan
@@ -18,7 +18,7 @@ export const metadata = { title: 'Sunting Draf Penugasan — Si PANTAU' }
  * /penugasan/terbitkan) — pemeriksaan status draf + kepemilikan unit
  * di sini tetap dilakukan karena RLS mengizinkan Kanit mengubah SPT
  * unitnya SENDIRI pada status apa pun, bukan hanya draf; halaman ini
- * hanya untuk draf.
+ * hanya untuk draf atau SPT aktif yang dapat direvisi.
  */
 export default async function HalamanSuntingDraf({
   params,
@@ -35,7 +35,12 @@ export default async function HalamanSuntingDraf({
   ])
 
   if (!spt) notFound()
-  if (spt.status !== 'draf') redirect(`/penugasan/${id}`)
+  const mode = spt.status === 'draf'
+    ? 'draf'
+    : ['baru', 'berjalan', 'bermasalah'].includes(spt.status)
+      ? 'revisi'
+      : null
+  if (!mode) redirect(`/penugasan/${id}`)
   if (pengguna.peran !== 'kanit' || spt.unit_id !== pengguna.unit_id) redirect(`/penugasan/${id}`)
 
   const draf: DrafAwal = {
@@ -69,6 +74,7 @@ export default async function HalamanSuntingDraf({
       kodeKlasifikasi={spt.unit?.kode_klasifikasi ?? null}
       namaUnit={spt.unit?.nama ?? 'unit Anda'}
       draf={draf}
+      mode={mode}
     />
   )
 }

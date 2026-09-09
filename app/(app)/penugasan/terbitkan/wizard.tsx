@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { simpanPenugasan, perbaruiDraf } from '../aksi'
+import { simpanPenugasan, perbaruiDraf, revisiPenugasan } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
 
@@ -19,6 +19,7 @@ const LANGKAH = [
 // diduplikasi di sini. Menampilkannya lagi hanya akan membingungkan:
 // isian di langkah itu tidak akan pernah tersimpan lewat perbaruiDraf.
 const LANGKAH_SUNTING_DRAF = LANGKAH.slice(0, 3)
+const LANGKAH_REVISI = LANGKAH.slice(0, 1)
 
 const JENIS_DASAR = [
   ['laporan_informasi', 'Laporan Informasi'],
@@ -58,6 +59,7 @@ export function WizardTerbitkan({
   kodeKlasifikasi,
   namaUnit,
   draf,
+  mode = draf ? 'draf' : 'baru',
 }: {
   personel: Personel[]
   kodeKlasifikasi: string | null
@@ -66,8 +68,10 @@ export function WizardTerbitkan({
    *  membuat baru) — hanya tiga langkah pertama, disimpan lewat
    *  perbaruiDraf(), bukan simpanPenugasan(). */
   draf?: DrafAwal
+  mode?: 'baru' | 'draf' | 'revisi'
 }) {
-  const langkah = draf ? LANGKAH_SUNTING_DRAF : LANGKAH
+  const sedangRevisi = mode === 'revisi'
+  const langkah = sedangRevisi ? LANGKAH_REVISI : draf ? LANGKAH_SUNTING_DRAF : LANGKAH
   const [n, setN] = useState(1)
   const [galat, setGalat] = useState<string | null>(null)
   const [menyimpan, mulai] = useTransition()
@@ -117,7 +121,15 @@ export function WizardTerbitkan({
       const isianDasar = dasar.filter(d => d.nomor.trim() || d.keterangan.trim())
       const isianLokasi = lokasi.filter(l => l.nama.trim())
 
-      const hasil = draf
+      const hasil = sedangRevisi && draf
+        ? await revisiPenugasan(draf.id, {
+            judul, jenis_kegiatan: jenisKegiatan,
+            objek: objek || null, sasaran: sasaran || null,
+            uraian_tugas: uraian || null,
+            nomor_lp: nomorLp || null, sumber_informasi: sumber || null,
+            prioritas,
+          })
+        : draf
         ? await perbaruiDraf(draf.id, {
             judul, jenis_kegiatan: jenisKegiatan,
             nomor_spt: nomorSpt || null,
@@ -156,14 +168,16 @@ export function WizardTerbitkan({
                  color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
       >
         <Ikon nama="silang" />
-        {draf ? 'Kembali ke rincian draf' : 'Batalkan penerbitan'}
+        {draf ? 'Kembali ke rincian penugasan' : 'Batalkan penerbitan'}
       </Link>
 
       <div className="kh">
         <div>
-          <h1>{draf ? 'Sunting draf penugasan' : 'Terbitkan penugasan'}</h1>
+          <h1>{sedangRevisi ? 'Revisi penugasan' : draf ? 'Sunting draf penugasan' : 'Terbitkan penugasan'}</h1>
           <p className="sub">
-            {draf
+            {sedangRevisi
+              ? 'Perbaiki keterangan penugasan. Nomor SPT dan tanggal mulai tetap terkunci; batas waktu diubah melalui Perpanjang Batas.'
+              : draf
               ? 'Susunan tim tetap diubah dari Kelola Tim pada rincian penugasan.'
               : `Surat perintah tugas untuk ${namaUnit}.`}
           </p>
@@ -207,16 +221,19 @@ export function WizardTerbitkan({
                 <input
                   value={nomorSpt}
                   onChange={e => setNomorSpt(e.target.value)}
+                  readOnly={sedangRevisi}
                   style={{ fontFamily: 'var(--mono)' }}
                   placeholder="SP.Gas.Lidik/…"
                 />
                 <div className="bantu">
+                  {sedangRevisi ? 'Nomor SPT tidak dapat diubah setelah penugasan diterbitkan.' : <>
                   Kerangka nomor disodorkan sistem — nomor agenda tetap
                   diketik dari buku agenda administrasi.{' '}
                   <button type="button" onClick={sodorkanNomor}
                           style={{ color: 'var(--primary)', fontWeight: 600 }}>
                     Sodorkan kerangka
                   </button>
+                  </>}
                 </div>
               </div>
 
@@ -278,11 +295,12 @@ export function WizardTerbitkan({
               <div className="f2">
                 <div className="fg">
                   <label>Tanggal mulai</label>
-                  <input type="date" value={mulaiTgl} onChange={e => setMulaiTgl(e.target.value)} />
+                  <input type="date" value={mulaiTgl} onChange={e => setMulaiTgl(e.target.value)} readOnly={sedangRevisi} />
                 </div>
                 <div className="fg">
                   <label>Batas waktu</label>
-                  <input type="date" value={batasTgl} onChange={e => setBatasTgl(e.target.value)} />
+                  <input type="date" value={batasTgl} onChange={e => setBatasTgl(e.target.value)} readOnly={sedangRevisi} />
+                  {sedangRevisi && <div className="bantu">Gunakan tombol Perpanjang Batas pada rincian agar alasan perubahan tercatat.</div>}
                 </div>
               </div>
             </>
@@ -510,7 +528,7 @@ export function WizardTerbitkan({
                   )}
                   <button type="button" className="btn btn-p"
                           onClick={() => simpan(false)} disabled={menyimpan}>
-                    {menyimpan ? 'Menyimpan…' : 'Simpan perubahan'}
+                    {menyimpan ? 'Menyimpan…' : sedangRevisi ? 'Simpan revisi' : 'Simpan perubahan'}
                   </button>
                 </>
               ) : (
