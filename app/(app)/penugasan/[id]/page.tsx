@@ -130,8 +130,8 @@ export default async function RincianPenugasan({
 
   return (
     <>
-      <div className="kh">
-        <div>
+      <div className="kh rincian-spt-kepala">
+        <div className="rincian-spt-identitas">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
             <span className={`pr ${spt.prioritas}`}>{spt.prioritas}</span>
             <span className={`lc ${spt.status}`}>{spt.status}</span>
@@ -148,7 +148,7 @@ export default async function RincianPenugasan({
           </p>
         </div>
 
-        <div className="kh-aksi">
+        <div className="kh-aksi rincian-spt-aksi-utama">
           <Link href="/penugasan" className="btn btn-o">Kembali</Link>
 
           {/* BR-11 di setiap tombol: yang di luar kewenangan tidak
@@ -196,7 +196,7 @@ export default async function RincianPenugasan({
           dapat ditutup — draf belum punya "penutupan", selesai/
           dibatalkan sudah lewat urusan ini. */}
       {akuKanitPemilik && spt.status !== 'draf' && !['selesai', 'dibatalkan'].includes(spt.status) && (
-        <section className="kartu" style={{ marginBottom: 18 }}>
+        <section className="kartu rincian-spt-berkas" style={{ marginBottom: 18 }}>
           <div className="kartu-h">
             <h3>Berkas Surat Perintah</h3>
             {spt.berkas_surat_path && <span className="isyarat">Terlampir</span>}
@@ -213,7 +213,13 @@ export default async function RincianPenugasan({
         </section>
       )}
 
-      <div style={{ marginBottom: 18 }}>
+      <section className="rincian-spt-tindakan" aria-label="Tindakan penugasan">
+        <div className="rincian-spt-tindakan-kepala">
+          <div>
+            <span>Tindakan penugasan</span>
+            <p>Kelola batas waktu dan status penugasan.</p>
+          </div>
+        </div>
         <AksiSpt
           penugasanId={spt.id}
           status={spt.status}
@@ -224,7 +230,7 @@ export default async function RincianPenugasan({
           isPanitAktif={akuPanitAktif}
           bolehHapus={bolehHapus}
         />
-      </div>
+      </section>
 
       {spt.status === 'dibatalkan' && spt.alasan_pembatalan && (
         <div className="kartu" style={{ marginBottom: 18, borderLeft: '3px solid var(--red)' }}>

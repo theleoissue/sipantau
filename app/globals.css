@@ -307,6 +307,27 @@ body.mini #rangka{margin-left:var(--sb-mini)}
 .btn-sm{padding:6px 11px;font-size:12px}
 .btn-sm svg{width:14px;height:14px}
 
+/* Rincian penugasan: kelompokkan identitas, berkas, dan tindakan agar
+   keputusan penting tetap mudah dipindai pada layar telepon. */
+.rincian-spt-kepala{padding-bottom:4px}
+.rincian-spt-identitas{min-width:0}
+.rincian-spt-aksi-utama .btn{justify-content:center}
+.rincian-spt-berkas{overflow:hidden}
+.unggah-surat-spt-zona{display:flex;align-items:center;justify-content:center;gap:14px;min-height:128px;
+  padding:20px;border:1.5px dashed #C8D2DF;border-radius:12px;background:linear-gradient(135deg,#FAFCFF,#F5F8FC);
+  text-align:left;cursor:pointer;transition:border-color var(--t),background var(--t),transform var(--t)}
+.unggah-surat-spt-zona:hover{border-color:var(--blue);background:var(--blue-bg)}
+.unggah-surat-spt-zona:active{transform:scale(.995)}
+.unggah-surat-spt-zona svg{width:32px;height:32px;color:var(--ink-2);flex-shrink:0}
+.unggah-surat-spt-zona p{font-size:14px;font-weight:650;color:var(--ink);line-height:1.35}
+.unggah-surat-spt-zona small{display:block;margin-top:3px;font-size:12px;color:var(--ink-3);line-height:1.5}
+.rincian-spt-tindakan{margin:0 0 18px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.rincian-spt-tindakan-kepala{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.rincian-spt-tindakan-kepala span{font-size:13px;font-weight:700;color:var(--ink)}
+.rincian-spt-tindakan-kepala p{margin-top:3px;font-size:12px;color:var(--ink-3)}
+.aksi-spt{display:flex;gap:8px;flex-wrap:wrap}
+.aksi-spt .btn{min-height:42px}
+
 /* ═══════════════ KARTU ═══════════════ */
 .kartu{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
 .kartu-h{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -998,6 +1019,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .btn:disabled:hover{transform:none;box-shadow:none}
 .jatuh{display:block;width:100%}
 .jatuh svg{display:block;margin-left:auto;margin-right:auto}
+.unggah-surat-spt-zona{display:flex}
+.unggah-surat-spt-zona svg{margin:0}
 .sesi-kartu select{background:var(--card);color:var(--ink)}
 .sesi-kartu .spt-ket{overflow-wrap:anywhere}
 .sesi-selesai{margin-top:18px;width:100%;min-height:48px;justify-content:center;
@@ -1042,6 +1065,21 @@ button.peta-orang{width:100%;text-align:left}
   .kh{gap:14px;margin-bottom:18px}
   .kh h1{font-size:28px;overflow-wrap:anywhere}
   .kh-aksi{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:8px}
+  .rincian-spt-kepala{display:block;margin-bottom:16px}
+  .rincian-spt-identitas{padding:2px 0 4px}
+  .rincian-spt-aksi-utama{margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .rincian-spt-aksi-utama .btn{min-height:46px;padding:10px 12px;font-size:12px}
+  .rincian-spt-berkas .kartu-b{padding:12px}
+  .unggah-surat-spt-zona{min-height:104px;padding:16px;gap:12px;border-radius:10px}
+  .unggah-surat-spt-zona svg{width:28px;height:28px}
+  .unggah-surat-spt-zona p{font-size:13px}
+  .unggah-surat-spt-zona small{font-size:11.5px}
+  .rincian-spt-tindakan{padding:14px 12px;border-radius:14px}
+  .rincian-spt-tindakan-kepala{padding:0 4px;margin-bottom:10px}
+  .rincian-spt-tindakan-kepala span{font-size:12.5px}
+  .rincian-spt-tindakan-kepala p{font-size:11.5px}
+  .aksi-spt{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .aksi-spt .btn{width:100%;min-height:48px;justify-content:center;padding:10px 9px;font-size:12px;line-height:1.25}
   .kartu-h{flex-wrap:wrap;padding:14px 16px}
   .kartu-b{padding:16px}
   .spt .atas,.spt .bawah{flex-wrap:wrap}

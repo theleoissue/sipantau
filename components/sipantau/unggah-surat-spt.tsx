@@ -43,7 +43,7 @@ export function UnggahSuratSpt({
   }
 
   return (
-    <div>
+    <div className="unggah-surat-spt">
       {galat && (
         <div role="alert" style={{
           background: 'var(--red-bg)', color: 'var(--red)', padding: '8px 12px',
@@ -54,13 +54,15 @@ export function UnggahSuratSpt({
       )}
 
       <div
-        className="jatuh"
+        className="jatuh unggah-surat-spt-zona"
         onClick={() => !mengunggah && berkas.current?.click()}
         style={{ opacity: mengunggah ? 0.6 : 1, pointerEvents: mengunggah ? 'none' : undefined }}
       >
         <Ikon nama="berkas" />
-        <p>{sudahAda ? 'Ganti berkas surat perintah' : 'Unggah pindaian surat perintah'}</p>
-        <small>PDF atau foto pindaian, satu berkas</small>
+        <div>
+          <p>{sudahAda ? 'Ganti berkas surat perintah' : 'Unggah pindaian surat perintah'}</p>
+          <small>PDF atau foto pindaian, satu berkas</small>
+        </div>
       </div>
       <input
         ref={berkas} type="file" accept="application/pdf,image/*" hidden

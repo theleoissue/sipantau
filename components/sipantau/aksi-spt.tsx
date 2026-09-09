@@ -75,7 +75,7 @@ export function AksiSpt({
             <div className="kartu-b"><p style={{ fontSize: 13, color: 'var(--red)' }}>{galatTerbit}</p></div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="aksi-spt">
           <button
             className="btn btn-p"
             onClick={() => mulaiTerbit(async () => {
@@ -108,7 +108,7 @@ export function AksiSpt({
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="aksi-spt">
         {bisaBermasalah && (
           <button className="btn btn-o" style={{ color: 'var(--red)' }} onClick={() => setDialog('bermasalah')}>
             <Ikon nama="awas" /> Tandai Bermasalah
