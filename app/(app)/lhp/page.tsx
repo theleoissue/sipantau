@@ -62,6 +62,7 @@ export default async function HalamanDaftarLhp() {
               </p>
             </div>
           ) : (
+            <>
             <table>
               <thead>
                 <tr>
@@ -93,6 +94,21 @@ export default async function HalamanDaftarLhp() {
                 ))}
               </tbody>
             </table>
+            <div className="lhp-daftar-mobile">
+              {daftar.map(l => (
+                <article key={l.id} className="lhp-kartu-mobile">
+                  <div className="lhp-kartu-mobile-atas">
+                    <span className={`lc ${l.status === 'final' ? 'selesai' : 'draf'}`}>{l.status === 'final' ? 'final' : 'draf'}</span>
+                    <time>{waktu(l.dibuat_pada)}</time>
+                  </div>
+                  <span className="spt-id">{l.penugasan?.nomor_spt ?? '—'}</span>
+                  <h3>{l.perkara || l.penugasan?.judul || 'LHP belum diberi perkara'}</h3>
+                  <p>{l.penyusun?.nama ?? '—'} · {l.penugasan?.judul ?? 'Penugasan tidak tersedia'}</p>
+                  <Link href={`/lhp/${l.id}`} className="btn btn-o"><Ikon nama="mata" /> Buka LHP</Link>
+                </article>
+              ))}
+            </div>
+            </>
           )}
         </div>
       </section>

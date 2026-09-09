@@ -22,12 +22,12 @@ const gaya = {
 
 function Bagian({ nomor, judul, children }: { nomor: string; judul: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', marginBottom: 8 }}>
+    <section className="lhp-bagian">
+      <div className="lhp-bagian-judul">
         {nomor}. {judul.toUpperCase()}
       </div>
       {children}
-    </div>
+    </section>
   )
 }
 
@@ -97,13 +97,10 @@ export function FormulirLhp({
   const teksatau = (v: string) => v || <span style={{ color: 'var(--ink-3)' }}>Belum diisi</span>
 
   return (
-    <div>
+    <div className="lhp-formulir">
       {bolehSunting && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-          marginBottom: 18, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8,
-        }}>
-          <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+        <div className="lhp-aksi-draf">
+          <span>
             {tersimpan ? 'Tersimpan.' : 'Draf — simpan perubahan sebelum berpindah halaman.'}
           </span>
           <div style={{ display: 'flex', gap: 8 }}>

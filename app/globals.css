@@ -1224,3 +1224,30 @@ button.peta-orang{width:100%;text-align:left}
   .scan-sprin .btn { grid-column: 1 / -1; }
   .wiz-steps, .aksi-spt, .rincian-spt-aksi-utama { grid-template-columns: 1fr; }
 }
+
+/* LHP Ringkas: formulir panjang yang tetap nyaman di layar APK. */
+.lhp-daftar-mobile{display:none}
+.lhp-formulir{max-width:900px}
+.lhp-aksi-draf{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;padding:12px 14px;background:linear-gradient(135deg,var(--blue-bg),var(--bg));border:1px solid var(--line);border-radius:12px;color:var(--ink-2);font-size:12.5px}
+.lhp-aksi-draf>div{display:flex;gap:8px;flex-shrink:0}
+.lhp-bagian{margin-bottom:18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.lhp-bagian-judul{font-size:12px;font-weight:750;letter-spacing:.055em;color:var(--primary);margin-bottom:11px}
+.lhp-bagian :is(input,select,textarea){max-width:100%;background:var(--card);color:var(--ink)}
+.lhp-bagian textarea{line-height:1.55}
+@media(max-width:768px){
+  .lhp-formulir{padding-bottom:8px}
+  .lhp-daftar-mobile{display:grid;gap:12px}
+  .lhp-daftar-mobile+*{display:none}
+  .tw:has(.lhp-daftar-mobile)>table{display:none}
+  .lhp-kartu-mobile{display:flex;flex-direction:column;gap:9px;padding:15px;border:1px solid var(--line);border-radius:13px;background:var(--card);box-shadow:var(--sh)}
+  .lhp-kartu-mobile-atas{display:flex;align-items:center;justify-content:space-between;gap:8px}.lhp-kartu-mobile-atas time{font-size:11px;color:var(--ink-3)}
+  .lhp-kartu-mobile .spt-id{font-size:11px}.lhp-kartu-mobile h3{font-size:15px;line-height:1.4;font-weight:700}.lhp-kartu-mobile p{font-size:12px;line-height:1.55;color:var(--ink-2)}
+  .lhp-kartu-mobile .btn{width:100%;min-height:46px;justify-content:center;margin-top:2px}
+  .lhp-aksi-draf{position:sticky;top:calc(var(--hd) + var(--aman-atas) + 8px);z-index:20;align-items:stretch;flex-direction:column;padding:12px;box-shadow:0 8px 18px rgba(15,28,50,.1)}
+  .lhp-aksi-draf>div{display:grid;grid-template-columns:1fr 1fr;width:100%}.lhp-aksi-draf .btn{justify-content:center;min-height:46px}
+  .lhp-bagian{padding:14px;margin-bottom:12px;border-radius:12px}.lhp-bagian-judul{margin-bottom:10px}
+  .lhp-bagian :is(input,select,textarea){font-size:16px!important;min-height:46px}
+  .lhp-bagian div[style*="flex"]{align-items:stretch}.lhp-bagian div[style*="flex"]>.btn{min-height:44px;justify-content:center}
+  .lhp-bagian li,.lhp-bagian li>span{min-width:0;overflow-wrap:anywhere}
+}
+@media(max-width:380px){.lhp-aksi-draf>div{grid-template-columns:1fr}.lhp-bagian div[style*="flex"]{flex-direction:column}.lhp-bagian div[style*="flex"]>*{width:100%}}
