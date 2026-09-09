@@ -1066,6 +1066,20 @@ button.peta-orang{width:100%;text-align:left}
 .dialog-modal textarea{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:8px}
 .dialog-modal .btn{min-height:44px}
 
+.pratinjau-scan{background:var(--card);border-radius:14px;padding:20px;max-width:480px;width:100%;
+  box-shadow:var(--sh-lg);display:flex;flex-direction:column;gap:12px}
+.pratinjau-scan-kepala{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pratinjau-scan-kepala strong{font-size:15px;font-weight:650;color:var(--ink)}
+.pratinjau-scan-kanvas{position:relative;width:100%;border-radius:10px;overflow:hidden;
+  background:#111;line-height:0}
+.pratinjau-scan-kanvas img{width:100%;height:auto;display:block;user-select:none;-webkit-user-select:none}
+.pratinjau-scan-kanvas svg{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.pratinjau-scan-kanvas svg circle{cursor:grab}
+.pratinjau-scan-hasil{width:100%;border-radius:10px;overflow:hidden;background:#111;line-height:0}
+.pratinjau-scan-hasil img{width:100%;height:auto;display:block}
+.pratinjau-scan-aksi{display:flex;gap:8px}
+.pratinjau-scan-aksi .btn{flex:1;justify-content:center}
+
 @media(max-width:900px){
   .rute-spt{grid-template-columns:minmax(0,1fr)}
   .rute-spt #peta-wadah,.peta-langsung-wadah #peta-wadah{height:clamp(260px,46dvh,420px);min-height:0}

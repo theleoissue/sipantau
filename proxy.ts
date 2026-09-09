@@ -96,7 +96,9 @@ export async function proxy(permintaan: NextRequest) {
 
 export const config = {
   matcher: [
-    // Seluruh jalur kecuali aset statis dan berkas gambar.
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Seluruh jalur kecuali aset statis, berkas gambar, dan pustaka
+    // OpenCV.js (rute /opencv-js, murni penyaji berkas statis untuk
+    // koreksi scan SPRIN — tanpa data pengguna, tidak perlu gerbang ini).
+    '/((?!_next/static|_next/image|favicon.ico|opencv-js|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { scanSprin, type HasilScanSprin } from '@/app/(app)/penugasan/aksi'
 import { Ikon } from './ikon'
+import { PratinjauScanSprin } from './pratinjau-scan-sprin'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Capacitor } from '@capacitor/core'
 
@@ -43,6 +44,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
 }) {
   const input = useRef<HTMLInputElement>(null)
   const [halaman, setHalaman] = useState<File[]>([])
+  const [antrianKoreksi, setAntrianKoreksi] = useState<File[]>([])
   const [pesan, setPesan] = useState('')
   const [native, setNative] = useState(false)
   const [menyiapkan, setMenyiapkan] = useState(false)
@@ -54,10 +56,15 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   }, [])
 
   function tambah(tambahan: File[]) {
-    const tersisa = MAKS_HALAMAN - halaman.length
+    const tersisa = MAKS_HALAMAN - halaman.length - antrianKoreksi.length
     if (tersisa <= 0) { setPesan(`Maksimal ${MAKS_HALAMAN} halaman sekali pindai.`); return }
     const dipakai = tambahan.slice(0, tersisa)
-    setHalaman(sebelum => [...sebelum, ...dipakai])
+    // Foto (kamera atau JPG/PNG/WebP) dirapikan dulu lewat dialog koreksi;
+    // PDF sudah berupa dokumen jadi, langsung ditambahkan apa adanya.
+    const foto = dipakai.filter(b => b.type !== 'application/pdf')
+    const pdf = dipakai.filter(b => b.type === 'application/pdf')
+    if (foto.length) setAntrianKoreksi(sebelum => [...sebelum, ...foto])
+    if (pdf.length) setHalaman(sebelum => [...sebelum, ...pdf])
     setPesan(tambahan.length > tersisa ? `Hanya ${MAKS_HALAMAN} halaman pertama yang ditambahkan.` : '')
   }
 
@@ -88,7 +95,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     } finally { setMenyiapkan(false) }
   }
 
-  const sibuk = menyiapkan || memindai
+  const sibuk = menyiapkan || memindai || antrianKoreksi.length > 0
   return <section className="scan-sprin">
     <div><strong>Scan SPRIN</strong><p>Tambahkan setiap halaman dari kamera atau unggah PDF/foto. Semua halaman dibaca bersama sebagai satu SPRIN.</p></div>
     <input ref={input} type="file" hidden multiple accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => {
@@ -100,9 +107,16 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah halaman / PDF</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
       <span><b>{halaman.length}</b> {halaman.length === 1 ? 'berkas siap dipindai' : 'halaman/berkas siap dipindai'}</span>
-      <button type="button" className="btn btn-o btn-sm" disabled={sibuk} onClick={() => setHalaman([])}><Ikon nama="silang" />Kosongkan</button>
+      <button type="button" className="btn btn-o btn-sm" disabled={memindai} onClick={() => { setHalaman([]); setAntrianKoreksi([]) }}><Ikon nama="silang" />Kosongkan</button>
       <button type="button" className="btn btn-p" disabled={sibuk} onClick={() => mulai(proses)}><Ikon nama="cari" />{memindai ? 'Membaca semua halaman…' : `Pindai ${halaman.length} halaman`}</button>
     </div>}
     {pesan && <p className="bantu" role="status">{pesan}</p>}
+    {antrianKoreksi[0] && (
+      <PratinjauScanSprin
+        berkas={antrianKoreksi[0]}
+        onSelesai={hasil => { setHalaman(h => [...h, hasil]); setAntrianKoreksi(q => q.slice(1)) }}
+        onBatal={() => setAntrianKoreksi(q => q.slice(1))}
+      />
+    )}
   </section>
 }
