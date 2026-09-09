@@ -68,7 +68,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     const foto = perluKoreksi ? dipakai.filter(b => b.type !== 'application/pdf') : []
     const pdf = dipakai.filter(b => b.type === 'application/pdf')
     if (foto.length) setAntrianKoreksi(sebelum => [...sebelum, ...foto])
-    // JPEG dari ML Kit sudah diperbaiki perspektif, rotasi, bayangan dan
+    // JPEG dari pemindai native sudah diperbaiki perspektif, rotasi, bayangan dan
     // noda secara native. Jangan buka crop kedua di WebView.
     if (pdf.length || !perluKoreksi) setHalaman(sebelum => [...sebelum, ...(perluKoreksi ? pdf : dipakai)])
     setPesan(tambahan.length > tersisa ? `Hanya ${MAKS_HALAMAN} halaman pertama yang ditambahkan.` : '')
@@ -115,11 +115,10 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     } catch (galat) {
       const kode = galat instanceof Error ? galat.message : ''
       if (kode.includes('PEMINDAIAN_DIBATALKAN')) setPesan('Pemindaian dibatalkan.')
-      else if (kode.includes('PEMINDAI_SEDANG_DIUNDUH')) setPesan('Komponen pemindai sedang diunduh oleh Google Play services. Tunggu sekitar satu menit dengan internet aktif, lalu tekan Scan dokumen lagi.')
-      else if (kode.includes('PERBARUI_PLAY_SERVICES')) setPesan('Google Play services perlu diperbarui melalui Play Store sebelum pemindai dokumen dapat digunakan.')
-      else if (kode.includes('PEMINDAI_TIDAK_DIDUKUNG')) setPesan('Perangkat ini belum mendukung pemindai otomatis ML Kit. Gunakan kamera cadangan atau unggah PDF.')
-      else if (kode.includes('IZIN_KAMERA_GOOGLE_DITOLAK')) setPesan('Izin kamera untuk Google Play services ditolak. Izinkan kamera di Pengaturan aplikasi, lalu coba lagi.')
-      else setPesan('Pemindai dokumen belum siap. Pastikan internet dan Google Play services aktif, lalu coba lagi.')
+      else if (kode.includes('IZIN_KAMERA_DITOLAK')) setPesan('Izin kamera belum diberikan. Izinkan kamera untuk SiPANTAU di Pengaturan, lalu coba lagi.')
+      else if (kode.includes('OPENCV_GAGAL_DIMUAT')) setPesan('Komponen pemrosesan dokumen tidak berhasil dimuat. Tutup aplikasi lalu buka kembali, kemudian coba lagi.')
+      else if (kode.includes('KAMERA_TIDAK_TERSEDIA')) setPesan('Kamera belakang tidak dapat digunakan saat ini. Tutup aplikasi lain yang memakai kamera lalu coba lagi.')
+      else setPesan('Pemindai dokumen tidak dapat dibuka. Coba lagi atau gunakan unggah halaman / PDF.')
       setTampilkanCadanganKamera(true)
     } finally { setMenyiapkan(false) }
   }
