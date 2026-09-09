@@ -55,7 +55,8 @@ public class DokumenScannerPlugin extends Plugin {
     }
     Intent data = hasil.getData();
     if (hasil.getResultCode() != Activity.RESULT_OK || data == null) {
-      call.reject(data == null ? "PEMINDAI_TIDAK_TERSEDIA" : data.getStringExtra(DokumenScannerActivity.EXTRA_GALAT));
+      String kode=data == null ? "SCANNER_GAGAL_TANPA_HASIL" : data.getStringExtra(DokumenScannerActivity.EXTRA_GALAT);
+      call.reject(kode == null ? "SCANNER_GAGAL_TANPA_KODE" : kode);
       return;
     }
     ArrayList<String> uriHalaman = data.getStringArrayListExtra(DokumenScannerActivity.EXTRA_HALAMAN);

@@ -117,6 +117,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       else if (kode.includes('IZIN_KAMERA_DITOLAK')) setPesan('Izin kamera belum diberikan. Izinkan kamera untuk SiPANTAU di Pengaturan, lalu coba lagi.')
       else if (kode.includes('OPENCV_GAGAL_DIMUAT')) setPesan('Komponen pemrosesan dokumen tidak berhasil dimuat. Tutup aplikasi lalu buka kembali, kemudian coba lagi.')
       else if (kode.includes('KAMERA_TIDAK_TERSEDIA')) setPesan('Kamera belakang tidak dapat digunakan saat ini. Tutup aplikasi lain yang memakai kamera lalu coba lagi.')
+      else if (kode.includes('SCANNER_GAGAL_')) setPesan(`Scanner native gagal dimulai (${kode.replace(/^.*SCANNER_GAGAL_/, '')}). Kode ini dicatat untuk perbaikan.`)
       else setPesan('Pemindai dokumen tidak dapat dibuka. Coba lagi atau gunakan unggah halaman / PDF.')
     } finally { setMenyiapkan(false) }
   }

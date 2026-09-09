@@ -8,6 +8,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
@@ -39,7 +40,7 @@ public class DokumenScannerActivity extends ComponentActivity {
   private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya, flashMenyala, opencvSiap;
   private Point[] sudutTerakhir, sudutUntukFoto;
 
-  @Override public void onCreate(Bundle state) {
+  @Override public void onCreate(Bundle state) { try {
     super.onCreate(state);
     // Kamera harus selalu dapat dibuka. OpenCV meningkatkan auto-crop, tetapi
     // kegagalannya tidak boleh memblokir pengambilan foto SPRIN.
@@ -57,7 +58,7 @@ public class DokumenScannerActivity extends ComponentActivity {
     Button foto=new Button(this);foto.setText("Ambil foto");foto.setOnClickListener(v->ambil());FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);fp.setMargins(0,0,0,30);root.addView(foto,fp);
     tombolSelesai=new Button(this);tombolSelesai.setText("Selesai");tombolSelesai.setEnabled(false);tombolSelesai.setOnClickListener(v->selesai());FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.END);sp.setMargins(0,0,24,30);root.addView(tombolSelesai,sp);
     setContentView(root);mulai(preview);
-  }
+  }catch(Throwable galat){Log.e("DokumenScanner","Gagal memulai scanner",galat);gagal("SCANNER_GAGAL_"+galat.getClass().getSimpleName());}}
   private void mulai(PreviewView preview){
     ListenableFuture<ProcessCameraProvider> future=ProcessCameraProvider.getInstance(this);
     future.addListener(()->{try{

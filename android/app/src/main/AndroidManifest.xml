@@ -28,7 +28,8 @@
         <activity
             android:name=".DokumenScannerActivity"
             android:exported="false"
-            android:theme="@style/AppTheme.NoActionBarLaunch" />
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.NoActionBar" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
