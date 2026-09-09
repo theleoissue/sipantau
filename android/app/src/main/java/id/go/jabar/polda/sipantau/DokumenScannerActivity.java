@@ -9,6 +9,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import com.google.android.gms.tasks.Task;
+import com.google.mlkit.common.MlKitException;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanner;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning;
@@ -46,7 +47,7 @@ public class DokumenScannerActivity extends ComponentActivity {
     GmsDocumentScanner scanner = GmsDocumentScanning.getClient(opsi);
     Task<android.content.IntentSender> mulai = scanner.getStartScanIntent(this);
     mulai.addOnSuccessListener(pengirim -> peluncur.launch(new IntentSenderRequest.Builder(pengirim).build()));
-    mulai.addOnFailureListener(galat -> gagal(galat.getMessage()));
+    mulai.addOnFailureListener(this::gagal);
   }
 
   private void selesaiMemindai(ActivityResult hasil) {
@@ -70,10 +71,36 @@ public class DokumenScannerActivity extends ComponentActivity {
     finish();
   }
 
-  private void gagal(String pesan) {
+  private void gagal(Exception galat) {
+    String pesan = "PEMINDAI_GAGAL";
+    if (galat instanceof MlKitException) {
+      // Kode ML Kit: 200/14 muncul saat modul Play services baru sedang
+      // diunduh; 18 berarti perangkat memang tidak memenuhi syarat.
+      switch (((MlKitException) galat).getErrorCode()) {
+        case 200:
+        case 14:
+          pesan = "PEMINDAI_SEDANG_DIUNDUH";
+          break;
+        case 207:
+          pesan = "PERBARUI_PLAY_SERVICES";
+          break;
+        case 18:
+          pesan = "PEMINDAI_TIDAK_DIDUKUNG";
+          break;
+        case 202:
+          pesan = "IZIN_KAMERA_GOOGLE_DITOLAK";
+          break;
+        default:
+          pesan = "PEMINDAI_GAGAL:" + ((MlKitException) galat).getErrorCode();
+      }
+    }
     Intent data = new Intent();
-    data.putExtra(EXTRA_GALAT, pesan == null ? "Pemindai dokumen tidak tersedia pada perangkat ini." : pesan);
+    data.putExtra(EXTRA_GALAT, pesan);
     setResult(Activity.RESULT_FIRST_USER, data);
     finish();
+  }
+
+  private void gagal(String pesan) {
+    gagal(new Exception(pesan));
   }
 }

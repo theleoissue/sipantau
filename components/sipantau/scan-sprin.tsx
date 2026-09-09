@@ -50,6 +50,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   const [antrianKoreksi, setAntrianKoreksi] = useState<File[]>([])
   const [pesan, setPesan] = useState('')
   const [native, setNative] = useState(false)
+  const [tampilkanCadanganKamera, setTampilkanCadanganKamera] = useState(false)
   const [menyiapkan, setMenyiapkan] = useState(false)
   const [memindai, mulai] = useTransition()
 
@@ -88,7 +89,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     try {
       let foto
       try {
-        foto = await Camera.getPhoto({ quality: 72, width: 1600, height: 1600, resultType: CameraResultType.Base64, source: CameraSource.Camera, allowEditing: true, correctOrientation: true })
+        foto = await Camera.getPhoto({ quality: 72, width: 1600, height: 1600, resultType: CameraResultType.Base64, source: CameraSource.Camera, allowEditing: false, correctOrientation: true })
       } catch {
         setPesan('Pengambilan foto dibatalkan atau kamera tidak dapat dibuka.')
         return
@@ -114,7 +115,12 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     } catch (galat) {
       const kode = galat instanceof Error ? galat.message : ''
       if (kode.includes('PEMINDAIAN_DIBATALKAN')) setPesan('Pemindaian dibatalkan.')
-      else setPesan('Pemindai dokumen tidak dapat dibuka. Pastikan Google Play services aktif, lalu coba lagi.')
+      else if (kode.includes('PEMINDAI_SEDANG_DIUNDUH')) setPesan('Komponen pemindai sedang diunduh oleh Google Play services. Tunggu sekitar satu menit dengan internet aktif, lalu tekan Scan dokumen lagi.')
+      else if (kode.includes('PERBARUI_PLAY_SERVICES')) setPesan('Google Play services perlu diperbarui melalui Play Store sebelum pemindai dokumen dapat digunakan.')
+      else if (kode.includes('PEMINDAI_TIDAK_DIDUKUNG')) setPesan('Perangkat ini belum mendukung pemindai otomatis ML Kit. Gunakan kamera cadangan atau unggah PDF.')
+      else if (kode.includes('IZIN_KAMERA_GOOGLE_DITOLAK')) setPesan('Izin kamera untuk Google Play services ditolak. Izinkan kamera di Pengaturan aplikasi, lalu coba lagi.')
+      else setPesan('Pemindai dokumen belum siap. Pastikan internet dan Google Play services aktif, lalu coba lagi.')
+      setTampilkanCadanganKamera(true)
     } finally { setMenyiapkan(false) }
   }
 
@@ -127,6 +133,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       if (berkas.length) tambah(berkas)
     }} />
     {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
+    {native && Capacitor.getPlatform() === 'android' && tampilkanCadanganKamera && <button type="button" className="btn btn-o" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />Kamera biasa (cadangan)</button>}
     {native && Capacitor.getPlatform() !== 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />{halaman.length ? 'Tambah foto' : 'Scan kamera'}</button>}
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah halaman / PDF</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
