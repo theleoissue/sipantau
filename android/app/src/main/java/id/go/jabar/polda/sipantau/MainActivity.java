@@ -12,12 +12,20 @@ public class MainActivity extends BridgeActivity {
   private static final int IZIN_KAMERA_AWAL = 4101;
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    // Didaftarkan eksplisit agar tombol Back tetap bekerja pada APK
-    // yang dibangun sebelum berkas plugin otomatis Capacitor dibuat.
+    // WAJIB sebelum super.onCreate: BridgeActivity.onCreate memanggil
+    // load(), dan di situlah Bridge dibuat dari daftar plugin yang ADA
+    // SAAT ITU. registerPlugin sesudahnya hanya menyentuh builder yang
+    // tidak dipakai lagi, sehingga pluginnya diam-diam tidak terdaftar
+    // dan pemanggilan dari JS ditolak "not implemented".
+    //
+    // capacitor.plugins.json hanya memuat plugin dari paket npm yang
+    // terpasang — DokumenScanner plugin lokal, jadi HANYA baris ini yang
+    // mendaftarkannya. Salah urutan berarti pemindai dokumen tidak pernah
+    // bisa dibuka sama sekali.
     registerPlugin(AppPlugin.class);
     registerPlugin(CameraPlugin.class);
     registerPlugin(DokumenScannerPlugin.class);
+    super.onCreate(savedInstanceState);
     mintaIzinKameraAwal();
   }
 
