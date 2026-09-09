@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { simpanPenugasan, perbaruiDraf, revisiPenugasan, type DataScanSprin } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
 import { ScanSprin } from '@/components/sipantau/scan-sprin'
+import { DialogModal } from '@/components/sipantau/dialog-modal'
 
 const LANGKAH = [
   'Keterangan Penugasan',
@@ -32,12 +34,13 @@ const JENIS_DASAR = [
 ] as const
 
 const BULAN_ROMAWI = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII']
-const KUNCI_DRAF_BARU = 'sipantau:draf-penugasan:baru:v1'
+const VERSI_DRAF_LOKAL = 'v2'
 
 interface Personel { id: string; nama: string; pangkat: string | null; peran: string }
 
 type Dasar = { jenis: string; nomor: string; tanggal: string; keterangan: string }
 type Lokasi = { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }
+type DrafLokal = Record<string, unknown>
 
 export interface DrafAwal {
   id: string
@@ -62,6 +65,7 @@ export function WizardTerbitkan({
   namaUnit,
   draf,
   scanAwal,
+  pemilikDraf,
   mode = draf ? 'draf' : 'baru',
 }: {
   personel: Personel[]
@@ -73,8 +77,11 @@ export function WizardTerbitkan({
   draf?: DrafAwal
   /** Hasil scan yang sudah disetujui Kanit; tetap hanya isian awal. */
   scanAwal?: DataScanSprin
+  /** Ruang penyimpanan draf dipisahkan per akun, unit, dan sumber formulir. */
+  pemilikDraf?: { id: string; unitId: string; konteks: string }
   mode?: 'baru' | 'draf' | 'revisi'
 }) {
+  const router = useRouter()
   const sedangRevisi = mode === 'revisi'
   const langkah = sedangRevisi ? LANGKAH_REVISI : draf ? LANGKAH_SUNTING_DRAF : LANGKAH
   const [n, setN] = useState(1)
@@ -108,55 +115,63 @@ export function WizardTerbitkan({
       : '',
   )
   const [statusSimpanOtomatis, setStatusSimpanOtomatis] = useState('')
+  const [drafTersedia, setDrafTersedia] = useState<DrafLokal | null>(null)
   const drafLokalSiap = useRef(false)
+  const sedangKirimBaru = useRef(false)
+  const kunciDraf = pemilikDraf
+    ? `sipantau:draf-penugasan:${VERSI_DRAF_LOKAL}:${pemilikDraf.id}:${pemilikDraf.unitId}:${pemilikDraf.konteks}`
+    : null
+
+  function isiDariDraf(nilai: DrafLokal) {
+    setJudul(typeof nilai.judul === 'string' ? nilai.judul : '')
+    setJenisKegiatan(typeof nilai.jenisKegiatan === 'string' ? nilai.jenisKegiatan : 'penyelidikan')
+    setNomorSpt(typeof nilai.nomorSpt === 'string' ? nilai.nomorSpt : '')
+    setObjek(typeof nilai.objek === 'string' ? nilai.objek : '')
+    setSasaran(typeof nilai.sasaran === 'string' ? nilai.sasaran : '')
+    setUraian(typeof nilai.uraian === 'string' ? nilai.uraian : '')
+    setNomorLp(typeof nilai.nomorLp === 'string' ? nilai.nomorLp : '')
+    setSumber(typeof nilai.sumber === 'string' ? nilai.sumber : '')
+    setPrioritas(typeof nilai.prioritas === 'string' ? nilai.prioritas : 'normal')
+    setMulaiTgl(typeof nilai.mulaiTgl === 'string' ? nilai.mulaiTgl : '')
+    setBatasTgl(typeof nilai.batasTgl === 'string' ? nilai.batasTgl : '')
+    if (Array.isArray(nilai.dasar)) setDasar(nilai.dasar as Dasar[])
+    if (Array.isArray(nilai.lokasi)) setLokasi(nilai.lokasi as Lokasi[])
+    if (Array.isArray(nilai.panit)) setPanit(nilai.panit.filter((id): id is string => typeof id === 'string'))
+    if (Array.isArray(nilai.pelaksana)) setPelaksana(nilai.pelaksana.filter((id): id is string => typeof id === 'string'))
+  }
 
   // Draf penugasan baru disimpan di perangkat sampai Kanit memilih
   // "Simpan sebagai draf". Draf server yang sudah ada memakai jalur
   // penyimpanan resmi dan tidak pernah ditimpa penyimpanan lokal ini.
   useEffect(() => {
-    if (draf) return
+    if (draf || !kunciDraf) return
     if (scanAwal) { drafLokalSiap.current = true; return }
     const pulihkan = window.setTimeout(() => {
     try {
-      const tersimpan = localStorage.getItem(KUNCI_DRAF_BARU)
+      const tersimpan = localStorage.getItem(kunciDraf)
       if (tersimpan) {
         const nilai = JSON.parse(tersimpan) as Record<string, unknown>
-        setJudul(typeof nilai.judul === 'string' ? nilai.judul : '')
-        setJenisKegiatan(typeof nilai.jenisKegiatan === 'string' ? nilai.jenisKegiatan : 'penyelidikan')
-        setNomorSpt(typeof nilai.nomorSpt === 'string' ? nilai.nomorSpt : '')
-        setObjek(typeof nilai.objek === 'string' ? nilai.objek : '')
-        setSasaran(typeof nilai.sasaran === 'string' ? nilai.sasaran : '')
-        setUraian(typeof nilai.uraian === 'string' ? nilai.uraian : '')
-        setNomorLp(typeof nilai.nomorLp === 'string' ? nilai.nomorLp : '')
-        setSumber(typeof nilai.sumber === 'string' ? nilai.sumber : '')
-        setPrioritas(typeof nilai.prioritas === 'string' ? nilai.prioritas : 'normal')
-        setMulaiTgl(typeof nilai.mulaiTgl === 'string' ? nilai.mulaiTgl : '')
-        setBatasTgl(typeof nilai.batasTgl === 'string' ? nilai.batasTgl : '')
-        if (Array.isArray(nilai.dasar)) setDasar(nilai.dasar as Dasar[])
-        if (Array.isArray(nilai.lokasi)) setLokasi(nilai.lokasi as Lokasi[])
-        if (Array.isArray(nilai.panit)) setPanit(nilai.panit.filter((id): id is string => typeof id === 'string'))
-        if (Array.isArray(nilai.pelaksana)) setPelaksana(nilai.pelaksana.filter((id): id is string => typeof id === 'string'))
-        setStatusSimpanOtomatis('Draf sebelumnya dipulihkan dari perangkat ini.')
+        setDrafTersedia(nilai)
       }
-    } catch { localStorage.removeItem(KUNCI_DRAF_BARU) }
+    } catch { localStorage.removeItem(kunciDraf) }
     drafLokalSiap.current = true
     }, 0)
     return () => window.clearTimeout(pulihkan)
-  }, [draf, scanAwal])
+  }, [draf, scanAwal, kunciDraf])
 
   useEffect(() => {
-    if (draf || !drafLokalSiap.current) return
+    if (draf || !kunciDraf || drafTersedia || sedangKirimBaru.current || !drafLokalSiap.current) return
     const timer = window.setTimeout(() => {
       const adaIsian = Boolean(judul.trim() || uraian.trim() || objek.trim() || sasaran.trim() || nomorSpt.trim())
       if (!adaIsian) return
-      localStorage.setItem(KUNCI_DRAF_BARU, JSON.stringify({
+      localStorage.setItem(kunciDraf, JSON.stringify({
         judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber,
         prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana,
       }))
       setStatusSimpanOtomatis('Perubahan tersimpan otomatis di perangkat.')
     }, 700)
     return () => window.clearTimeout(timer)
-  }, [draf, judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber, prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana])
+  }, [draf, kunciDraf, drafTersedia, judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber, prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana])
 
   /**
    * Kerangka nomor SPT yang disodorkan sistem. Nomor agendanya sengaja
@@ -198,7 +213,17 @@ export function WizardTerbitkan({
       const isianDasar = dasar.filter(d => d.nomor.trim() || d.keterangan.trim())
       const isianLokasi = lokasi.filter(l => l.nama.trim())
 
-      const hasil = sedangRevisi && draf
+      const cadangan = !draf && kunciDraf ? JSON.stringify({
+        judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber,
+        prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana,
+      }) : null
+      if (cadangan && kunciDraf) {
+        sedangKirimBaru.current = true
+        localStorage.removeItem(kunciDraf)
+      }
+      let hasil
+      try {
+      hasil = sedangRevisi && draf
         ? await revisiPenugasan(draf.id, {
             judul, jenis_kegiatan: jenisKegiatan,
             objek: objek || null, sasaran: sasaran || null,
@@ -228,8 +253,23 @@ export function WizardTerbitkan({
             dasar: isianDasar, lokasi: isianLokasi,
             panit, pelaksana, terbitkan,
           })
-      if (hasil?.galat) setGalat(hasil.galat)
-      else if (!draf) localStorage.removeItem(KUNCI_DRAF_BARU)
+      } catch {
+        if (cadangan && kunciDraf) localStorage.setItem(kunciDraf, cadangan)
+        sedangKirimBaru.current = false
+        setGalat('Koneksi terputus. Draf Anda tetap tersimpan di perangkat.')
+        return
+      }
+      if (hasil?.galat) {
+        if (cadangan && kunciDraf) localStorage.setItem(kunciDraf, cadangan)
+        sedangKirimBaru.current = false
+        setGalat(hasil.galat)
+      } else if (!draf && hasil?.id) {
+        localStorage.removeItem(kunciDraf!)
+        const tujuan = hasil.belumTerbit
+          ? `/penugasan/${hasil.id}?belumTerbit=${encodeURIComponent(hasil.belumTerbit)}`
+          : `/penugasan/${hasil.id}`
+        router.push(tujuan)
+      }
     })
   }
 
@@ -239,6 +279,25 @@ export function WizardTerbitkan({
 
   return (
     <>
+      {drafTersedia && <DialogModal label="Draf penugasan ditemukan" terkunci onTutup={() => undefined}>
+        <div className="pilih-draf">
+          <span className="pilih-draf-ikon"><Ikon nama="riwayat" /></span>
+          <h2>Lanjutkan draf terakhir?</h2>
+          <p>Ada isian penugasan yang belum selesai pada perangkat ini. Pilih lanjutkan untuk memulihkan isinya, atau mulai baru untuk memakai formulir kosong.</p>
+          <div className="pilih-draf-aksi">
+            <button type="button" className="btn btn-o" onClick={() => {
+              localStorage.removeItem(kunciDraf!)
+              setDrafTersedia(null)
+              setStatusSimpanOtomatis('Formulir baru siap diisi.')
+            }}>Mulai baru</button>
+            <button type="button" className="btn btn-g" onClick={() => {
+              isiDariDraf(drafTersedia)
+              setDrafTersedia(null)
+              setStatusSimpanOtomatis('Draf sebelumnya dipulihkan dari perangkat ini.')
+            }}>Lanjutkan draf</button>
+          </div>
+        </div>
+      </DialogModal>}
       <Link
         href={draf ? `/penugasan/${draf.id}` : '/penugasan'}
         className="back-link"

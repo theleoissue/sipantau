@@ -1,5 +1,9 @@
 'use client'
 
+/* OpenCV.js memuat gambar secara asinkron di luar siklus React; referensi
+   dipakai oleh handler drag/proses setelah gambar siap, bukan sebagai state UI. */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/refs, react-hooks/set-state-in-effect */
+
 import { useEffect, useRef, useState } from 'react'
 import { DialogModal } from './dialog-modal'
 import { Ikon } from './ikon'

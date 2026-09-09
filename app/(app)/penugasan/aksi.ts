@@ -17,6 +17,8 @@ import { klienServer } from '@/lib/supabase/server'
 export interface HasilAksi {
   galat?: string
   sukses?: string
+  id?: string
+  belumTerbit?: string
 }
 
 export interface HasilScanSprin extends HasilAksi {
@@ -311,21 +313,21 @@ export async function simpanPenugasan(isian: IsianTerbitkan): Promise<HasilAksi>
     const { error: galatTerbit } = await supabase.rpc('terbitkan_draf', { p_id: spt.id })
     if (galatTerbit) {
       revalidatePath('/penugasan')
-      // Draf sudah TERSIMPAN dengan aman pada titik ini — hanya
-      // penerbitannya yang gagal. Diarahkan ke rinciannya sendiri
-      // supaya Kanit dapat melengkapi yang kurang dan menekan
-      // Terbitkan lagi dari sana, bukan kehilangan isian yang sudah
-      // disusun.
-      redirect(`/penugasan/${spt.id}?belumTerbit=${encodeURIComponent(
-        galatTerbit.message.includes('SYARAT_TERBIT_KURANG')
+      // Draf sudah tersimpan dengan aman pada titik ini — hanya
+      // penerbitannya yang gagal. Klien menerima ID-nya, membersihkan
+      // draf lokal, lalu membuka rincian untuk melengkapi kekurangannya.
+      return {
+        id: spt.id,
+        sukses: 'Draf tersimpan. Lengkapi bagian yang masih kurang sebelum menerbitkan.',
+        belumTerbit: galatTerbit.message.includes('SYARAT_TERBIT_KURANG')
           ? galatTerbit.message.replace('SYARAT_TERBIT_KURANG: ', 'Belum dapat diterbitkan. Masih kurang: ') + '.'
           : galatTerbit.message,
-      )}`)
+      }
     }
   }
 
   revalidatePath('/penugasan')
-  redirect(`/penugasan/${spt.id}`)
+  return { id: spt.id, sukses: isian.terbitkan ? 'Penugasan berhasil diterbitkan.' : 'Draf penugasan berhasil disimpan.' }
 }
 
 /** Menerbitkan draf yang sudah tersimpan (KP-6.2-04..06). Dipanggil

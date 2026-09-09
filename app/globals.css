@@ -1079,6 +1079,7 @@ button.peta-orang{width:100%;text-align:left}
 .pratinjau-scan-hasil img{width:100%;height:auto;display:block}
 .pratinjau-scan-aksi{display:flex;gap:8px}
 .pratinjau-scan-aksi .btn{flex:1;justify-content:center}
+.pilih-draf{background:var(--card);border-radius:14px;padding:24px;max-width:430px;width:100%;text-align:center}.pilih-draf-ikon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;margin:0 auto 14px;background:var(--blue-bg);color:var(--primary)}.pilih-draf-ikon svg{width:24px;height:24px}.pilih-draf h2{font-size:18px;font-weight:700}.pilih-draf p{margin:9px 0 20px;color:var(--ink-2);font-size:13px;line-height:1.6}.pilih-draf-aksi{display:grid;grid-template-columns:1fr 1fr;gap:9px}.pilih-draf-aksi .btn{justify-content:center;min-height:46px}
 
 @media(max-width:900px){
   .rute-spt{grid-template-columns:minmax(0,1fr)}

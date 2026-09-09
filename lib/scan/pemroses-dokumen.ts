@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- OpenCV.js tidak menyediakan deklarasi API yang dapat dipakai. */
+
 // Deteksi tepi dokumen + pelurusan perspektif + penghilang bayangan,
 // meniru cara kerja CamScanner. Dijalankan sepenuhnya di klien lewat
 // OpenCV.js (dimuat lazy dari /opencv-js, lihat app/opencv-js/route.ts
