@@ -1,6 +1,7 @@
 package id.go.jabar.polda.sipantau;
 
 import android.app.Activity;
+import android.Manifest;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,15 +15,31 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 
 /** Menjembatani JPEG hasil ML Kit ke halaman SiPANTAU. */
-@CapacitorPlugin(name = "DokumenScanner")
+@CapacitorPlugin(name = "DokumenScanner", permissions = {
+  @Permission(alias = "camera", strings = { Manifest.permission.CAMERA })
+})
 public class DokumenScannerPlugin extends Plugin {
   @PluginMethod
   public void scan(PluginCall call) {
+    if (getPermissionState("camera") != com.getcapacitor.PermissionState.GRANTED) {
+      requestPermissionForAlias("camera", call, "izinKameraSelesai");
+      return;
+    }
+    bukaScanner(call);
+  }
+  @PermissionCallback
+  private void izinKameraSelesai(PluginCall call) {
+    if (getPermissionState("camera") != com.getcapacitor.PermissionState.GRANTED) { call.reject("IZIN_KAMERA_DITOLAK"); return; }
+    bukaScanner(call);
+  }
+  private void bukaScanner(PluginCall call) {
     int batas = Math.max(1, Math.min(8, call.getInt("pageLimit", 8)));
     Intent intent = new Intent(getContext(), DokumenScannerActivity.class);
     intent.putExtra(DokumenScannerActivity.EXTRA_MAKS_HALAMAN, batas);
