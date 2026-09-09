@@ -35,7 +35,8 @@ public class DokumenScannerActivity extends ComponentActivity {
   private static final int STABIL_MINIMUM=7;
   private final ExecutorService executor=Executors.newSingleThreadExecutor();
   private final ArrayList<String> halaman=new ArrayList<>();
-  private ImageCapture capture; private TextView status; private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya;
+  private ImageCapture capture; private Camera kamera; private TextView status, ringkasan; private Button tombolSelesai, tombolFlash; private LinearLayout thumbnail;
+  private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya, flashMenyala;
   private Point[] sudutTerakhir, sudutUntukFoto;
 
   @Override public void onCreate(Bundle state) {
@@ -45,9 +46,14 @@ public class DokumenScannerActivity extends ComponentActivity {
     FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.BLACK);
     PreviewView preview=new PreviewView(this);preview.setScaleType(PreviewView.ScaleType.FILL_CENTER);root.addView(preview,new FrameLayout.LayoutParams(-1,-1));
     bingkai=new Bingkai(this);root.addView(bingkai,new FrameLayout.LayoutParams(-1,-1));
-    status=new TextView(this);status.setTextColor(Color.WHITE);status.setTextSize(16);status.setGravity(Gravity.CENTER);status.setPadding(32,42,32,22);status.setText("Arahkan kamera ke seluruh halaman SPRIN");root.addView(status,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+    LinearLayout atas=new LinearLayout(this);atas.setGravity(Gravity.CENTER_VERTICAL);atas.setPadding(dp(14),dp(18),dp(14),0);
+    Button tutup=new Button(this);tutup.setText("×");tutup.setTextSize(28);tutup.setOnClickListener(v->batal());atas.addView(tutup,new LinearLayout.LayoutParams(dp(58),dp(54)));
+    status=new TextView(this);status.setTextColor(Color.WHITE);status.setTextSize(16);status.setGravity(Gravity.CENTER);status.setText("Arahkan kamera ke seluruh halaman SPRIN");atas.addView(status,new LinearLayout.LayoutParams(0,dp(54),1));
+    tombolFlash=new Button(this);tombolFlash.setText("Lampu");tombolFlash.setOnClickListener(v->ubahFlash());atas.addView(tombolFlash,new LinearLayout.LayoutParams(dp(88),dp(54)));root.addView(atas,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+    HorizontalScrollView strip=new HorizontalScrollView(this);strip.setHorizontalScrollBarEnabled(false);thumbnail=new LinearLayout(this);thumbnail.setPadding(dp(16),0,dp(16),0);strip.addView(thumbnail);FrameLayout.LayoutParams stripLetak=new FrameLayout.LayoutParams(-1,dp(76),Gravity.BOTTOM);stripLetak.setMargins(0,0,0,dp(102));root.addView(strip,stripLetak);
+    ringkasan=new TextView(this);ringkasan.setTextColor(Color.WHITE);ringkasan.setTextSize(14);ringkasan.setGravity(Gravity.CENTER);ringkasan.setText("0 / "+batas+" halaman");FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(-1,dp(26),Gravity.BOTTOM);rp.setMargins(0,0,0,dp(78));root.addView(ringkasan,rp);
     Button foto=new Button(this);foto.setText("Ambil foto");foto.setOnClickListener(v->ambil());FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);fp.setMargins(0,0,0,30);root.addView(foto,fp);
-    Button selesai=new Button(this);selesai.setText("Selesai");selesai.setOnClickListener(v->selesai());FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.END);sp.setMargins(0,0,24,30);root.addView(selesai,sp);
+    tombolSelesai=new Button(this);tombolSelesai.setText("Selesai");tombolSelesai.setEnabled(false);tombolSelesai.setOnClickListener(v->selesai());FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.END);sp.setMargins(0,0,24,30);root.addView(tombolSelesai,sp);
     setContentView(root);mulai(preview);
   }
   private void mulai(PreviewView preview){
@@ -57,7 +63,7 @@ public class DokumenScannerActivity extends ComponentActivity {
       Preview p=new Preview.Builder().setTargetRotation(rotasi).build();p.setSurfaceProvider(preview.getSurfaceProvider());
       capture=new ImageCapture.Builder().setTargetRotation(rotasi).setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build();
       ImageAnalysis a=new ImageAnalysis.Builder().setTargetRotation(rotasi).setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build();a.setAnalyzer(executor,this::analisis);
-      provider.unbindAll();provider.bindToLifecycle(this,CameraSelector.DEFAULT_BACK_CAMERA,p,capture,a);
+      provider.unbindAll();kamera=provider.bindToLifecycle(this,CameraSelector.DEFAULT_BACK_CAMERA,p,capture,a);
     }catch(Exception e){gagal("KAMERA_TIDAK_TERSEDIA");}},ContextCompat.getMainExecutor(this));
   }
   private void analisis(@NonNull ImageProxy gambar){try{
@@ -80,7 +86,7 @@ public class DokumenScannerActivity extends ComponentActivity {
   private void ambil(){
     if(mengambil||capture==null||halaman.size()>=batas)return;mengambil=true;stabil=0;status.setText("Memproses halaman…");Point[] sudut=salin(sudutUntukFoto);File mentah=new File(getCacheDir(),"sprin-"+System.nanoTime()+".jpg");
     capture.takePicture(new ImageCapture.OutputFileOptions.Builder(mentah).build(),executor,new ImageCapture.OnImageSavedCallback(){
-      @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults hasil){String bersih=bersihkan(mentah,sudut);runOnUiThread(()->{halaman.add(Uri.fromFile(new File(bersih)).toString());mengambil=false;menungguHalamanBerikutnya=true;status.setText(halaman.size()+" halaman siap. Arahkan ke halaman berikutnya atau tekan Selesai.");if(halaman.size()>=batas)selesai();});}
+      @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults hasil){String bersih=bersihkan(mentah,sudut);runOnUiThread(()->{halaman.add(Uri.fromFile(new File(bersih)).toString());tambahThumbnail(bersih);mengambil=false;menungguHalamanBerikutnya=true;tombolSelesai.setEnabled(true);ringkasan.setText(halaman.size()+" / "+batas+" halaman");status.setText(halaman.size()+" halaman siap. Arahkan ke halaman berikutnya atau tekan Selesai.");if(halaman.size()>=batas)selesai();});}
       @Override public void onError(@NonNull ImageCaptureException e){runOnUiThread(()->{mengambil=false;status.setText("Foto gagal. Coba lagi.");});}
     });
   }
@@ -89,6 +95,10 @@ public class DokumenScannerActivity extends ComponentActivity {
   private Mat cropPerspektif(Mat sumber,Point[] normal){if(normal==null||normal.length!=4)return kecilkan(sumber,1800);Point[] p=new Point[4];for(int i=0;i<4;i++)p[i]=new Point(normal[i].x*sumber.cols(),normal[i].y*sumber.rows());double lebar=Math.max(Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),Math.hypot(p[2].x-p[3].x,p[2].y-p[3].y));double tinggi=Math.max(Math.hypot(p[3].x-p[0].x,p[3].y-p[0].y),Math.hypot(p[2].x-p[1].x,p[2].y-p[1].y));if(lebar<200||tinggi<200)return kecilkan(sumber,1800);MatOfPoint2f asal=new MatOfPoint2f(p),tujuan=new MatOfPoint2f(new Point(0,0),new Point(lebar-1,0),new Point(lebar-1,tinggi-1),new Point(0,tinggi-1));Mat trans=Imgproc.getPerspectiveTransform(asal,tujuan);Mat hasil=new Mat();Imgproc.warpPerspective(sumber,hasil,trans,new Size(lebar,tinggi),Imgproc.INTER_CUBIC,Core.BORDER_REPLICATE,Scalar.all(0));asal.release();tujuan.release();trans.release();Mat ringkas=kecilkan(hasil,1800);hasil.release();return ringkas;}
   private Mat kecilkan(Mat sumber,int maksimum){double f=Math.min(1d,maksimum/(double)Math.max(sumber.cols(),sumber.rows()));if(f==1d)return sumber.clone();Mat hasil=new Mat();Imgproc.resize(sumber,hasil,new Size(sumber.cols()*f,sumber.rows()*f));return hasil;}
   private void putarSesuaiExif(Mat gambar,File berkas){try{int o=new ExifInterface(berkas.getAbsolutePath()).getAttributeInt(ExifInterface.TAG_ORIENTATION,ExifInterface.ORIENTATION_NORMAL);if(o==ExifInterface.ORIENTATION_ROTATE_90)Core.rotate(gambar,gambar,Core.ROTATE_90_CLOCKWISE);else if(o==ExifInterface.ORIENTATION_ROTATE_180)Core.rotate(gambar,gambar,Core.ROTATE_180);else if(o==ExifInterface.ORIENTATION_ROTATE_270)Core.rotate(gambar,gambar,Core.ROTATE_90_COUNTERCLOCKWISE);}catch(IOException ignored){}}
+  private void tambahThumbnail(String lokasi){ImageView gambar=new ImageView(this);gambar.setImageURI(Uri.fromFile(new File(lokasi)));gambar.setScaleType(ImageView.ScaleType.CENTER_CROP);gambar.setBackgroundColor(Color.WHITE);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(48),dp(64));lp.setMargins(0,0,dp(8),0);thumbnail.addView(gambar,lp);}
+  private void ubahFlash(){if(kamera==null||!kamera.getCameraInfo().hasFlashUnit())return;flashMenyala=!flashMenyala;kamera.getCameraControl().enableTorch(flashMenyala);tombolFlash.setText(flashMenyala?"Lampu aktif":"Lampu");}
+  private void batal(){Intent data=new Intent();data.putExtra(EXTRA_GALAT,"PEMINDAIAN_DIBATALKAN");setResult(Activity.RESULT_CANCELED,data);finish();}
+  private int dp(int nilai){return Math.round(nilai*getResources().getDisplayMetrics().density);}
   private void selesai(){Intent data=new Intent();data.putStringArrayListExtra(EXTRA_HALAMAN,halaman);setResult(Activity.RESULT_OK,data);finish();}
   private void gagal(String kode){Intent data=new Intent();data.putExtra(EXTRA_GALAT,kode);setResult(Activity.RESULT_FIRST_USER,data);finish();}
   @Override protected void onDestroy(){executor.shutdown();super.onDestroy();}
