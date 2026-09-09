@@ -30,12 +30,14 @@ export function KelolaTim({
   panit,
   personelTersedia,
   bolehUbah,
+  bagian = 'semua',
 }: {
   penugasanId: string
   pelaksana: Orang[]
   panit: Orang[]
   personelTersedia: Personel[]
   bolehUbah: boolean
+  bagian?: 'panit' | 'pelaksana' | 'semua'
 }) {
   const router = useRouter()
   const [cabutRelasi, setCabutRelasi] = useState<{ id: string; jenis: 'pelaksana' | 'panit' } | null>(null)
@@ -51,8 +53,15 @@ export function KelolaTim({
   const calonPelaksana = personelTersedia.filter(p => p.aktif && p.peran !== 'pemeliharaan' && !idPelaksanaAktif.has(p.id))
   const calonPanit = personelTersedia.filter(p => p.aktif && p.peran === 'panit' && !idPanitAktif.has(p.id))
 
+  const tampilPanit = bagian === 'panit' || bagian === 'semua'
+  const tampilPelaksana = bagian === 'pelaksana' || bagian === 'semua'
+  const label = bagian === 'panit' ? 'Kelola Panit' : bagian === 'pelaksana' ? 'Kelola Pelaksana' : 'Kelola Tim'
+
   return (
-    <div className="kelola-tim">
+    <details className="kelola-tim-lipat">
+      <summary className="btn btn-o btn-sm"><Ikon nama="orang" /> {label}</summary>
+      <div className="kelola-tim">
+      {tampilPanit && <>
       <section className="kelola-tim-blok kelola-tim-panit">
       <div className="kelola-tim-label"><b>1. Panit Penanggung Jawab</b><span>Penanggung jawab utama di lapangan</span></div>
       <div className="kelola-tim-tambah">
@@ -71,6 +80,8 @@ export function KelolaTim({
         <div key={p.id} className="dor kelola-tim-orang"><div className="av av-sm" style={{ background: '#2563EB', color: '#fff' }}>{inisial(p.users?.nama ?? '?')}</div><div className="meta"><div className="nm">{p.users?.nama ?? '—'}</div><div className="st">Panit Penanggung Jawab</div></div><button className="btn btn-o btn-sm" style={{ color: 'var(--red)' }} onClick={() => setCabutRelasi({ id: p.id, jenis: 'panit' })}>Cabut</button></div>
       ))}
       </section>
+      </>}
+      {tampilPelaksana && <>
       <section className="kelola-tim-blok">
       <div className="kelola-tim-label"><b>2. Pelaksana</b><span>Personel pelaksana tugas</span></div>
       <div className="kelola-tim-tambah">
@@ -107,6 +118,7 @@ export function KelolaTim({
       ))}
 
       </section>
+      </>}
 
       {galat && <p style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 8 }}>{galat}</p>}
 
@@ -125,6 +137,7 @@ export function KelolaTim({
           return r
         }}
       />
-    </div>
+      </div>
+    </details>
   )
 }

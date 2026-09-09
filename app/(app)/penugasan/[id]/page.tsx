@@ -397,9 +397,7 @@ export default async function RincianPenugasan({
           <section className="kartu kartu-pananggung-jawab">
             <div className="kartu-h">
               <div><h3>Panit Penanggung Jawab</h3><p className="kartu-keterangan">Memimpin dan bertanggung jawab atas pelaksanaan di lapangan.</p></div>
-              <span className="isyarat">
-                {panit.filter(p => !p.dicabut_pada).length} orang
-              </span>
+              <div className="tim-kartu-aksi"><span className="isyarat">{panit.filter(p => !p.dicabut_pada).length} orang</span>{bolehUbahTim && <KelolaTim penugasanId={spt.id} pelaksana={pelaksana} panit={panit} personelTersedia={personel} bolehUbah={bolehUbahTim} bagian="panit" />}</div>
             </div>
             <div className="kartu-b rata daftar-orang">
               {panit.map(p => (
@@ -426,7 +424,7 @@ export default async function RincianPenugasan({
           <section className="kartu">
             <div className="kartu-h">
               <div><h3>Pelaksana</h3><p className="kartu-keterangan">Personel yang menjalankan tugas dan mengirim laporan lapangan.</p></div>
-              <span className="isyarat">{pelaksana.filter(p => !p.dicabut_pada).length} orang</span>
+              <div className="tim-kartu-aksi"><span className="isyarat">{pelaksana.filter(p => !p.dicabut_pada).length} orang</span>{bolehUbahTim && <KelolaTim penugasanId={spt.id} pelaksana={pelaksana} panit={panit} personelTersedia={personel} bolehUbah={bolehUbahTim} bagian="pelaksana" />}</div>
             </div>
             <div className="kartu-b rata daftar-orang">
               {pelaksana.map((p, i) => (
@@ -451,18 +449,6 @@ export default async function RincianPenugasan({
               ))}
             </div>
           </section>
-
-          {bolehUbahTim && (
-            <section className="kartu">
-              <div className="kartu-h"><h3>Kelola Tim</h3></div>
-              <div className="kartu-b">
-                <KelolaTim
-                  penugasanId={spt.id} pelaksana={pelaksana} panit={panit}
-                  personelTersedia={personel} bolehUbah={bolehUbahTim}
-                />
-              </div>
-            </section>
-          )}
 
           {riwayatPerpanjang.length > 0 && (
             <section className="kartu">
