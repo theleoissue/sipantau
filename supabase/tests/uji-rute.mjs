@@ -29,6 +29,10 @@ cek('U-RUTE-05','Anggota TIDAK dapat menyunting SPT lewat sub-rute', !boleh('/pe
 cek('U-RUTE-06','Panit TIDAK dapat menutup SPT', !boleh('/penugasan/abc-123/tutup','panit'))
 cek('U-RUTE-07','Anggota DAPAT membuka rincian SPT biasa', boleh('/penugasan/abc-123','anggota'))
 cek('U-RUTE-08','Anggota DAPAT membuka daftar penugasan', boleh('/penugasan','anggota'))
+cek('U-RUTE-08a','Anggota DAPAT mengajukan scan SPRIN', boleh('/penugasan/scan','anggota'))
+cek('U-RUTE-08b','Panit DAPAT mengajukan scan SPRIN', boleh('/penugasan/scan','panit'))
+cek('U-RUTE-08c','Anggota TIDAK dapat membuka persetujuan scan Kanit', !boleh('/penugasan/pengajuan','anggota'))
+cek('U-RUTE-08d','Kanit DAPAT membuka persetujuan scan', boleh('/penugasan/pengajuan','kanit'))
 
 // --- kewenangan eksklusif Kasubdit (BR-07) ---
 for (const p of ['kanit','panit','anggota','pemeliharaan']) {

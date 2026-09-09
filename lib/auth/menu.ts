@@ -164,6 +164,10 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   // /penugasan/terbitkan/<id> (sunting draf, wizard yang sama dipakai
   // ulang) ikut tercakup pola ini.
   { pola: /^\/penugasan\/terbitkan(\/.*)?$/,         peran: ['kanit'] },
+  // Scan oleh Panit/Anggota selalu menjadi pengajuan; kotak persetujuan
+  // dan penerbitan tetap eksklusif Kanit.
+  { pola: /^\/penugasan\/scan\/?$/,                   peran: ['anggota', 'panit', 'kanit'] },
+  { pola: /^\/penugasan\/pengajuan(\/.*)?$/,          peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/sunting\/?$/,        peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/tutup\/?$/,          peran: ['kanit'] },
 

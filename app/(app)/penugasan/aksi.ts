@@ -27,6 +27,51 @@ export interface HasilScanSprin extends HasilAksi {
   }
 }
 
+export type DataScanSprin = NonNullable<HasilScanSprin['data']>
+
+/** Mengirim hasil scan Panit/Anggota ke kotak persetujuan Kanit. */
+export async function ajukanScanSprin(data: DataScanSprin): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('ajukan_scan_sprin', { p_data: data })
+  if (error) {
+    if (error.message.includes('BUKAN_PENGAJU')) return { galat: 'Hanya Anggota atau Panit yang dapat mengajukan hasil scan kepada Kanit.' }
+    return { galat: `Pengajuan belum tersimpan: ${error.message}` }
+  }
+  revalidatePath('/penugasan/scan')
+  revalidatePath('/penugasan/pengajuan')
+  return { sukses: 'Hasil scan telah dikirim ke Kanit untuk ditinjau.' }
+}
+
+/** Keputusan Kanit atas scan yang diajukan Anggota/Panit. */
+export async function putuskanPengajuanSprin(
+  id: string,
+  status: 'perlu_perbaikan' | 'disetujui' | 'ditolak',
+  catatan = '',
+): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('putuskan_pengajuan_sprin', {
+    p_id: id, p_status: status, p_catatan: catatan,
+  })
+  if (error) {
+    if (error.message.includes('BUKAN_KANIT')) return { galat: 'Hanya Kanit pada unit pengaju yang dapat mengambil keputusan.' }
+    if (error.message.includes('CATATAN_PERBAIKAN_WAJIB')) return { galat: 'Tulis catatan agar pengaju mengetahui bagian yang perlu diperbaiki.' }
+    return { galat: `Keputusan belum tersimpan: ${error.message}` }
+  }
+  revalidatePath('/penugasan/pengajuan')
+  revalidatePath('/penugasan')
+  return { sukses: status === 'disetujui' ? 'Scan disetujui. Lanjutkan menjadi penugasan.' : status === 'perlu_perbaikan' ? 'Permintaan perbaikan dikirim ke pengaju.' : 'Pengajuan ditolak.' }
+}
+
+/** Pengaju mengganti hasil scan setelah Kanit meminta perbaikan. */
+export async function kirimUlangScanSprin(id: string, data: DataScanSprin): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('kirim_ulang_scan_sprin', { p_id: id, p_data: data })
+  if (error) return { galat: error.message.includes('TIDAK_DAPAT') ? 'Pengajuan ini tidak dapat dikirim ulang.' : `Perbaikan belum tersimpan: ${error.message}` }
+  revalidatePath('/penugasan/scan')
+  revalidatePath('/penugasan/pengajuan')
+  return { sukses: 'Perbaikan dikirim ulang ke Kanit untuk ditinjau.' }
+}
+
 /** Membaca SPRIN menjadi draf saja; Kanit tetap memeriksa seluruh hasil. */
 export async function scanSprin(data: FormData): Promise<HasilScanSprin> {
   const berkas = data.getAll('berkas').filter((item): item is File => item instanceof File && item.size > 0)

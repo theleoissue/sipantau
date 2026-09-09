@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { simpanPenugasan, perbaruiDraf, revisiPenugasan } from '../aksi'
+import { simpanPenugasan, perbaruiDraf, revisiPenugasan, type DataScanSprin } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
 import { ScanSprin } from '@/components/sipantau/scan-sprin'
@@ -61,6 +61,7 @@ export function WizardTerbitkan({
   kodeKlasifikasi,
   namaUnit,
   draf,
+  scanAwal,
   mode = draf ? 'draf' : 'baru',
 }: {
   personel: Personel[]
@@ -70,6 +71,8 @@ export function WizardTerbitkan({
    *  membuat baru) — hanya tiga langkah pertama, disimpan lewat
    *  perbaruiDraf(), bukan simpanPenugasan(). */
   draf?: DrafAwal
+  /** Hasil scan yang sudah disetujui Kanit; tetap hanya isian awal. */
+  scanAwal?: DataScanSprin
   mode?: 'baru' | 'draf' | 'revisi'
 }) {
   const sedangRevisi = mode === 'revisi'
@@ -78,17 +81,17 @@ export function WizardTerbitkan({
   const [galat, setGalat] = useState<string | null>(null)
   const [menyimpan, mulai] = useTransition()
 
-  const [judul, setJudul] = useState(draf?.judul ?? '')
-  const [jenisKegiatan, setJenisKegiatan] = useState(draf?.jenis_kegiatan ?? 'penyelidikan')
-  const [nomorSpt, setNomorSpt] = useState(draf?.nomor_spt ?? '')
-  const [objek, setObjek] = useState(draf?.objek ?? '')
-  const [sasaran, setSasaran] = useState(draf?.sasaran ?? '')
-  const [uraian, setUraian] = useState(draf?.uraian_tugas ?? '')
-  const [nomorLp, setNomorLp] = useState(draf?.nomor_lp ?? '')
-  const [sumber, setSumber] = useState(draf?.sumber_informasi ?? '')
-  const [prioritas, setPrioritas] = useState(draf?.prioritas ?? 'normal')
-  const [mulaiTgl, setMulaiTgl] = useState(draf?.tanggal_mulai ?? '')
-  const [batasTgl, setBatasTgl] = useState(draf?.tanggal_batas ?? '')
+  const [judul, setJudul] = useState(draf?.judul ?? scanAwal?.judul ?? '')
+  const [jenisKegiatan, setJenisKegiatan] = useState(draf?.jenis_kegiatan ?? scanAwal?.jenis_kegiatan ?? 'penyelidikan')
+  const [nomorSpt, setNomorSpt] = useState(draf?.nomor_spt ?? scanAwal?.nomor_spt ?? '')
+  const [objek, setObjek] = useState(draf?.objek ?? scanAwal?.objek ?? '')
+  const [sasaran, setSasaran] = useState(draf?.sasaran ?? scanAwal?.sasaran ?? '')
+  const [uraian, setUraian] = useState(draf?.uraian_tugas ?? scanAwal?.uraian_tugas ?? '')
+  const [nomorLp, setNomorLp] = useState(draf?.nomor_lp ?? scanAwal?.nomor_lp ?? '')
+  const [sumber, setSumber] = useState(draf?.sumber_informasi ?? scanAwal?.sumber_informasi ?? '')
+  const [prioritas, setPrioritas] = useState(draf?.prioritas ?? scanAwal?.prioritas ?? 'normal')
+  const [mulaiTgl, setMulaiTgl] = useState(draf?.tanggal_mulai ?? scanAwal?.tanggal_mulai ?? '')
+  const [batasTgl, setBatasTgl] = useState(draf?.tanggal_batas ?? scanAwal?.tanggal_batas ?? '')
 
   const [dasar, setDasar] = useState<Dasar[]>(draf?.dasar.length ? draf.dasar : [
     { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' },
@@ -107,6 +110,7 @@ export function WizardTerbitkan({
   // penyimpanan resmi dan tidak pernah ditimpa penyimpanan lokal ini.
   useEffect(() => {
     if (draf) return
+    if (scanAwal) { drafLokalSiap.current = true; return }
     const pulihkan = window.setTimeout(() => {
     try {
       const tersimpan = localStorage.getItem(KUNCI_DRAF_BARU)
@@ -133,7 +137,7 @@ export function WizardTerbitkan({
     drafLokalSiap.current = true
     }, 0)
     return () => window.clearTimeout(pulihkan)
-  }, [draf])
+  }, [draf, scanAwal])
 
   useEffect(() => {
     if (draf || !drafLokalSiap.current) return

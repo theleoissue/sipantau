@@ -37,7 +37,10 @@ async function siapkanFoto(base64: string, format?: string) {
   } finally { URL.revokeObjectURL(url) }
 }
 
-export function ScanSprin({ onHasil }: { onHasil: (data: NonNullable<HasilScanSprin['data']>) => void }) {
+export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan sebagai draf. Periksa kembali sebelum menerbitkan.' }: {
+  onHasil: (data: NonNullable<HasilScanSprin['data']>) => void
+  pesanSukses?: string
+}) {
   const input = useRef<HTMLInputElement>(null)
   const [halaman, setHalaman] = useState<File[]>([])
   const [pesan, setPesan] = useState('')
@@ -64,7 +67,7 @@ export function ScanSprin({ onHasil }: { onHasil: (data: NonNullable<HasilScanSp
     const hasil = await scanSprin(fd)
     if (hasil.data) {
       onHasil(hasil.data)
-      setPesan('Hasil scan sudah dimasukkan sebagai draf. Periksa kembali sebelum menerbitkan.')
+      setPesan(pesanSukses)
     } else setPesan(hasil.galat ?? 'Scan gagal.')
   }
 
