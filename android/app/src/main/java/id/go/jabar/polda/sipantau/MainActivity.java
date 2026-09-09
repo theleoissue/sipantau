@@ -3,6 +3,7 @@ package id.go.jabar.polda.sipantau;
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 import com.capacitorjs.plugins.app.AppPlugin;
+import com.capacitorjs.plugins.camera.CameraPlugin;
 
 public class MainActivity extends BridgeActivity {
   @Override
@@ -11,5 +12,6 @@ public class MainActivity extends BridgeActivity {
     // Didaftarkan eksplisit agar tombol Back tetap bekerja pada APK
     // yang dibangun sebelum berkas plugin otomatis Capacitor dibuat.
     registerPlugin(AppPlugin.class);
+    registerPlugin(CameraPlugin.class);
   }
 }

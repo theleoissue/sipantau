@@ -1157,3 +1157,52 @@ button.peta-orang{width:100%;text-align:left}
   .laporan-jenis{font-size:11.5px}
   .laporan-kartu-kaki{gap:8px}
 }
+
+/* ═══════════════ PENGAMAN TAMPILAN APLIKASI ═══════════════
+   Semua halaman memakai kombinasi grid, kartu, tabel, dan panel peta.
+   Anak flex/grid secara bawaan menahan lebar kontennya sehingga nomor SPT,
+   nama lokasi, atau tombol panjang bisa mendorong layar melebar. Lapisan ini
+   memberi setiap konten ruang menyusut dan memastikan media tetap di dalam
+   kartu tanpa menyembunyikan tombol atau isi formulir. */
+#utama, #utama > *, .kisi > *, .rk > *, .kartu, .kartu-h > *, .kartu-b,
+.kh > *, .spt, .laporan-kartu, .laporan-pelapor, .laporan-penugasan,
+.ui, .ui > *, .dor, .lok, .baris-lokasi, .blok-lokasi-tb { min-width: 0; }
+
+#utama :where(p, h1, h2, h3, h4, h5, h6, small, time, dd, dt, li, code) {
+  overflow-wrap: anywhere;
+}
+
+#utama :where(img, video, canvas, iframe) { max-width: 100%; }
+#utama :where(pre) { max-width: 100%; overflow-x: auto; }
+.tw { max-width: 100%; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; }
+.tw table { min-width: max-content; }
+
+@media (max-width: 768px) {
+  /* Hindari elemen aktif tertutup bilah navigasi ketika fokus berpindah
+     melalui keyboard Android. */
+  #utama :where(input, select, textarea, button) { scroll-margin-bottom: calc(118px + var(--aman-bawah)); }
+
+  .kartu-h > :last-child:not(:only-child) { max-width: 100%; }
+  .kartu-h .btn, .laporan-kartu-kaki .btn { width: 100%; }
+  .laporan-kartu-kaki .btn { margin-left: 0; }
+  .laporan-pelapor, .laporan-penugasan { min-width: 0; }
+
+  /* Aksi di pemindai bisa dua tombol; jadikan dua kolom yang seimbang lalu
+     satu kolom pada layar sangat sempit, jadi label tidak saling tindih. */
+  .scan-sprin { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; }
+  .scan-sprin > div, .scan-sprin .bantu { grid-column: 1 / -1; min-width: 0; }
+  .scan-sprin .btn { width: 100%; min-width: 0; min-height: 46px; padding-inline: 10px; }
+
+  /* Pencarian peta tetap berada di kanan kontrol zoom dan tidak melebar
+     keluar dari kanvas saat nama tempat panjang. */
+  .peta-pilih-lokasi-wadah .peta-cari { left: 58px; right: 10px; max-width: none; }
+  .peta-pilih-lokasi-wadah .peta-cari input { width: 0; min-width: 0; }
+  .peta-hasil-cari button { min-width: 0; }
+  .peta-hasil-cari button:not(.on) { background: var(--card); }
+}
+
+@media (max-width: 380px) {
+  .scan-sprin { grid-template-columns: 1fr; }
+  .scan-sprin .btn { grid-column: 1 / -1; }
+  .wiz-steps, .aksi-spt, .rincian-spt-aksi-utama { grid-template-columns: 1fr; }
+}
