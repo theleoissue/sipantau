@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { simpanPenugasan, perbaruiDraf, revisiPenugasan } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
+import { ScanSprin } from '@/components/sipantau/scan-sprin'
 
 const LANGKAH = [
   'Keterangan Penugasan',
@@ -162,6 +163,16 @@ export function WizardTerbitkan({
     setNomorSpt(`SP.Gas.Lidik/____/${bulan}/${kode}/${tahun}/Ditreskrimsus`)
   }
 
+  function terapkanScan(data: { nomor_spt: string; judul: string; objek: string; sasaran: string; uraian_tugas: string; nomor_lp: string; sumber_informasi: string; jenis_kegiatan: string; prioritas: string; tanggal_mulai: string; tanggal_batas: string; personel: string[] }) {
+    setNomorSpt(data.nomor_spt || nomorSpt); setJudul(data.judul || judul); setObjek(data.objek || objek); setSasaran(data.sasaran || sasaran); setUraian(data.uraian_tugas || uraian); setNomorLp(data.nomor_lp || nomorLp); setSumber(data.sumber_informasi || sumber)
+    if (['penyelidikan', 'pulbaket', 'pengamanan'].includes(data.jenis_kegiatan)) setJenisKegiatan(data.jenis_kegiatan)
+    if (['normal', 'penting', 'urgent'].includes(data.prioritas)) setPrioritas(data.prioritas)
+    setMulaiTgl(data.tanggal_mulai || mulaiTgl); setBatasTgl(data.tanggal_batas || batasTgl)
+    const nama = data.personel.map(n => n.toLowerCase().replace(/[^a-z]/g, ''))
+    const cocok = personel.filter(p => nama.includes(p.nama.toLowerCase().replace(/[^a-z]/g, ''))).map(p => p.id)
+    if (cocok.length) setPelaksana(cocok)
+  }
+
   const calonPanit = personel.filter(p => p.peran === 'panit')
   const calonPelaksana = personel
 
@@ -234,6 +245,8 @@ export function WizardTerbitkan({
           </p>
         </div>
       </div>
+
+      {!draf && <ScanSprin onHasil={terapkanScan} />}
 
       <div className="wiz-steps">
         {langkah.map((lb, i) => (
