@@ -58,13 +58,9 @@ export default async function HalamanPenugasan({
             nonaktif. Rutenya juga dijaga proxy.ts dan RLS. */}
         {pengguna.peran === 'kanit' && (
           <div className="kh-aksi">
-            <Link href="/penugasan/pengajuan" className="btn btn-o">
-              <Ikon nama="masuk_kotak" />
-              Persetujuan scan
-            </Link>
             <Link href="/penugasan/terbitkan" className="btn btn-g">
               <Ikon nama="tambah" />
-              Terbitkan penugasan
+              Kelola penerbitan
             </Link>
           </div>
         )}
@@ -72,7 +68,7 @@ export default async function HalamanPenugasan({
           <div className="kh-aksi">
             <Link href="/penugasan/scan" className="btn btn-g">
               <Ikon nama="kamera" />
-              Scan SPRIN untuk Kanit
+              Ajukan scan SPRIN
             </Link>
           </div>
         )}
