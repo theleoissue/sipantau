@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { TampilanPerangkat } from '@/components/sipantau/tampilan-perangkat'
+import { NavigasiPerangkat } from '@/components/sipantau/navigasi-perangkat'
 
 export const metadata: Metadata = {
   title: 'Si PANTAU — Sistem Pengawasan Anggota Terpadu',
@@ -24,7 +25,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
-      <body><TampilanPerangkat />{children}</body>
+      <body><TampilanPerangkat /><NavigasiPerangkat />{children}</body>
     </html>
   )
 }

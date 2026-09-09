@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { kirimLaporan } from './aksi'
 import { LABEL_ALASAN_LOKASI, type SptUntukLapor, type AlasanLokasi } from '@/lib/laporan/tipe'
 import { Ikon } from '@/components/sipantau/ikon'
@@ -25,7 +26,15 @@ function ambilPenandaPerangkat(): string {
 
 type StatusGeo = 'mencari' | 'berhasil' | 'gagal'
 
+const KUNCI_DRAF = 'sipantau:draf-laporan:v1'
+
+type DrafLaporan = {
+  sptId: string; jenis: string; statusKegiatan: string; uraian: string; kendala: string
+  lokasiId: string; keteranganLokasi: string; alasan: AlasanLokasi; alasanLainnya: string
+}
+
 export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
+  const router = useRouter()
   const [sptId, setSptId] = useState(daftarSpt[0]?.id ?? '')
   const [jenis, setJenis] = useState('perkembangan')
   const [statusKegiatan, setStatusKegiatan] = useState('berjalan')
@@ -37,6 +46,8 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
   const [alasanLainnya, setAlasanLainnya] = useState('')
   const [galat, setGalat] = useState<string | null>(null)
   const [menyimpan, mulai] = useTransition()
+  const [statusDraf, setStatusDraf] = useState('')
+  const sudahPulih = useRef(false)
 
   // Bila API-nya tidak ada sama sekali, keadaan awal langsung 'gagal' —
   // SELALU 'mencari' pada render pertama, di server MAUPUN di klien.
@@ -78,6 +89,57 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
     return () => { if (typeof jam === 'number') navigator.geolocation.clearWatch(jam) }
   }, [])
 
+  function isiDraf(): DrafLaporan {
+    return { sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya }
+  }
+
+  function simpanDrafLokal(otomatis = false) {
+    const draf = isiDraf()
+    const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
+    if (!adaIsian) {
+      localStorage.removeItem(KUNCI_DRAF)
+      if (!otomatis) setStatusDraf('Tidak ada isian untuk disimpan.')
+      return
+    }
+    localStorage.setItem(KUNCI_DRAF, JSON.stringify(draf))
+    setStatusDraf(otomatis ? 'Draf tersimpan otomatis di perangkat.' : 'Draf tersimpan di perangkat ini.')
+  }
+
+  useEffect(() => {
+    const pulihkan = window.setTimeout(() => {
+    try {
+      const tersimpan = localStorage.getItem(KUNCI_DRAF)
+      if (tersimpan) {
+        const draf = JSON.parse(tersimpan) as DrafLaporan
+        if (daftarSpt.some(s => s.id === draf.sptId)) setSptId(draf.sptId)
+        setJenis(draf.jenis || 'perkembangan')
+        setStatusKegiatan(draf.statusKegiatan || 'berjalan')
+        setUraian(draf.uraian || '')
+        setKendala(draf.kendala || '')
+        setLokasiId(draf.lokasiId || '')
+        setKeteranganLokasi(draf.keteranganLokasi || '')
+        setAlasan(draf.alasan || 'gps_tidak_tertangkap')
+        setAlasanLainnya(draf.alasanLainnya || '')
+        setStatusDraf('Draf sebelumnya dipulihkan dari perangkat ini.')
+      }
+    } catch { localStorage.removeItem(KUNCI_DRAF) }
+    sudahPulih.current = true
+    }, 0)
+    return () => window.clearTimeout(pulihkan)
+  }, [daftarSpt])
+
+  useEffect(() => {
+    if (!sudahPulih.current) return
+    const timer = window.setTimeout(() => {
+      const draf: DrafLaporan = { sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya }
+      const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
+      if (!adaIsian) return
+      localStorage.setItem(KUNCI_DRAF, JSON.stringify(draf))
+      setStatusDraf('Draf tersimpan otomatis di perangkat.')
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya])
+
   const spt = daftarSpt.find(s => s.id === sptId)
   const lewatBatas = spt?.tanggal_batas ? spt.tanggal_batas < new Date().toISOString().slice(0, 10) : false
   const lokasiGagal = statusGeo === 'gagal'
@@ -103,6 +165,10 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
         penanda_perangkat: ambilPenandaPerangkat(),
       })
       if (hasil?.galat) setGalat(hasil.galat)
+      else if (hasil?.id) {
+        localStorage.removeItem(KUNCI_DRAF)
+        router.push(`/laporan/${hasil.id}`)
+      }
     })
   }
 
@@ -246,10 +312,15 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
           </div>
 
           <div className="bantu" style={{ marginBottom: 12 }}>
-            Foto dokumentasi dapat ditambahkan setelah laporan ini terkirim, dari halaman rinciannya.
+            Foto dokumentasi dapat ditambahkan setelah laporan ini terkirim, dari halaman rinciannya. Draf tersimpan hanya di perangkat ini dan hilang bila data aplikasi dibersihkan.
           </div>
 
+          {statusDraf && <div className="bantu" role="status" style={{ marginBottom: 12 }}>{statusDraf}</div>}
+
           <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn btn-o" onClick={() => simpanDrafLokal()} disabled={menyimpan}>
+              Simpan draf
+            </button>
             <button type="button" className="btn btn-g" style={{ flex: 1, justifyContent: 'center' }}
                     onClick={kirim} disabled={menyimpan}>
               <Ikon nama="kirim" />

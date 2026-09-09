@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { simpanPenugasan, perbaruiDraf, revisiPenugasan } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
@@ -31,6 +31,7 @@ const JENIS_DASAR = [
 ] as const
 
 const BULAN_ROMAWI = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII']
+const KUNCI_DRAF_BARU = 'sipantau:draf-penugasan:baru:v1'
 
 interface Personel { id: string; nama: string; pangkat: string | null; peran: string }
 
@@ -97,6 +98,55 @@ export function WizardTerbitkan({
   const [titikAktif, setTitikAktif] = useState(0)
   const [panit, setPanit] = useState<string[]>([])
   const [pelaksana, setPelaksana] = useState<string[]>([])
+  const [statusSimpanOtomatis, setStatusSimpanOtomatis] = useState('')
+  const drafLokalSiap = useRef(false)
+
+  // Draf penugasan baru disimpan di perangkat sampai Kanit memilih
+  // "Simpan sebagai draf". Draf server yang sudah ada memakai jalur
+  // penyimpanan resmi dan tidak pernah ditimpa penyimpanan lokal ini.
+  useEffect(() => {
+    if (draf) return
+    const pulihkan = window.setTimeout(() => {
+    try {
+      const tersimpan = localStorage.getItem(KUNCI_DRAF_BARU)
+      if (tersimpan) {
+        const nilai = JSON.parse(tersimpan) as Record<string, unknown>
+        setJudul(typeof nilai.judul === 'string' ? nilai.judul : '')
+        setJenisKegiatan(typeof nilai.jenisKegiatan === 'string' ? nilai.jenisKegiatan : 'penyelidikan')
+        setNomorSpt(typeof nilai.nomorSpt === 'string' ? nilai.nomorSpt : '')
+        setObjek(typeof nilai.objek === 'string' ? nilai.objek : '')
+        setSasaran(typeof nilai.sasaran === 'string' ? nilai.sasaran : '')
+        setUraian(typeof nilai.uraian === 'string' ? nilai.uraian : '')
+        setNomorLp(typeof nilai.nomorLp === 'string' ? nilai.nomorLp : '')
+        setSumber(typeof nilai.sumber === 'string' ? nilai.sumber : '')
+        setPrioritas(typeof nilai.prioritas === 'string' ? nilai.prioritas : 'normal')
+        setMulaiTgl(typeof nilai.mulaiTgl === 'string' ? nilai.mulaiTgl : '')
+        setBatasTgl(typeof nilai.batasTgl === 'string' ? nilai.batasTgl : '')
+        if (Array.isArray(nilai.dasar)) setDasar(nilai.dasar as Dasar[])
+        if (Array.isArray(nilai.lokasi)) setLokasi(nilai.lokasi as Lokasi[])
+        if (Array.isArray(nilai.panit)) setPanit(nilai.panit.filter((id): id is string => typeof id === 'string'))
+        if (Array.isArray(nilai.pelaksana)) setPelaksana(nilai.pelaksana.filter((id): id is string => typeof id === 'string'))
+        setStatusSimpanOtomatis('Draf sebelumnya dipulihkan dari perangkat ini.')
+      }
+    } catch { localStorage.removeItem(KUNCI_DRAF_BARU) }
+    drafLokalSiap.current = true
+    }, 0)
+    return () => window.clearTimeout(pulihkan)
+  }, [draf])
+
+  useEffect(() => {
+    if (draf || !drafLokalSiap.current) return
+    const timer = window.setTimeout(() => {
+      const adaIsian = Boolean(judul.trim() || uraian.trim() || objek.trim() || sasaran.trim() || nomorSpt.trim())
+      if (!adaIsian) return
+      localStorage.setItem(KUNCI_DRAF_BARU, JSON.stringify({
+        judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber,
+        prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana,
+      }))
+      setStatusSimpanOtomatis('Perubahan tersimpan otomatis di perangkat.')
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [draf, judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber, prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana])
 
   /**
    * Kerangka nomor SPT yang disodorkan sistem. Nomor agendanya sengaja
@@ -152,6 +202,7 @@ export function WizardTerbitkan({
             panit, pelaksana, terbitkan,
           })
       if (hasil?.galat) setGalat(hasil.galat)
+      else if (!draf) localStorage.removeItem(KUNCI_DRAF_BARU)
     })
   }
 
@@ -197,6 +248,10 @@ export function WizardTerbitkan({
           </button>
         ))}
       </div>
+
+      {!draf && statusSimpanOtomatis && (
+        <p className="bantu" role="status" style={{ margin: '0 0 12px' }}>{statusSimpanOtomatis}</p>
+      )}
 
       {galat && (
         <div

@@ -1,10 +1,10 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { klienServer } from '@/lib/supabase/server'
 
 export interface HasilKirim {
   galat?: string
+  id?: string
 }
 
 interface IsianLaporan {
@@ -80,5 +80,5 @@ export async function kirimLaporan(isian: IsianLaporan): Promise<HasilKirim> {
     return { galat: `Gagal mengirim laporan: ${error.message}` }
   }
 
-  redirect(`/laporan/${baris.id}`)
+  return { id: baris.id }
 }
