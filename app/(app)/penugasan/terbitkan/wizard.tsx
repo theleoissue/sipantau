@@ -100,9 +100,11 @@ export function WizardTerbitkan({
   const [mulaiTgl, setMulaiTgl] = useState(draf?.tanggal_mulai ?? scanAwal?.tanggal_mulai ?? '')
   const [batasTgl, setBatasTgl] = useState(draf?.tanggal_batas ?? scanAwal?.tanggal_batas ?? '')
 
-  const [dasar, setDasar] = useState<Dasar[]>(draf?.dasar.length ? draf.dasar : [
-    { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' },
-  ])
+  const [dasar, setDasar] = useState<Dasar[]>(
+    draf?.dasar.length ? draf.dasar : scanAwal?.dasar?.length ? scanAwal.dasar : [
+      { jenis: 'laporan_informasi', nomor: '', tanggal: '', keterangan: '' },
+    ],
+  )
   const [lokasi, setLokasi] = useState<Lokasi[]>(draf?.lokasi.length ? draf.lokasi : [
     { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' },
   ])
@@ -187,20 +189,21 @@ export function WizardTerbitkan({
     setNomorSpt(`SP.Gas.Lidik/____/${bulan}/${kode}/${tahun}/Ditreskrimsus`)
   }
 
-  function terapkanScan(data: { nomor_spt: string; judul: string; objek: string; sasaran: string; uraian_tugas: string; nomor_lp: string; sumber_informasi: string; jenis_kegiatan: string; prioritas: string; tanggal_mulai: string; tanggal_batas: string; personel: string[] }) {
+  function terapkanScan(data: DataScanSprin) {
     setNomorSpt(data.nomor_spt || nomorSpt); setJudul(data.judul || judul); setObjek(data.objek || objek); setSasaran(data.sasaran || sasaran); setUraian(data.uraian_tugas || uraian); setNomorLp(data.nomor_lp || nomorLp); setSumber(data.sumber_informasi || sumber)
     if (['penyelidikan', 'pulbaket', 'pengamanan'].includes(data.jenis_kegiatan)) setJenisKegiatan(data.jenis_kegiatan)
     if (['normal', 'penting', 'urgent'].includes(data.prioritas)) setPrioritas(data.prioritas)
     setMulaiTgl(data.tanggal_mulai || mulaiTgl); setBatasTgl(data.tanggal_batas || batasTgl)
+    if (data.dasar?.length) setDasar(data.dasar)
     const nama = data.personel.map(n => n.toLowerCase().replace(/[^a-z]/g, ''))
     const cocok = personel.filter(p => nama.includes(p.nama.toLowerCase().replace(/[^a-z]/g, ''))).map(p => p.id)
     if (cocok.length) setPelaksana(cocok)
     const terisi = [
       data.nomor_spt && 'nomor SPRIN', data.judul && 'judul', data.objek && 'objek',
-      data.sasaran && 'sasaran', data.uraian_tugas && 'uraian', data.tanggal_mulai && 'tanggal mulai',
+      data.sasaran && 'sasaran', data.uraian_tugas && 'uraian', data.tanggal_mulai && 'tanggal mulai', data.tanggal_batas && 'batas waktu',
     ].filter(Boolean)
     setStatusScan(
-      `Hasil scan mengisi ${terisi.length ? terisi.join(', ') : 'form yang terbaca'}.${cocok.length ? ` ${cocok.length} personel berhasil dicocokkan.` : ' Personel belum dipilih otomatis; periksa susunan tim.'} Lengkapi lokasi, dasar, dan Panit sebelum menerbitkan.`,
+      `Hasil scan mengisi ${terisi.length ? terisi.join(', ') : 'form yang terbaca'}.${data.dasar?.length ? ` ${data.dasar.length} dasar penugasan ditemukan.` : ''}${cocok.length ? ` ${cocok.length} personel berhasil dicocokkan.` : ' Personel belum dipilih otomatis; periksa susunan tim.'} Lengkapi lokasi dan Panit sebelum menerbitkan.`,
     )
   }
 
