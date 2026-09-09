@@ -1,0 +1,167 @@
+// Uji RLS + fungsi untuk pengajuan_sprin (migrasi 0053/0054): alur
+// persetujuan scan SPRIN Anggota/Panit -> Kanit unit yang sama.
+
+import { fileURLToPath } from 'node:url'
+import { PGlite } from '@electric-sql/pglite'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+
+const MIGRASI = fileURLToPath(new URL('../migrations', import.meta.url))
+const ID = {
+  kanit1:   '00000000-0000-0000-0000-000000000002',
+  kanit2:   '00000000-0000-0000-0000-000000000007',
+  panit1:   '00000000-0000-0000-0000-000000000003',
+  anggota1: '00000000-0000-0000-0000-000000000004',
+  anggota2: '00000000-0000-0000-0000-000000000005',
+}
+const UNIT = { satu: '10000000-0000-0000-0000-000000000001',
+               dua:  '10000000-0000-0000-0000-000000000002' }
+
+const db = new PGlite()
+await db.waitReady
+await db.exec(readFileSync(join(import.meta.dirname, 'stub.sql'), 'utf8'))
+for (const f of readdirSync(MIGRASI).filter(f => f.endsWith('.sql')).sort()) {
+  await db.exec(readFileSync(join(MIGRASI, f), 'utf8')
+    .replace(/create extension if not exists (postgis|pg_cron)[^;]*;/gi, '')
+    .replace(/extensions\.geography\(Point,\s*4326\)/gi, 'extensions.geography')
+    .replace(/create index if not exists idx_location_logs_geom[\s\S]*?;/i, ''))
+}
+
+await db.exec(`
+  insert into auth.users (id) values
+    ('${ID.kanit1}'),('${ID.kanit2}'),('${ID.panit1}'),('${ID.anggota1}'),('${ID.anggota2}');
+
+  insert into public.unit (id, nama, urutan) values
+    ('${UNIT.satu}','Unit I',1), ('${UNIT.dua}','Unit II',2);
+
+  insert into public.users (id,nama,nrp,email_sistem,peran,unit_id,wajib_ganti_sandi,aktif) values
+    ('${ID.kanit1}','Kanit Satu','0000002','0000002@sipantau.internal','kanit','${UNIT.satu}',false,true),
+    ('${ID.kanit2}','Kanit Dua','0000007','0000007@sipantau.internal','kanit','${UNIT.dua}',false,true),
+    ('${ID.panit1}','Panit Satu','0000003','0000003@sipantau.internal','panit','${UNIT.satu}',false,true),
+    ('${ID.anggota1}','Anggota Satu','0000004','0000004@sipantau.internal','anggota','${UNIT.satu}',false,true),
+    ('${ID.anggota2}','Anggota Dua','0000005','0000005@sipantau.internal','anggota','${UNIT.dua}',false,true);
+`)
+
+let lulus = 0, gagal = 0
+const cek = (k, t, ok) => {
+  if (ok) { lulus++; console.log(`  LULUS  ${k}  ${t}`) }
+  else    { gagal++; console.log(`  GAGAL  ${k}  ${t}`) }
+}
+
+async function sebagai(uid, fn) {
+  await db.exec('begin')
+  await db.query(`select set_config('request.jwt.claims',$1,true)`,
+    [JSON.stringify({ sub: uid, role: 'authenticated' })])
+  await db.exec('set local role authenticated')
+  try { return await fn() } finally { await db.exec('rollback') }
+}
+async function komit(uid, fn) {
+  await db.exec('begin')
+  await db.query(`select set_config('request.jwt.claims',$1,true)`,
+    [JSON.stringify({ sub: uid, role: 'authenticated' })])
+  await db.exec('set local role authenticated')
+  const hasil = await fn()
+  await db.exec('commit')
+  return hasil
+}
+async function galat(fn) {
+  try { await fn(); return null } catch (e) { return e.message }
+}
+
+// =====================================================================
+// ajukan_scan_sprin — hanya Anggota/Panit
+// =====================================================================
+
+let pengajuanSatu
+await komit(ID.anggota1, async () => {
+  const r = await db.query(
+    `select public.ajukan_scan_sprin($1) as id`, [{ judul: 'Uji' }])
+  pengajuanSatu = r.rows[0].id
+})
+cek('U-PS-01', 'Anggota berhasil mengajukan scan SPRIN', !!pengajuanSatu)
+
+await sebagai(ID.kanit1, async () => {
+  const e = await galat(() => db.query(`select public.ajukan_scan_sprin($1)`, [{ judul: 'x' }]))
+  cek('U-PS-02', 'Kanit TIDAK dapat mengajukan scan (BUKAN_PENGAJU)', e?.includes('BUKAN_PENGAJU'))
+})
+
+// =====================================================================
+// SELECT pengajuan_sprin — pemilik dan Kanit unit yang sama saja
+// (menutup celah 0053: tabel sempat tanpa grant select sama sekali)
+// =====================================================================
+
+await sebagai(ID.anggota1, async () => {
+  const r = await db.query(`select count(*)::int as n from public.pengajuan_sprin where id=$1`, [pengajuanSatu])
+  cek('U-PS-03', 'Pengaju sendiri DAPAT membaca pengajuannya', r.rows[0].n === 1)
+})
+
+await sebagai(ID.kanit1, async () => {
+  const r = await db.query(`select count(*)::int as n from public.pengajuan_sprin where id=$1`, [pengajuanSatu])
+  cek('U-PS-04', 'Kanit unit yang sama DAPAT membaca pengajuan', r.rows[0].n === 1)
+})
+
+await sebagai(ID.kanit2, async () => {
+  const r = await db.query(`select count(*)::int as n from public.pengajuan_sprin where id=$1`, [pengajuanSatu])
+  cek('U-PS-05', 'Kanit UNIT LAIN TIDAK membaca pengajuan (nol baris)', r.rows[0].n === 0)
+})
+
+await sebagai(ID.anggota2, async () => {
+  const r = await db.query(`select count(*)::int as n from public.pengajuan_sprin where id=$1`, [pengajuanSatu])
+  cek('U-PS-06', 'Anggota lain (bukan pengaju, bukan Kanit) TIDAK membaca pengajuan', r.rows[0].n === 0)
+})
+
+// =====================================================================
+// putuskan_pengajuan_sprin — hanya Kanit unit yang sama
+// =====================================================================
+
+await sebagai(ID.kanit2, async () => {
+  const e = await galat(() => db.query(
+    `select public.putuskan_pengajuan_sprin($1,'disetujui',null)`, [pengajuanSatu]))
+  cek('U-PS-07', 'Kanit UNIT LAIN DITOLAK memutuskan pengajuan', e?.includes('BUKAN_KANIT_ATAU_TIDAK_DITEMUKAN'))
+})
+
+await sebagai(ID.kanit1, async () => {
+  const e = await galat(() => db.query(
+    `select public.putuskan_pengajuan_sprin($1,'perlu_perbaikan',null)`, [pengajuanSatu]))
+  cek('U-PS-08', 'perlu_perbaikan tanpa catatan DITOLAK (CATATAN_PERBAIKAN_WAJIB)', e?.includes('CATATAN_PERBAIKAN_WAJIB'))
+})
+
+await komit(ID.kanit1, async () => {
+  await db.query(`select public.putuskan_pengajuan_sprin($1,'perlu_perbaikan','Nomor SPRIN salah baca')`, [pengajuanSatu])
+})
+{
+  const r = await db.query(`select status, catatan_kanit from public.pengajuan_sprin where id=$1`, [pengajuanSatu])
+  cek('U-PS-09', 'Status berubah jadi perlu_perbaikan dengan catatan tersimpan',
+    r.rows[0].status === 'perlu_perbaikan' && r.rows[0].catatan_kanit === 'Nomor SPRIN salah baca')
+}
+
+// =====================================================================
+// kirim_ulang_scan_sprin — hanya pengaju sendiri, hanya saat perlu_perbaikan
+// =====================================================================
+
+await sebagai(ID.anggota2, async () => {
+  const e = await galat(() => db.query(
+    `select public.kirim_ulang_scan_sprin($1,$2)`, [pengajuanSatu, { judul: 'Palsu' }]))
+  cek('U-PS-10', 'Bukan pengaju TIDAK dapat kirim ulang', e?.includes('PENGAJUAN_TIDAK_DAPAT_DIKIRIM_ULANG'))
+})
+
+await komit(ID.anggota1, async () => {
+  await db.query(`select public.kirim_ulang_scan_sprin($1,$2)`, [pengajuanSatu, { judul: 'Diperbaiki' }])
+})
+{
+  const r = await db.query(`select status, catatan_kanit from public.pengajuan_sprin where id=$1`, [pengajuanSatu])
+  cek('U-PS-11', 'Kirim ulang mengembalikan status ke diajukan dan mengosongkan catatan',
+    r.rows[0].status === 'diajukan' && r.rows[0].catatan_kanit === null)
+}
+
+await sebagai(ID.anggota1, async () => {
+  const e = await galat(() => db.query(
+    `select public.kirim_ulang_scan_sprin($1,$2)`, [pengajuanSatu, { judul: 'Lagi' }]))
+  cek('U-PS-12', 'Kirim ulang DITOLAK saat status bukan perlu_perbaikan', e?.includes('PENGAJUAN_TIDAK_DAPAT_DIKIRIM_ULANG'))
+})
+
+console.log(gagal === 0
+  ? `\n== ${lulus} butir uji pengajuan scan SPRIN lulus`
+  : `\n== ${gagal} dari ${lulus + gagal} butir uji pengajuan scan SPRIN GAGAL`)
+
+process.exit(gagal === 0 ? 0 : 1)
