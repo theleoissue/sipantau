@@ -1234,6 +1234,9 @@ button.peta-orang{width:100%;text-align:left}
 .lhp-bagian-judul{font-size:12px;font-weight:750;letter-spacing:.055em;color:var(--primary);margin-bottom:11px}
 .lhp-bagian :is(input,select,textarea){max-width:100%;background:var(--card);color:var(--ink)}
 .lhp-bagian textarea{line-height:1.55}
+.kartu-keterangan{margin-top:3px;font-size:11.5px;font-weight:400;line-height:1.45;color:var(--ink-3)}
+.kartu-pananggung-jawab{border-color:#BFDBFE}.kartu-pananggung-jawab .kartu-h{background:linear-gradient(110deg,#EFF6FF,#fff)}
+.kelola-tim{display:grid;gap:14px}.kelola-tim-blok{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}.kelola-tim-panit{border-color:#BFDBFE;background:#F8FBFF}.kelola-tim-label{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}.kelola-tim-label b{font-size:13px;color:var(--ink)}.kelola-tim-label span{font-size:11.5px;color:var(--ink-3)}.kelola-tim-tambah{display:flex;gap:8px;margin-bottom:8px}.kelola-tim-tambah select{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--card);font:inherit;font-size:12.5px}.kelola-tim-tambah .btn{justify-content:center}.kelola-tim-orang{margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:9px}.kelola-tim .dor{padding:10px 0}.kelola-tim-orang{padding:10px!important}
 @media(max-width:768px){
   .lhp-formulir{padding-bottom:8px}
   .lhp-daftar-mobile{display:grid;gap:12px}
@@ -1249,5 +1252,6 @@ button.peta-orang{width:100%;text-align:left}
   .lhp-bagian :is(input,select,textarea){font-size:16px!important;min-height:46px}
   .lhp-bagian div[style*="flex"]{align-items:stretch}.lhp-bagian div[style*="flex"]>.btn{min-height:44px;justify-content:center}
   .lhp-bagian li,.lhp-bagian li>span{min-width:0;overflow-wrap:anywhere}
+  .kartu-keterangan{font-size:11px}.kelola-tim-blok{padding:12px}.kelola-tim-tambah{display:grid;grid-template-columns:minmax(0,1fr) auto}.kelola-tim-tambah select{min-height:46px;font-size:16px}.kelola-tim-tambah .btn{min-height:46px}
 }
-@media(max-width:380px){.lhp-aksi-draf>div{grid-template-columns:1fr}.lhp-bagian div[style*="flex"]{flex-direction:column}.lhp-bagian div[style*="flex"]>*{width:100%}}
+@media(max-width:380px){.lhp-aksi-draf>div{grid-template-columns:1fr}.lhp-bagian div[style*="flex"]{flex-direction:column}.lhp-bagian div[style*="flex"]>*{width:100%}.kelola-tim-tambah{grid-template-columns:1fr}.kelola-tim-tambah .btn{width:100%}}

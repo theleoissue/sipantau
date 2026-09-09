@@ -394,12 +394,39 @@ export default async function RincianPenugasan({
             </div>
           </section>
 
+          <section className="kartu kartu-pananggung-jawab">
+            <div className="kartu-h">
+              <div><h3>Panit Penanggung Jawab</h3><p className="kartu-keterangan">Memimpin dan bertanggung jawab atas pelaksanaan di lapangan.</p></div>
+              <span className="isyarat">
+                {panit.filter(p => !p.dicabut_pada).length} orang
+              </span>
+            </div>
+            <div className="kartu-b rata daftar-orang">
+              {panit.map(p => (
+                <div className="dor" key={p.id} style={{ opacity: p.dicabut_pada ? 0.5 : 1 }}>
+                  <div
+                    className="av av-md"
+                    style={{ background: '#2563EB', color: '#fff' }}
+                  >
+                    {inisial(p.users?.nama ?? '?')}
+                  </div>
+                  <div className="meta">
+                    <div className="nm">{p.users?.nama ?? '—'}</div>
+                    <div className="st">
+                      {p.dicabut_pada
+                        ? 'Penunjukan sudah berakhir'
+                        : 'Panit Penanggung Jawab'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="kartu">
             <div className="kartu-h">
-              <h3>Pelaksana</h3>
-              <span className="isyarat">
-                {pelaksana.filter(p => !p.dicabut_pada).length} orang
-              </span>
+              <div><h3>Pelaksana</h3><p className="kartu-keterangan">Personel yang menjalankan tugas dan mengirim laporan lapangan.</p></div>
+              <span className="isyarat">{pelaksana.filter(p => !p.dicabut_pada).length} orang</span>
             </div>
             <div className="kartu-b rata daftar-orang">
               {pelaksana.map((p, i) => (
@@ -418,30 +445,6 @@ export default async function RincianPenugasan({
                         : p.dibaca_pada
                           ? 'Sudah membuka penugasan'
                           : 'Belum membuka penugasan'}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="kartu">
-            <div className="kartu-h"><h3>Panit Penanggung Jawab</h3></div>
-            <div className="kartu-b rata daftar-orang">
-              {panit.map(p => (
-                <div className="dor" key={p.id} style={{ opacity: p.dicabut_pada ? 0.5 : 1 }}>
-                  <div
-                    className="av av-md"
-                    style={{ background: '#2563EB', color: '#fff' }}
-                  >
-                    {inisial(p.users?.nama ?? '?')}
-                  </div>
-                  <div className="meta">
-                    <div className="nm">{p.users?.nama ?? '—'}</div>
-                    <div className="st">
-                      {p.dicabut_pada
-                        ? 'Penunjukan sudah berakhir'
-                        : 'Ditunjuk untuk penugasan ini'}
                     </div>
                   </div>
                 </div>

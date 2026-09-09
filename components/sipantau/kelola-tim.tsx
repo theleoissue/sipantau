@@ -52,11 +52,30 @@ export function KelolaTim({
   const calonPanit = personelTersedia.filter(p => p.aktif && p.peran === 'panit' && !idPanitAktif.has(p.id))
 
   return (
-    <>
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+    <div className="kelola-tim">
+      <section className="kelola-tim-blok kelola-tim-panit">
+      <div className="kelola-tim-label"><b>1. Panit Penanggung Jawab</b><span>Penanggung jawab utama di lapangan</span></div>
+      <div className="kelola-tim-tambah">
+        <select
+          value={tunjukPanitId} onChange={e => setTunjukPanitId(e.target.value)}
+        >
+          <option value="">Tunjuk Panit Penanggung Jawab…</option>
+          {calonPanit.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
+        </select>
+        <button className="btn btn-p btn-sm" disabled={!tunjukPanitId} onClick={() => mulai(async () => {
+          const r = await tunjukPanit(penugasanId, tunjukPanitId)
+          if (r.galat) setGalat(r.galat); else { setTunjukPanitId(''); router.refresh() }
+        })}><Ikon nama="tambah" /> Tunjuk</button>
+      </div>
+      {panit.filter(p => !p.dicabut_pada).map(p => (
+        <div key={p.id} className="dor kelola-tim-orang"><div className="av av-sm" style={{ background: '#2563EB', color: '#fff' }}>{inisial(p.users?.nama ?? '?')}</div><div className="meta"><div className="nm">{p.users?.nama ?? '—'}</div><div className="st">Panit Penanggung Jawab</div></div><button className="btn btn-o btn-sm" style={{ color: 'var(--red)' }} onClick={() => setCabutRelasi({ id: p.id, jenis: 'panit' })}>Cabut</button></div>
+      ))}
+      </section>
+      <section className="kelola-tim-blok">
+      <div className="kelola-tim-label"><b>2. Pelaksana</b><span>Personel pelaksana tugas</span></div>
+      <div className="kelola-tim-tambah">
         <select
           value={tambahPersonelId} onChange={e => setTambahPersonelId(e.target.value)}
-          style={{ flex: 1, minWidth: 160, padding: '7px 10px', fontSize: 12.5, border: '1px solid var(--line-2)', borderRadius: 8 }}
         >
           <option value="">Tambah pelaksana…</option>
           {calonPelaksana.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
@@ -87,37 +106,7 @@ export function KelolaTim({
         </div>
       ))}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-        <select
-          value={tunjukPanitId} onChange={e => setTunjukPanitId(e.target.value)}
-          style={{ flex: 1, minWidth: 160, padding: '7px 10px', fontSize: 12.5, border: '1px solid var(--line-2)', borderRadius: 8 }}
-        >
-          <option value="">Tunjuk Panit Penanggung Jawab…</option>
-          {calonPanit.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
-        </select>
-        <button
-          className="btn btn-o btn-sm" disabled={!tunjukPanitId}
-          onClick={() => mulai(async () => {
-            const r = await tunjukPanit(penugasanId, tunjukPanitId)
-            if (r.galat) setGalat(r.galat); else { setTunjukPanitId(''); router.refresh() }
-          })}
-        >
-          <Ikon nama="tambah" /> Tunjuk
-        </button>
-      </div>
-
-      {panit.map(p => !p.dicabut_pada && (
-        <div key={p.id} className="dor" style={{ marginTop: 8 }}>
-          <div className="av av-sm" style={{ background: '#2563EB', color: '#fff' }}>{inisial(p.users?.nama ?? '?')}</div>
-          <div className="meta"><div className="nm">{p.users?.nama ?? '—'}</div></div>
-          <button
-            className="btn btn-o btn-sm" style={{ color: 'var(--red)' }}
-            onClick={() => setCabutRelasi({ id: p.id, jenis: 'panit' })}
-          >
-            Cabut
-          </button>
-        </div>
-      ))}
+      </section>
 
       {galat && <p style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 8 }}>{galat}</p>}
 
@@ -136,6 +125,6 @@ export function KelolaTim({
           return r
         }}
       />
-    </>
+    </div>
   )
 }
