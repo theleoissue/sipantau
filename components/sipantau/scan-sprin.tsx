@@ -8,6 +8,8 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
 const MAKS_HALAMAN = 8
+const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const adalahDocx = (berkas: File) => berkas.type === MIME_DOCX || berkas.name.toLowerCase().endsWith('.docx')
 
 type HasilPemindaiDokumen = { pages: string[] }
 const DokumenScanner = registerPlugin<{ scan(options: { pageLimit: number }): Promise<HasilPemindaiDokumen> }>('DokumenScanner')
@@ -64,12 +66,12 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     const dipakai = tambahan.slice(0, tersisa)
     // Foto (kamera atau JPG/PNG/WebP) dirapikan dulu lewat dialog koreksi;
     // PDF sudah berupa dokumen jadi, langsung ditambahkan apa adanya.
-    const foto = perluKoreksi ? dipakai.filter(b => b.type !== 'application/pdf') : []
-    const pdf = dipakai.filter(b => b.type === 'application/pdf')
+    const foto = perluKoreksi ? dipakai.filter(b => b.type !== 'application/pdf' && !adalahDocx(b)) : []
+    const dokumen = dipakai.filter(b => b.type === 'application/pdf' || adalahDocx(b))
     if (foto.length) setAntrianKoreksi(sebelum => [...sebelum, ...foto])
     // JPEG dari pemindai native sudah diperbaiki perspektif, rotasi, bayangan dan
     // noda secara native. Jangan buka crop kedua di WebView.
-    if (pdf.length || !perluKoreksi) setHalaman(sebelum => [...sebelum, ...(perluKoreksi ? pdf : dipakai)])
+    if (dokumen.length || !perluKoreksi) setHalaman(sebelum => [...sebelum, ...(perluKoreksi ? dokumen : dipakai)])
     setPesan(tambahan.length > tersisa ? `Hanya ${MAKS_HALAMAN} halaman pertama yang ditambahkan.` : '')
   }
 
@@ -125,14 +127,14 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   const sibuk = menyiapkan || memindai || antrianKoreksi.length > 0
   return <section className="scan-sprin">
     <div><strong>Scan SPRIN</strong><p>Tambahkan setiap halaman dari kamera atau unggah PDF/foto. Semua halaman dibaca bersama sebagai satu SPRIN.</p></div>
-    <input ref={input} type="file" hidden multiple accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => {
+    <input ref={input} type="file" hidden multiple accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp" onChange={e => {
       const berkas = Array.from(e.target.files ?? [])
       e.target.value = ''
       if (berkas.length) tambah(berkas)
     }} />
     {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
     {native && Capacitor.getPlatform() !== 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaKamera}><Ikon nama="kamera" />{halaman.length ? 'Tambah foto' : 'Scan kamera'}</button>}
-    <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah halaman / PDF</button>
+    <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah DOCX / PDF / foto</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
       <span><b>{halaman.length}</b> {halaman.length === 1 ? 'berkas siap dipindai' : 'halaman/berkas siap dipindai'}</span>
       <button type="button" className="btn btn-o btn-sm" disabled={memindai} onClick={() => { setHalaman([]); setAntrianKoreksi([]) }}><Ikon nama="silang" />Kosongkan</button>
