@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { scanSprin, type HasilScanSprin } from '@/app/(app)/penugasan/aksi'
 import { Ikon } from './ikon'
 import { PratinjauScanSprin } from './pratinjau-scan-sprin'
-import { deteksiDokumen, luruskanDanCerahkan, muatOpenCv, sudutBawaan } from '@/lib/scan/pemroses-dokumen'
+import { muatOpenCv } from '@/lib/scan/pemroses-dokumen'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
@@ -22,26 +22,12 @@ function dariBase64(base64: string, tipe: string) {
   return new Blob([bytes], { type: tipe })
 }
 
-/** Kamera biasa: URI → satu kali OpenCV → JPEG siap kirim, tanpa Base64 atau dialog crop. */
-async function rapikanFotoKamera(uri: string) {
+/** Kamera biasa mengembalikan URI file agar tidak membebani WebView dengan Base64. */
+async function berkasDariUriKamera(uri: string) {
   const respons = await fetch(uri)
   if (!respons.ok) throw new Error('Foto kamera tidak dapat dibaca')
   const sumber = await respons.blob()
-  const url = URL.createObjectURL(sumber)
-  try {
-    const gambar = new Image()
-    await new Promise<void>((selesai, gagal) => {
-      gambar.onload = () => selesai()
-      gambar.onerror = () => gagal(new Error('Foto tidak dapat dibaca'))
-      gambar.src = url
-    })
-    const cv = await muatOpenCv()
-    const sudut = deteksiDokumen(cv, gambar) ?? sudutBawaan(gambar.naturalWidth, gambar.naturalHeight)
-    const kanvas = luruskanDanCerahkan(cv, gambar, sudut)
-    const hasil = await new Promise<Blob | null>(selesai => kanvas.toBlob(selesai, 'image/jpeg', .74))
-    if (!hasil) throw new Error('Foto tidak dapat dikompres')
-    return new File([hasil], `halaman-sprin-${Date.now()}.jpg`, { type: 'image/jpeg' })
-  } finally { URL.revokeObjectURL(url) }
+  return new File([sumber], `halaman-sprin-${Date.now()}.jpg`, { type: sumber.type || 'image/jpeg' })
 }
 
 export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan sebagai draf. Periksa kembali sebelum menerbitkan.' }: {
@@ -103,9 +89,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       }
       const uri = foto.webPath ?? foto.path
       if (!uri) { setPesan('Foto diterima, tetapi lokasi berkasnya tidak tersedia. Coba potret ulang.'); return }
-      setPesan('Merapikan halaman…')
-      tambah([await rapikanFotoKamera(uri)], false)
-      setPesan('Foto sudah diluruskan dan dicerahkan. Tekan “Pindai” untuk membaca SPRIN.')
+      tambah([await berkasDariUriKamera(uri)])
     } catch {
       setPesan('Foto sudah diambil, tetapi tidak dapat disiapkan. Coba potret ulang atau gunakan Unggah berkas.')
     } finally { setMenyiapkan(false) }
