@@ -48,29 +48,55 @@ export async function mulaiTugasWeb(
  *  berkala dari kartu-sesi-tugas.tsx selama tab tetap terbuka (lihat
  *  peringatan BR-65 di komponen itu: berhenti diam-diam begitu tab
  *  ditutup/layar mati, ini keterbatasan yang disadari, bukan bug). */
-export async function kirimTitikWeb(
-  sesiId: string,
-  lat: number,
-  lng: number,
-  akurasiMeter: number | null,
-  kecepatanMps: number | null,
-  penandaPerangkat: string,
-): Promise<HasilTindakan> {
+export interface TitikMasuk {
+  sesiId: string
+  lat: number
+  lng: number
+  akurasiMeter: number | null
+  kecepatanMps: number | null
+  /** Arah perjalanan dalam derajat, dari perangkat. */
+  arahDerajat: number | null
+  penandaPerangkat: string
+  /**
+   * Dibuat perangkat SEKALI saat Titik ditangkap dan dipakai ulang pada
+   * setiap percobaan kirim. Indeks unik pada antrean_id (KP-6.4-19) baru
+   * dapat menolak kiriman kembar bila nilainya memang berasal dari
+   * perangkat — sebelumnya dibuat ulang di server tiap permintaan,
+   * sehingga percobaan ulang selalu lolos sebagai Titik baru.
+   */
+  antreanId: string
+  /**
+   * Umur pembacaan dalam milidetik menurut jam perangkat pada saat
+   * dikirim. SENGAJA bukan stempel waktu absolut: yang dikirim adalah
+   * SELISIH dua waktu perangkat, jadi jam HP yang meleset tidak
+   * berpengaruh. Kalau waktu absolut perangkat yang dikirim, satu HP
+   * berjam salah akan membuat seluruh Titiknya ditolak
+   * WAKTU_TIDAK_MASUK_AKAL dan pelacakannya mati tanpa suara.
+   */
+  usiaMs: number
+  /** Perangkat melaporkan lokasi ini berasal dari penyedia tiruan. */
+  lokasiTiruan: boolean
+}
+
+export async function kirimTitikWeb(titik: TitikMasuk): Promise<HasilTindakan> {
   const supabase = await klienServer()
+  // Umur dibatasi supaya nilai rusak tidak menghasilkan waktu ngawur;
+  // 24 jam jauh melampaui Sesi Tugas mana pun.
+  const usia = Math.min(Math.max(titik.usiaMs, 0), 24 * 60 * 60 * 1000)
   const { error } = await supabase.rpc('kirim_titik', {
-    p_sesi_id: sesiId,
-    p_lat: lat,
-    p_lng: lng,
-    p_akurasi_meter: akurasiMeter,
-    p_kecepatan_mps: kecepatanMps,
-    p_arah_derajat: null,
+    p_sesi_id: titik.sesiId,
+    p_lat: titik.lat,
+    p_lng: titik.lng,
+    p_akurasi_meter: titik.akurasiMeter,
+    p_kecepatan_mps: titik.kecepatanMps,
+    p_arah_derajat: titik.arahDerajat,
     p_baterai_persen: null,
-    p_sumber_lokasi: akurasiMeter != null && akurasiMeter <= 50 ? 'gps' : 'jaringan',
-    p_antrean_id: crypto.randomUUID(),
-    p_direkam_pada: new Date().toISOString(),
-    p_penanda_perangkat: penandaPerangkat,
-    p_penanda_perangkat_asal: penandaPerangkat,
-    p_lokasi_tiruan: false,
+    p_sumber_lokasi: titik.akurasiMeter != null && titik.akurasiMeter <= 50 ? 'gps' : 'jaringan',
+    p_antrean_id: titik.antreanId,
+    p_direkam_pada: new Date(Date.now() - usia).toISOString(),
+    p_penanda_perangkat: titik.penandaPerangkat,
+    p_penanda_perangkat_asal: titik.penandaPerangkat,
+    p_lokasi_tiruan: titik.lokasiTiruan,
   })
 
   if (error) {

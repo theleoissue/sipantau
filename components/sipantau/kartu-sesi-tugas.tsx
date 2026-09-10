@@ -118,11 +118,20 @@ export function KartuSesiTugas({
         // pengawas melihat "Terakhir terlihat" membeku, dan tidak ada
         // satu pun pesan galat yang muncul di mana pun.
         try {
-          const r = await kirimTitikWeb(
-            sesi.id, pos.coords.latitude, pos.coords.longitude,
-            pos.coords.accuracy ?? null, pos.coords.speed ?? null,
-            penandaPerangkatWeb(),
-          )
+          const r = await kirimTitikWeb({
+            sesiId: sesi.id,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            akurasiMeter: pos.coords.accuracy ?? null,
+            kecepatanMps: pos.coords.speed ?? null,
+            arahDerajat: pos.coords.heading ?? null,
+            penandaPerangkat: penandaPerangkatWeb(),
+            antreanId: crypto.randomUUID(),
+            usiaMs: Math.max(0, Date.now() - pos.timestamp),
+            // Peramban tidak melaporkan lokasi tiruan; hanya jalur native
+            // yang tahu. Jangan mengaku tahu di sini.
+            lokasiTiruan: false,
+          })
           if (r.galat) setGalatKirim(r.galat)
           else { setGalatKirim(null); setJumlahTerkirim(n => n + 1) }
         } catch {
@@ -249,7 +258,23 @@ export function KartuSesiTugas({
         // ditolak — lihat keterangan panjang pada jalur web di atas.
         penandaPerangkatNative()
           .then(penanda =>
-            kirimTitikWeb(sesi!.id, lokasi.latitude, lokasi.longitude, lokasi.accuracy, lokasi.speed, penanda),
+            kirimTitikWeb({
+              sesiId: sesi!.id,
+              lat: lokasi.latitude,
+              lng: lokasi.longitude,
+              akurasiMeter: lokasi.accuracy,
+              kecepatanMps: lokasi.speed,
+              // Ketiganya SUDAH dilaporkan pustaka sejak awal dan punya
+              // kolomnya masing-masing di basis data, tetapi dulu dibuang:
+              // arah_derajat dikirim null dan lokasi_tiruan dipaksa false,
+              // sehingga rotasi ikon tidak punya data dan deteksi GPS
+              // palsu tidak pernah sekali pun menyala.
+              arahDerajat: lokasi.bearing,
+              lokasiTiruan: lokasi.simulated,
+              penandaPerangkat: penanda,
+              antreanId: crypto.randomUUID(),
+              usiaMs: lokasi.time == null ? 0 : Math.max(0, Date.now() - lokasi.time),
+            }),
           )
           .then(r => {
             if (r.galat) setGalatKirim(r.galat)

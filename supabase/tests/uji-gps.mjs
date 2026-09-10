@@ -520,6 +520,79 @@ cek('U-GPS-21a', 'Titik sesi yang MASIH BERJALAN TIDAK disusutkan meski berumur 
 cek('U-GPS-21b', 'Titik sesi yang SUDAH TERTUTUP dan berumur 400 hari DISUSUTKAN (BR-59)',
   await n(`select count(*) n from public.location_logs where id=$1`, [idTitikTuaTertutup]) === 0)
 
+// =====================================================================
+// Keutuhan Titik (Jalur A1) — antrean_id dari perangkat, waktu TANGKAP
+// yang sebenarnya, arah, dan lokasi tiruan. Sebelum ini keempatnya
+// dibuang atau dibuat ulang di server: percobaan ulang lolos sebagai
+// Titik baru, penanda "diterima terlambat" tidak pernah menyala, rotasi
+// ikon tidak punya data, dan deteksi GPS palsu mati total.
+// =====================================================================
+
+// Sesi yang masih terbuka dari uji sebelumnya dibuat menggantung supaya
+// buka_sesi_tugas menutupnya sendiri — perilaku terdokumentasi di 0016,
+// bukan jalan pintas uji.
+await db.query(
+  `update public.sesi_tugas set titik_terakhir_pada = now() - interval '3 hours'
+    where ditutup_pada is null`)
+
+// anggota1 dipakai, BUKAN anggota2: uji pencabutan pelaksana di atas
+// sudah mencabut anggota2 dari SPT ini.
+let idSesiUtuh
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  const r = await db.query(`select * from public.buka_sesi_tugas($1,$2,$3,$4,$5)`,
+    [SPT.a, -6.91, 107.61, 8, 'android-hp-utuh'])
+  idSesiUtuh = r.rows[0].id
+})
+
+// Sesi dimundurkan supaya menyerupai keadaan sebenarnya: sesi sudah
+// berjalan setengah jam, lalu ada Titik berumur 12 menit yang baru
+// terkirim. Tanpa ini fn_catat_titik benar menolaknya karena Titik
+// mendahului Mulai Tugas (KP-6.4-21).
+await db.query(
+  `update public.sesi_tugas set dibuka_pada = now() - interval '30 minutes' where id=$1`,
+  [idSesiUtuh])
+
+const ANTREAN_TETAP = '77770000-0000-0000-0000-000000000001'
+const kirimUtuh = () => db.query(
+  `select public.kirim_titik($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+  [idSesiUtuh, -6.912, 107.612, 8, 1.2, 275, 80, 'gps',
+   ANTREAN_TETAP, new Date(Date.now() - 12 * 60_000).toISOString(),
+   'android-hp-utuh', 'android-hp-utuh', true])
+
+// Ditangkap 12 menit lalu lalu baru terkirim — bentuk Titik yang keluar
+// dari antrean luring.
+await sebagaiTanpaRollback(ID.anggota1, kirimUtuh)
+
+{
+  const b = (await db.query(
+    `select arah_derajat, diterima_terlambat, direkam_pada
+       from public.location_logs where antrean_id=$1`, [ANTREAN_TETAP])).rows[0]
+  cek('U-GPS-22a', 'Titik tersimpan memakai antrean_id kiriman perangkat', !!b)
+  cek('U-GPS-22b', 'Arah perjalanan ikut tersimpan, tidak lagi dibuang jadi null',
+    !!b && Number(b.arah_derajat) === 275)
+  cek('U-GPS-22c', 'Titik berumur 12 menit ditandai diterima_terlambat',
+    !!b && b.diterima_terlambat === true)
+  cek('U-GPS-22d', 'Yang tercatat waktu TANGKAP, bukan waktu tiba di server',
+    !!b && Date.now() - new Date(b.direkam_pada).getTime() > 10 * 60_000)
+}
+
+cek('U-GPS-22e', 'Lokasi tiruan menyalakan titik_penanda (fitur yang selama ini mati)',
+  await n(`select count(*) n from public.titik_penanda tp
+            join public.location_logs ll on ll.id = tp.location_log_id
+           where ll.antrean_id=$1 and tp.lokasi_tiruan`, [ANTREAN_TETAP]) === 1)
+
+// Inti KP-6.4-19: percobaan ulang memakai antrean_id yang SAMA.
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  const e = await galat(kirimUtuh)
+  // Sengaja TIDAK bergalat: antrean harus boleh mengirim ulang tanpa
+  // perlu membedakan "gagal" dari "sudah pernah masuk". Kiriman kembar
+  // diserap diam-diam, dan U-GPS-22g membuktikan barisnya tetap satu.
+  cek('U-GPS-22f', 'Kiriman ulang antrean_id sama diterima tanpa galat (aman di-retry)', e === null)
+})
+
+cek('U-GPS-22g', 'Hanya ada satu baris untuk antrean_id itu',
+  await n(`select count(*) n from public.location_logs where antrean_id=$1`, [ANTREAN_TETAP]) === 1)
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji GPS lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
