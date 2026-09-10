@@ -160,6 +160,36 @@ await sebagai(ID.anggota1, async () => {
   cek('U-PS-12', 'Kirim ulang DITOLAK saat status bukan perlu_perbaikan', e?.includes('PENGAJUAN_TIDAK_DAPAT_DIKIRIM_ULANG'))
 })
 
+// =====================================================================
+// Pemberitahuan (0055) — tanpa ini ajuan tersimpan tetapi tidak pernah
+// sampai ke Kanit, dan keputusan Kanit tidak pernah sampai ke pengaju.
+// =====================================================================
+
+const notif = async (penerima, jenis) => Number((await db.query(
+  `select count(*)::int as n from public.notifikasi where penerima_id=$1 and jenis=$2`,
+  [penerima, jenis])).rows[0].n)
+
+cek('U-PS-13', 'Kanit unit yang sama menerima notifikasi ajuan',
+  await notif(ID.kanit1, 'sprin_diajukan') >= 1)
+cek('U-PS-14', 'Kanit UNIT LAIN tidak menerima notifikasi ajuan',
+  await notif(ID.kanit2, 'sprin_diajukan') === 0)
+cek('U-PS-15', 'Pengaju tidak menerima notifikasi atas ajuannya sendiri (BR-74)',
+  await notif(ID.anggota1, 'sprin_diajukan') === 0)
+cek('U-PS-16', 'Kirim ulang memunculkan notifikasi kedua ke Kanit',
+  await notif(ID.kanit1, 'sprin_diajukan') === 2)
+cek('U-PS-17', 'Pengaju menerima notifikasi keputusan Kanit',
+  await notif(ID.anggota1, 'sprin_diputuskan') === 1)
+cek('U-PS-18', 'Catatan perbaikan ikut terbawa pada isi notifikasi',
+  Number((await db.query(
+    `select count(*)::int as n from public.notifikasi
+      where penerima_id=$1 and jenis='sprin_diputuskan' and isi ilike '%Nomor SPRIN salah baca%'`,
+    [ID.anggota1])).rows[0].n) === 1)
+cek('U-PS-19', 'Notifikasi Kanit menunjuk kotak persetujuan',
+  Number((await db.query(
+    `select count(*)::int as n from public.notifikasi
+      where penerima_id=$1 and jenis='sprin_diajukan' and tujuan_jenis='pengajuan_sprin'`,
+    [ID.kanit1])).rows[0].n) === 2)
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji pengajuan scan SPRIN lulus`
   : `\n== ${gagal} dari ${lulus + gagal} butir uji pengajuan scan SPRIN GAGAL`)

@@ -71,6 +71,10 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { kelompok: 'Unit Saya' },
       { id: 'beranda',   rute: '/beranda',   ikon: 'dasbor',      label: 'Beranda' },
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Kelola Penugasan' },
+      // Pintu tetap ke kotak persetujuan scan. Sebelumnya satu-satunya
+      // jalan masuk adalah kartu di dalam halaman terbitkan, sehingga
+      // ajuan bawahan hanya ketemu kalau Kanit kebetulan mencarinya.
+      { id: 'pengajuan', rute: '/penugasan/pengajuan', ikon: 'centang', label: 'Persetujuan Scan' },
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Tinjau Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
       { id: 'personel',  rute: '/personel',  ikon: 'orang',       label: 'Personel Unit' },

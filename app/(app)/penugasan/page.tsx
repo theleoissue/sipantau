@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
+import { klienServer } from '@/lib/supabase/server'
 import { daftarPenugasan, type StatusSpt } from '@/lib/penugasan/kueri'
 import { KartuSpt } from '@/components/sipantau/kartu-spt'
 import { PenyaringPenugasan } from '@/components/sipantau/penyaring-penugasan'
@@ -45,6 +46,19 @@ export default async function HalamanPenugasan({
 
   const daftar = await daftarPenugasan({ status, kueri: cari })
 
+  // Penanda jumlah ajuan yang menunggu. Tanpa ini Kanit baru tahu ada
+  // ajuan masuk kalau kebetulan membuka kotak persetujuannya.
+  let menunggu = 0
+  if (pengguna.peran === 'kanit') {
+    const supabase = await klienServer()
+    const { count } = await supabase
+      .from('pengajuan_sprin')
+      .select('id', { count: 'exact', head: true })
+      .eq('unit_id', pengguna.unit_id!)
+      .eq('status', 'diajukan')
+    menunggu = count ?? 0
+  }
+
   return (
     <>
       <div className="kh">
@@ -73,6 +87,16 @@ export default async function HalamanPenugasan({
           </div>
         )}
       </div>
+
+      {menunggu > 0 && (
+        <Link href="/penugasan/pengajuan" className="kartu"
+          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <Ikon nama="centang" />
+          <span>
+            <b>{menunggu}</b> hasil scan SPRIN menunggu persetujuan Anda.
+          </span>
+        </Link>
+      )}
 
       <PenyaringPenugasan saringAktif={saring ?? 'semua'} kueriAwal={cari ?? ''} />
 

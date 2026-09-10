@@ -14,8 +14,11 @@ export type JenisNotifikasi =
   // bawah ditulis untuk Modul 6.9 — dan TERLEWAT di sisi TypeScript
   // sampai halaman Pemberitahuan seorang Kanit mati total karenanya.
   | 'lhp_difinalkan'
+  // Ditambahkan migrasi 0055: ajuan scan SPRIN dari Panit/Anggota, dan
+  // keputusan Kanit atasnya.
+  | 'sprin_diajukan' | 'sprin_diputuskan'
 
-export type TujuanNotifikasi = 'penugasan' | 'laporan' | 'akun' | 'tanpa_tujuan' | 'lhp'
+export type TujuanNotifikasi = 'penugasan' | 'laporan' | 'akun' | 'tanpa_tujuan' | 'lhp' | 'pengajuan_sprin'
 
 export interface Notifikasi {
   id: string
@@ -52,6 +55,8 @@ export const IKON_JENIS_NOTIFIKASI: Record<JenisNotifikasi, { ikon: string; bg: 
   akun_dinonaktifkan:              { ikon: 'orang',       bg: 'var(--bg)',       warna: '#475569' },
   kata_sandi_direset:              { ikon: 'kunci_buka',  bg: 'var(--amber-bg)', warna: '#B45309' },
   lhp_difinalkan:                  { ikon: 'berkas',      bg: 'var(--green-bg)', warna: '#047857' },
+  sprin_diajukan:                  { ikon: 'masuk_kotak', bg: 'var(--blue-bg)',  warna: '#1D4ED8' },
+  sprin_diputuskan:                { ikon: 'centang',     bg: 'var(--green-bg)', warna: '#047857' },
 }
 
 /** Dipakai bila jenis dari basis data BELUM dikenal peta di atas.
@@ -73,6 +78,9 @@ export function tujuanRute(n: Pick<Notifikasi, 'tujuan_jenis' | 'tujuan_id'>): s
   // tujuan_id di sini adalah id LHP, BUKAN penugasan_id — migrasi 0030
   // menyebutkannya terang-terangan pada finalkan_lhp().
   if (n.tujuan_jenis === 'lhp') return `/lhp/${n.tujuan_id}`
+  // Tidak ada halaman rincian per ajuan — seluruhnya ditinjau dari satu
+  // kotak persetujuan, jadi tujuan_id hanya penanda baris yang dimaksud.
+  if (n.tujuan_jenis === 'pengajuan_sprin') return '/penugasan/pengajuan'
   return null
 }
 
