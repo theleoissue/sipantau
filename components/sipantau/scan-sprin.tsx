@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { scanSprin, type HasilScanSprin } from '@/app/(app)/penugasan/aksi'
 import { Ikon } from './ikon'
 import { PratinjauScanSprin } from './pratinjau-scan-sprin'
+import { muatOpenCv } from '@/lib/scan/pemroses-dokumen'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
@@ -57,6 +58,11 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
 
   useEffect(() => {
     const timer = window.setTimeout(() => setNative(Capacitor.isNativePlatform()), 0)
+    // Unduh pustaka pemroses gambar sejak halaman dibuka, selagi pengguna
+    // masih mengarahkan kamera — bukan saat foto sudah jadi dan orangnya
+    // menunggu. Kegagalannya diabaikan di sini: dialog koreksi memuatnya
+    // lagi dan di sanalah pesan galatnya ditampilkan.
+    muatOpenCv().catch(() => {})
     return () => window.clearTimeout(timer)
   }, [])
 

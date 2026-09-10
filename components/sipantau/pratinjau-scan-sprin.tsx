@@ -31,6 +31,7 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
   const [sudut, setSudut] = useState<SudutDokumen | null>(null)
   const [fotoUrl, setFotoUrl] = useState('')
   const [hasilKanvas, setHasilKanvas] = useState<HTMLCanvasElement | null>(null)
+  const [hasilUrl, setHasilUrl] = useState('')
   const gambar = useRef<HTMLImageElement | null>(null)
   const cvRef = useRef<any>(null)
   const svg = useRef<SVGSVGElement>(null)
@@ -91,6 +92,10 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
       try {
         const kanvas = luruskanDanCerahkan(cvRef.current, gambar.current!, sudut)
         setHasilKanvas(kanvas)
+        // Sekali di sini, bukan di dalam JSX: toDataURL berjalan sinkron
+        // dan memblokir UI, jadi memanggilnya saat render membuatnya
+        // terhitung ulang setiap kali komponen ini digambar ulang.
+        setHasilUrl(kanvas.toDataURL('image/jpeg', 0.85))
         setTahap('pratinjau')
       } catch {
         setGalat('Foto gagal diproses. Coba sesuaikan ulang sudutnya atau potret ulang.')
@@ -148,7 +153,7 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
         {tahap === 'pratinjau' && hasilKanvas && (
           <>
             <div className="pratinjau-scan-hasil">
-              <img src={hasilKanvas.toDataURL('image/jpeg', 0.85)} alt="Hasil setelah diluruskan dan dicerahkan" />
+              <img src={hasilUrl} alt="Hasil setelah diluruskan dan dicerahkan" />
             </div>
             <div className="pratinjau-scan-aksi">
               <button type="button" className="btn btn-o" onClick={() => setTahap('sesuaikan')}>
