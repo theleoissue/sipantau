@@ -6,7 +6,7 @@
 // bahkan menulis "Akan dicoba lagi" padahal tidak ada yang disimpan.
 
 import { antrekanKe, kirimAntreanDari, BATAS_ANTREAN } from '../../lib/gps/antrean-inti.ts'
-import { mutuAkurasi, AKURASI_DIRAGUKAN_METER } from '../../lib/gps/tipe.ts'
+import { mutuAkurasi, AKURASI_DIRAGUKAN_METER, haluskanJejak, arahDerajat } from '../../lib/gps/tipe.ts'
 import { readFileSync } from 'node:fs'
 
 let lulus = 0, gagal = 0
@@ -141,6 +141,43 @@ cek('U-MUT-05', 'Akurasi yang tidak dilaporkan tidak dianggap buruk',
   cek('U-MUT-06', 'Ambang diragukan di layar sama dengan di fn_catat_titik',
     sql.includes(`p_akurasi_meter > ${AKURASI_DIRAGUKAN_METER}`))
 }
+
+// =====================================================================
+// Jejak halus dan arah perjalanan (Jalur B1)
+// =====================================================================
+
+{
+  const asli = [[-6.90, 107.60], [-6.901, 107.601], [-6.9005, 107.6025], [-6.902, 107.604]]
+  const halus = haluskanJejak(asli)
+
+  // SIFAT PALING PENTING. Catmull-Rom itu interpolasi: kurvanya wajib
+  // melewati PERSIS tiap titik asli. Kalau sifat ini hilang, jejak yang
+  // digambar tidak lagi mewakili rekaman — dan jejak ini bisa jadi
+  // bahan bukti.
+  const adaPersis = t => halus.some(h => h[0] === t[0] && h[1] === t[1])
+  cek('U-HLS-01', 'Kurva melewati PERSIS setiap titik asli, tidak menggeser satu pun',
+    asli.every(adaPersis))
+  cek('U-HLS-02', 'Titik antara benar-benar ditambahkan', halus.length > asli.length)
+  cek('U-HLS-03', 'Titik awal dan akhir tidak bergeser',
+    halus[0][0] === asli[0][0] && halus[0][1] === asli[0][1]
+    && halus.at(-1)[0] === asli.at(-1)[0] && halus.at(-1)[1] === asli.at(-1)[1])
+}
+
+cek('U-HLS-04', 'Jejak terlalu pendek dikembalikan apa adanya, bukan dipaksa melengkung',
+  haluskanJejak([[-6.9, 107.6], [-6.91, 107.61]]).length === 2)
+cek('U-HLS-05', 'Jejak kosong tidak membuat galat', haluskanJejak([]).length === 0)
+
+cek('U-ARH-01', 'Bergerak ke utara menghasilkan arah mendekati 0 derajat',
+  Math.abs(arahDerajat([-6.9, 107.6], [-6.89, 107.6])) < 1)
+cek('U-ARH-02', 'Bergerak ke timur menghasilkan arah mendekati 90 derajat',
+  Math.abs(arahDerajat([-6.9, 107.6], [-6.9, 107.61]) - 90) < 1)
+cek('U-ARH-03', 'Bergerak ke barat menghasilkan arah mendekati 270 derajat',
+  Math.abs(arahDerajat([-6.9, 107.6], [-6.9, 107.59]) - 270) < 1)
+cek('U-ARH-04', 'Arah selalu berada di rentang 0..360',
+  [[-6.89, 107.59], [-6.91, 107.61], [-6.91, 107.59]].every(k => {
+    const a = arahDerajat([-6.9, 107.6], k)
+    return a >= 0 && a < 360
+  }))
 
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji antrean luring lulus`

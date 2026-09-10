@@ -523,6 +523,14 @@ tbody tr.bisa-klik{cursor:pointer}
 .peta-orang .st{font-size:10.5px;color:var(--ink-3);margin-top:2px;display:flex;align-items:center;gap:5px}
 .penanda{width:30px;height:30px;border-radius:50% 50% 50% 8px;transform:rotate(-45deg);display:grid;place-items:center;box-shadow:0 2px 8px rgba(15,28,50,.4);border:3px solid #fff}
 .penanda span{transform:rotate(45deg);font-size:10px;font-weight:700;color:#fff;letter-spacing:.02em}
+/* Panah arah perjalanan. Diputar mengelilingi PUSAT penanda (itu guna
+   transform-origin di bawah), jadi ia mengorbit pin alih-alih berputar
+   di tempat. Dipisah dari .penanda supaya inisial nama tidak ikut miring. */
+.penanda-wadah{position:relative;width:30px;height:30px}
+.penanda-arah{position:absolute;left:50%;top:50%;width:0;height:0;
+  margin:-24px 0 0 -5px;border-left:5px solid transparent;border-right:5px solid transparent;
+  border-bottom:8px solid #fff;transform-origin:5px 24px;
+  filter:drop-shadow(0 1px 2px rgba(15,28,50,.55));transition:transform .4s ease-out}
 @media(max-width:900px){.peta-panel{position:static;width:100%;max-height:none;margin-top:14px;box-shadow:var(--sh)}#peta-wadah{height:52vh}}
 
 /* ═══════════════ SESI TUGAS ═══════════════ */

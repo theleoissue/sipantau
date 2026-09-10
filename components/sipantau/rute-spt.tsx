@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { SesiRute, TitikRute } from '@/lib/gps/tipe'
-import { LABEL_SEBAB_PENUTUPAN, bersihkanJejak } from '@/lib/gps/tipe'
+import { LABEL_SEBAB_PENUTUPAN, bersihkanJejak, haluskanJejak } from '@/lib/gps/tipe'
 import { Ikon } from './ikon'
 
 const PALET = ['#2563EB', '#DC2626', '#059669', '#D97706', '#7C3AED', '#DB2777', '#0891B2', '#65A30D']
@@ -89,7 +89,7 @@ export function RuteSpt({
         // sungguhan pertama dan terakhir, bukan hasil saringan.
         const garisBersih = bersihkanJejak(wajar.map(t => [t.lat, t.lng]))
         if (garisBersih.length >= 2) {
-          L.polyline(garisBersih, { color: warna, weight: 3.5, opacity: .85 }).addTo(grup)
+          L.polyline(haluskanJejak(garisBersih), { color: warna, weight: 3.5, opacity: .85 }).addTo(grup)
           garisBersih.forEach(g => batas.push(g))
         } else if (s.diringkas_pada && s.lat_awal != null && s.lat_akhir != null) {
           // KP-6.4-43: Titik satuan sudah disusutkan — garis kasar

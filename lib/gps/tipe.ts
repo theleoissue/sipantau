@@ -158,6 +158,65 @@ export function mutuAkurasi(meter: number | null | undefined): MutuAkurasi {
   return 'rendah'
 }
 
+/**
+ * Arah perjalanan dari satu titik ke titik berikutnya, dalam derajat
+ * kompas (0 = utara, 90 = timur).
+ *
+ * Diturunkan dari perpindahan, BUKAN dari arah_derajat perangkat:
+ * posisi_terkini tidak menyimpan kolom itu, dan peramban kerap
+ * mengembalikan heading kosong saat kecepatan rendah. Menurunkannya
+ * dari dua posisi juga membuat ikon menunjuk searah garis yang memang
+ * tergambar, bukan ke arah lain.
+ */
+export function arahDerajat(dari: [number, number], ke: [number, number]): number {
+  const φ1 = dari[0] * Math.PI / 180
+  const φ2 = ke[0] * Math.PI / 180
+  const Δλ = (ke[1] - dari[1]) * Math.PI / 180
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+}
+
+function catmullRom(
+  p0: [number, number], p1: [number, number],
+  p2: [number, number], p3: [number, number], t: number,
+): [number, number] {
+  const t2 = t * t, t3 = t2 * t
+  const sumbu = (a: number, b: number, c: number, d: number) =>
+    0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
+  return [
+    sumbu(p0[0], p1[0], p2[0], p3[0]),
+    sumbu(p0[1], p1[1], p2[1], p3[1]),
+  ]
+}
+
+/**
+ * Melengkungkan jejak supaya tidak patah-patah bersudut di setiap Titik.
+ *
+ * Catmull-Rom SENGAJA dipilih karena ia INTERPOLASI: kurvanya melewati
+ * PERSIS setiap titik asli, dan yang ditambahkan hanya lengkungan DI
+ * ANTARA titik. Tidak ada satu pun koordinat rekaman yang digeser.
+ *
+ * Perbedaan itu bukan soal selera pada sistem ini: menempelkan jejak ke
+ * jalan (map matching) MEMINDAHKAN titik, sedangkan ini tidak — dan
+ * jejak petugas dapat menjadi bahan bukti penyelidikan.
+ *
+ * Murni lapisan tampilan; data mentah tidak disentuh sama sekali.
+ */
+export function haluskanJejak(titik: [number, number][], perSegmen = 6): [number, number][] {
+  if (titik.length < 3) return titik
+  const hasil: [number, number][] = []
+  for (let i = 0; i < titik.length - 1; i++) {
+    const p0 = titik[i === 0 ? 0 : i - 1]
+    const p1 = titik[i]
+    const p2 = titik[i + 1]
+    const p3 = titik[i + 2 >= titik.length ? titik.length - 1 : i + 2]
+    for (let s = 0; s < perSegmen; s++) hasil.push(catmullRom(p0, p1, p2, p3, s / perSegmen))
+  }
+  hasil.push(titik[titik.length - 1])
+  return hasil
+}
+
 export const LABEL_MUTU_AKURASI: Record<MutuAkurasi, string> = {
   tinggi: 'GPS akurat',
   sedang: 'GPS cukup',
