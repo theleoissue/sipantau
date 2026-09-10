@@ -7,6 +7,7 @@
 
 import { antrekanKe, kirimAntreanDari, BATAS_ANTREAN } from '../../lib/gps/antrean-inti.ts'
 import { mutuAkurasi, AKURASI_DIRAGUKAN_METER, haluskanJejak, arahDerajat } from '../../lib/gps/tipe.ts'
+import { tautanNavigasi } from '../../lib/gps/navigasi.ts'
 import { readFileSync } from 'node:fs'
 
 let lulus = 0, gagal = 0
@@ -179,6 +180,21 @@ cek('U-ARH-04', 'Arah selalu berada di rentang 0..360',
     const a = arahDerajat([-6.9, 107.6], k)
     return a >= 0 && a < 360
   }))
+
+// =====================================================================
+// Tautan navigasi (Jalur B5)
+// =====================================================================
+
+{
+  const t = tautanNavigasi({ lat: -7.0045408, lng: 107.7438908, nama: 'PT. Dofudomi' })
+  cek('U-NAV-01', 'Koordinat yang dikirim, bukan nama tempat',
+    t.includes('-7.0045408') && t.includes('107.7438908') && !t.includes('Dofudomi'))
+  cek('U-NAV-02', 'Memakai tautan universal yang jatuh ke peramban bila aplikasi peta tidak ada',
+    t.startsWith('https://www.google.com/maps/dir/?api=1'))
+  cek('U-NAV-03', 'Koordinat dikodekan aman untuk URL', t.includes('destination=-7.0045408%2C107.7438908'))
+}
+cek('U-NAV-04', 'Koordinat negatif dan nol tidak dibuang',
+  tautanNavigasi({ lat: 0, lng: -0.5 }).includes('destination=0%2C-0.5'))
 
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji antrean luring lulus`

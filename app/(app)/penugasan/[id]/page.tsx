@@ -4,6 +4,7 @@ import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { klienServer } from '@/lib/supabase/server'
 import { satuPenugasan, lewatBatas, hariTerlampaui, riwayatPerpanjangan, bolehHapusPermanen } from '@/lib/penugasan/kueri'
 import { ruteSptDenganTitik } from '@/lib/gps/kueri'
+import { tautanNavigasi } from '@/lib/gps/navigasi'
 import { daftarLhp } from '@/lib/lhp/kueri'
 import { daftarLaporan } from '@/lib/laporan/kueri'
 import { catatTandaTerima } from '../aksi'
@@ -392,6 +393,19 @@ export default async function RincianPenugasan({
                     </div>
                     {l.radius_meter && <div className="radius">Radius {l.radius_meter} m</div>}
                   </div>
+                  {/* Hanya untuk titik yang benar-benar punya pin —
+                      menavigasi ke tempat tanpa koordinat mustahil. */}
+                  {l.lat !== null && l.lng !== null && (
+                    <a
+                      className="btn btn-o btn-sm lok-navigasi"
+                      href={tautanNavigasi({ lat: Number(l.lat), lng: Number(l.lng), nama: l.nama })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Ikon nama="pin" />
+                      Navigasi
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
