@@ -133,6 +133,39 @@ export function jarakMeter(a: [number, number], b: [number, number]): number {
 export const AMBANG_GOYANGAN_METER = 20
 
 /**
+ * Tingkatan mutu satu pembacaan GPS.
+ *
+ * Sepuluh meter adalah TARGET MUTU, bukan janji ketelitian: di dalam
+ * gedung pabrik angka itu sering tidak tercapai oleh perangkat mana pun,
+ * dan penyaringan tidak membuat pembacaan jadi lebih akurat — ia hanya
+ * membuang yang buruk. Karena itu Titik 'rendah' TETAP DISIMPAN sebagai
+ * bukti; yang dibedakan hanyalah apakah ia boleh menggerakkan ikon.
+ *
+ * AKURASI_DIRAGUKAN_METER wajib sama dengan ambang di fn_catat_titik
+ * (migrasi 0051, dibawa ulang oleh 0056). Kalau salah satu digeser tanpa
+ * yang lain, basis data dan layar akan menyebut Titik yang sama dengan
+ * dua sebutan berbeda.
+ */
+export const AKURASI_TINGGI_METER = 10
+export const AKURASI_DIRAGUKAN_METER = 30
+
+export type MutuAkurasi = 'tinggi' | 'sedang' | 'rendah' | 'tidak_diketahui'
+
+export function mutuAkurasi(meter: number | null | undefined): MutuAkurasi {
+  if (meter == null) return 'tidak_diketahui'
+  if (meter <= AKURASI_TINGGI_METER) return 'tinggi'
+  if (meter <= AKURASI_DIRAGUKAN_METER) return 'sedang'
+  return 'rendah'
+}
+
+export const LABEL_MUTU_AKURASI: Record<MutuAkurasi, string> = {
+  tinggi: 'GPS akurat',
+  sedang: 'GPS cukup',
+  rendah: 'GPS lemah',
+  tidak_diketahui: 'Akurasi tidak dilaporkan',
+}
+
+/**
  * Membersihkan Titik mentah jadi jejak yang layak digambar, dua lapis:
  *
  * 1. GOYANGAN KECIL — Titik yang cuma bergeser dalam rentang goyangan

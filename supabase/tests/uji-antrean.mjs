@@ -118,6 +118,31 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
     simpan.lihat().length === BATAS_ANTREAN && simpan.lihat()[0].antreanId === 't0')
 }
 
+// =====================================================================
+// Tingkatan mutu akurasi (Jalur A3)
+// =====================================================================
+
+const { mutuAkurasi, AKURASI_DIRAGUKAN_METER } = await import('../../lib/gps/tipe.ts')
+
+cek('U-MUT-01', 'Tepat 10 m masih tergolong tinggi', mutuAkurasi(10) === 'tinggi')
+cek('U-MUT-02', 'Di atas 10 m turun ke sedang', mutuAkurasi(10.1) === 'sedang')
+cek('U-MUT-03', 'Tepat 30 m masih sedang — batas basis data belum terlampaui',
+  mutuAkurasi(30) === 'sedang')
+cek('U-MUT-04', 'Di atas 30 m tergolong rendah', mutuAkurasi(31) === 'rendah')
+cek('U-MUT-05', 'Akurasi yang tidak dilaporkan tidak dianggap buruk',
+  mutuAkurasi(null) === 'tidak_diketahui' && mutuAkurasi(undefined) === 'tidak_diketahui')
+
+// Ambang layar WAJIB sama dengan ambang fn_catat_titik. Kalau salah satu
+// digeser tanpa yang lain, basis data dan layar akan menyebut Titik yang
+// sama dengan dua sebutan berbeda — dan tidak ada yang bergalat.
+{
+  const { readFileSync } = await import('node:fs')
+  const sql = readFileSync(
+    new URL('../migrations/0056_titik_telat_sesudah_sesi_tutup.sql', import.meta.url), 'utf8')
+  cek('U-MUT-06', 'Ambang diragukan di layar sama dengan di fn_catat_titik',
+    sql.includes(`p_akurasi_meter > ${AKURASI_DIRAGUKAN_METER}`))
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji antrean luring lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)

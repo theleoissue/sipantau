@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
 import type { PosisiPeta } from '@/lib/gps/tipe'
-import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, mutuAkurasi, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from './ikon'
 
@@ -414,7 +414,16 @@ export function PetaLangsung({
           const sekarang = ada.getLatLng()
           const bergerak = sekarang.lat !== tujuan[0] || sekarang.lng !== tujuan[1]
           ada.setIcon(L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }))
-          if (bergerak) animasiKe(pos.sesi_tugas_id, [sekarang.lat, sekarang.lng], tujuan)
+          // Pembacaan berakurasi buruk TIDAK menyeret ikon. Titiknya tetap
+          // tersimpan sebagai bukti dan cincin status tetap disegarkan di
+          // atas — yang ditahan hanya perpindahannya, karena melompatkan
+          // petugas ke tempat yang belum tentu benar lebih menyesatkan
+          // daripada membiarkannya di posisi terakhir yang meyakinkan.
+          // Ikonnya tetap "hidup": statusSinyal dihitung dari direkam_pada,
+          // dan terakhir_terlihat pada users tetap maju.
+          if (bergerak && mutuAkurasi(pos.akurasi_meter) !== 'rendah') {
+            animasiKe(pos.sesi_tugas_id, [sekarang.lat, sekarang.lng], tujuan)
+          }
         } else {
           const mkr = L.marker(tujuan, {
             icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }),

@@ -11,6 +11,7 @@ import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
 import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
+import { LABEL_MUTU_AKURASI, mutuAkurasi } from '@/lib/gps/tipe'
 import { Ikon } from './ikon'
 
 // Jeda antar-Titik. Diturunkan 20s -> 15s: masih jauh di bawah ambang
@@ -94,6 +95,7 @@ export function KartuSesiTugas({
   const iniSesiWeb = sesi?.penanda_perangkat.startsWith('web-') ?? false
   const [jumlahTerkirim, setJumlahTerkirim] = useState(0)
   const [tertunda, setTertunda] = useState(0)
+  const [akurasiTerakhir, setAkurasiTerakhir] = useState<number | null>(null)
   const [galatKirim, setGalatKirim] = useState<string | null>(null)
   const idPengawas = useRef<number | null>(null)
   const sedangMengirim = useRef(false)
@@ -159,6 +161,7 @@ export function KartuSesiTugas({
         try {
           // Titik DISIMPAN dulu, baru dikirim. Urutan ini yang membuat
           // jaringan putus tidak lagi menghapus rekaman.
+          setAkurasiTerakhir(pos.coords.accuracy ?? null)
           await antrekan({
             sesiId: sesi.id,
             lat: pos.coords.latitude,
@@ -316,7 +319,10 @@ export function KartuSesiTugas({
             }),
           )
           .then(alirkan)
-          .finally(() => { sedangMengirim.current = false })
+          .finally(() => {
+            setAkurasiTerakhir(lokasi.accuracy)
+            sedangMengirim.current = false
+          })
       },
       )
     }
@@ -524,6 +530,21 @@ export function KartuSesiTugas({
         </div>
       )}
       {galatKirim && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 8 }}>{galatKirim}</p>}
+
+      {/* Mutu GPS petugas sendiri. Saat lemah, posisinya memang tetap
+          direkam sebagai bukti tetapi TIDAK menggerakkan ikon di peta
+          pengawas — petugas berhak tahu itu, bukan mengira dirinya
+          terpantau normal. */}
+      {mutuAkurasi(akurasiTerakhir) === 'rendah' && (
+        <div className="sesi-syarat" style={{ color: '#FDE68A' }}>
+          <Ikon nama="satelit" />
+          <span>
+            {LABEL_MUTU_AKURASI.rendah} (±{Math.round(akurasiTerakhir!)} m).
+            Posisi tetap direkam, tetapi belum cukup meyakinkan untuk
+            menggeser titik Anda di peta. Cari tempat yang lebih terbuka.
+          </span>
+        </div>
+      )}
 
       {/* Jumlah tertunda ditampilkan APA ADANYA. Tanpa ini, petugas tidak
           punya cara tahu ada rekaman yang belum sampai ke server. */}
