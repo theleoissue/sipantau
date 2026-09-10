@@ -16,8 +16,16 @@ export interface Penyimpanan {
   tulis(daftar: TitikTersimpan[]): Promise<void>
 }
 
-/** Mengembalikan galat bila server menolak; MELEMPAR bila jaringan gagal. */
-export type Pengirim = (titik: TitikTersimpan, usiaMs: number) => Promise<{ galat?: string }>
+/**
+ * Mengirim SATU KELOMPOK Titik sekaligus. Mengembalikan galat bila
+ * server menolak; MELEMPAR bila jaringan gagal.
+ *
+ * `usia` sejajar indeks dengan `kelompok`.
+ */
+export type Pengirim = (
+  kelompok: TitikTersimpan[],
+  usia: number[],
+) => Promise<{ galat?: string }>
 
 export interface HasilKirimAntrean {
   terkirim: number
@@ -26,6 +34,18 @@ export interface HasilKirimAntrean {
 }
 
 export const BATAS_ANTREAN = 5000
+
+/**
+ * Titik per permintaan.
+ *
+ * Perekaman dijalankan rapat, dan yang membatasinya bukan baterai
+ * melainkan jumlah pemanggilan server. Mengirim berkelompok memutus
+ * kaitan antara keduanya: merekam tiap 3 detik dengan kelompok 25
+ * menghasilkan satu permintaan per ~75 detik — jauh LEBIH SEDIKIT
+ * daripada satu Titik per 15 detik seperti sebelumnya, padahal
+ * jejaknya lima kali lebih rapat.
+ */
+export const BESAR_KELOMPOK = 25
 
 /**
  * Menaruh satu Titik di ujung antrean.
@@ -62,16 +82,18 @@ export async function kirimAntreanDari(
   simpan: Penyimpanan,
   kirim: Pengirim,
   sekarang: () => number = Date.now,
+  besarKelompok: number = BESAR_KELOMPOK,
 ): Promise<HasilKirimAntrean> {
   let terkirim = 0
   for (;;) {
     const daftar = await simpan.baca()
     if (daftar.length === 0) return { terkirim, tersisa: 0 }
 
-    const titik = daftar[0]
+    const kelompok = daftar.slice(0, Math.max(1, besarKelompok))
+    const kini = sekarang()
     let hasil: { galat?: string }
     try {
-      hasil = await kirim(titik, Math.max(0, sekarang() - titik.ditangkapPada))
+      hasil = await kirim(kelompok, kelompok.map(t => Math.max(0, kini - t.ditangkapPada)))
     } catch {
       return { terkirim, tersisa: daftar.length, galat: 'jaringan' }
     }
@@ -79,12 +101,13 @@ export async function kirimAntreanDari(
     // Dibaca ULANG, bukan memakai `daftar` yang sudah basi: Titik baru
     // bisa masuk selagi permintaan tadi berjalan, dan menulis balik
     // salinan lama akan melenyapkannya.
-    const kini = await simpan.baca()
-    await simpan.tulis(kini.filter(t => t.antreanId !== titik.antreanId))
+    const id = new Set(kelompok.map(t => t.antreanId))
+    const sesudah = await simpan.baca()
+    await simpan.tulis(sesudah.filter(t => !id.has(t.antreanId)))
 
     if (hasil.galat) {
       return { terkirim, tersisa: (await simpan.baca()).length, galat: hasil.galat }
     }
-    terkirim++
+    terkirim += kelompok.length
   }
 }

@@ -8,19 +8,22 @@ import { Capacitor } from '@capacitor/core'
 import { BackgroundGeolocation } from '@capgo/background-geolocation'
 import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
 import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
+import { bateraiPersen } from '@/lib/gps/baterai'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
 import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
 import { LABEL_MUTU_AKURASI, mutuAkurasi } from '@/lib/gps/tipe'
 import { Ikon } from './ikon'
 
-// Jeda antar-Titik. Diturunkan 20s -> 15s: masih jauh di bawah ambang
-// "Aktif" (2 menit, KP-6.4-33) sekalipun beberapa Titik berturut-turut
-// gagal terkirim, tapi peta pengawas jadi lebih cepat menyusul keadaan
-// sebenarnya. Tidak diturunkan lebih jauh dengan sengaja — location_logs
-// adalah tabel yang tumbuh paling cepat di sistem ini (Section 10.2),
-// dan tiap penurunan berbanding lurus dengan lajunya.
-const JEDA_KIRIM_TITIK_MS = 15_000
+// Perekaman dijalankan RAPAT (keputusan pemilik produk, 11 September
+// 2026). Yang dulu menahannya bukan baterai melainkan jumlah pemanggilan
+// server — satu Titik satu permintaan. Sejak antrean mengirim berkelompok
+// (migrasi 0058), keduanya tidak lagi terikat: merekam tiap 3 detik dengan
+// kelompok 25 justru menghasilkan permintaan LEBIH JARANG daripada satu
+// Titik per 15 detik dulu, dengan jejak lima kali lebih rapat.
+const JEDA_TANGKAP_TITIK_MS = 3_000
+/** Seberapa sering antrean disetorkan, terlepas dari kerapatan rekaman. */
+const JEDA_ALIR_MS = 30_000
 
 // mulaiTugasWeb/kirimTitikWeb (app/(app)/tugas/aksi.ts) TIDAK sungguh
 // khusus web — keduanya cuma meneruskan penanda_perangkat apa adanya ke
@@ -131,7 +134,7 @@ export function KartuSesiTugas({
     // tahu masih luring, supaya tidak membakar baterai percuma.
     const timer = window.setInterval(() => {
       if (navigator.onLine !== false) void alirkan()
-    }, 60_000)
+    }, JEDA_ALIR_MS)
     return () => {
       window.removeEventListener('online', saatOnline)
       window.clearInterval(timer)
@@ -140,7 +143,7 @@ export function KartuSesiTugas({
 
   // Selama sesi WEB ini berjalan (dan komponennya tetap terpasang di
   // tab ini — BR-65 mengingatkan: berhenti begitu tab ditutup), kirim
-  // Titik berkala lewat watchPosition. Dijeda manual JEDA_KIRIM_TITIK_MS
+  // Titik berkala lewat watchPosition. Dijeda manual JEDA_TANGKAP_TITIK_MS
   // supaya tidak mengirim di setiap pembaruan GPS mentah.
   useEffect(() => {
     if (!sesi || !iniSesiWeb || !navigator.geolocation) return
@@ -148,7 +151,7 @@ export function KartuSesiTugas({
     idPengawas.current = navigator.geolocation.watchPosition(
       async pos => {
         const kini = Date.now()
-        if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
+        if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_TANGKAP_TITIK_MS) return
         sedangMengirim.current = true
         terakhirKirim.current = kini
         // try/finally WAJIB: kirimTitikWeb adalah Server Action, dan
@@ -175,8 +178,9 @@ export function KartuSesiTugas({
             // Peramban tidak melaporkan lokasi tiruan; hanya jalur native
             // yang tahu. Jangan mengaku tahu di sini.
             lokasiTiruan: false,
+            bateraiPersen: await bateraiPersen(),
           })
-          await alirkan()
+          setTertunda(await jumlahTertunda())
         } finally {
           sedangMengirim.current = false
         }
@@ -198,7 +202,7 @@ export function KartuSesiTugas({
   // APK Capacitor) — pengganti watchPosition di atas: BackgroundGeolocation
   // punya layanan latar depan sungguhan (foregroundServiceType="location"),
   // jadi terus jalan walau WebView dibekukan sistem saat layar terkunci.
-  // Jeda pengiriman sama persis (JEDA_KIRIM_TITIK_MS) — logikanya identik
+  // Jeda pengiriman sama persis (JEDA_TANGKAP_TITIK_MS) — logikanya identik
   // dengan jalur web, cuma sumber titiknya beda.
   useEffect(() => {
     // Gerbangnya Capacitor.isNativePlatform(), BUKAN penanda yang cuma
@@ -263,7 +267,7 @@ export function KartuSesiTugas({
         // personel yang berjaga di tempat TETAP mengirim denyut berkala
         // (kalau tidak, ia terbaca "hilang" hanya karena tidak bergerak).
         distanceFilter: 0,
-        minIntervalMs: JEDA_KIRIM_TITIK_MS,
+        minIntervalMs: JEDA_TANGKAP_TITIK_MS,
       },
       (lokasi, error) => {
         if (batal || !lokasi) return
@@ -291,13 +295,14 @@ export function KartuSesiTugas({
         // (kirim_titik_native, migrasi 0040), bukan dengan membungkam
         // jalur yang justru paling dapat dipercaya.
         const kini = Date.now()
-        if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_KIRIM_TITIK_MS) return
+        if (sedangMengirim.current || kini - terakhirKirim.current < JEDA_TANGKAP_TITIK_MS) return
         sedangMengirim.current = true
         terakhirKirim.current = kini
         // Rantai .then TANPA .catch (bentuk sebelumnya) menyangkutkan
         // sedangMengirim di true selamanya begitu satu pengiriman
         // ditolak — lihat keterangan panjang pada jalur web di atas.
-        penandaPerangkatNative()
+        void bateraiPersen().then(daya =>
+          penandaPerangkatNative()
           .then(penanda =>
             // Disimpan dulu, baru dialirkan — sama seperti jalur web.
             antrekan({
@@ -316,13 +321,17 @@ export function KartuSesiTugas({
               penandaPerangkat: penanda,
               antreanId: crypto.randomUUID(),
               ditangkapPada: lokasi.time ?? Date.now(),
+              bateraiPersen: daya,
             }),
           )
-          .then(alirkan)
+          // Pengiriman TIDAK dipicu tiap Titik — itu akan membatalkan
+          // gunanya berkelompok. Penyetorannya diurus pewaktu JEDA_ALIR_MS.
+          .then(async () => setTertunda(await jumlahTertunda()))
           .finally(() => {
             setAkurasiTerakhir(lokasi.accuracy)
             sedangMengirim.current = false
-          })
+          }),
+        )
       },
       )
     }

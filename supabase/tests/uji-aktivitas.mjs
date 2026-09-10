@@ -142,6 +142,87 @@ await sebagai(ID.kanit2, async () => {
     await n(`select count(*) n from public.titik_aktivitas where sesi_tugas_id=$1`, [idSesi]) === 0)
 })
 
+// =====================================================================
+// Pengiriman borongan (migrasi 0058)
+// =====================================================================
+
+const dibukaPada = new Date(
+  (await db.query(`select dibuka_pada from public.sesi_tugas where id=$1`, [idSesi])).rows[0].dibuka_pada,
+).getTime()
+
+// Dipatok dari dibuka_pada: Titik yang mendahului Mulai Tugas ditolak
+// fn_catat_titik (KP-6.4-21), dan sesi di uji ini baru saja dibuka.
+const borongan = (idSesiTarget, jumlah, mulaiDetik = 120) =>
+  JSON.stringify(Array.from({ length: jumlah }, (_, i) => ({
+    sesi_id: idSesiTarget,
+    lat: -6.91 - i * 0.0001,
+    lng: 107.61,
+    akurasi_meter: 8,
+    kecepatan_mps: 1.2,
+    arah_derajat: 90,
+    baterai_persen: 77 - i,
+    sumber_lokasi: 'gps',
+    antrean_id: crypto.randomUUID(),
+    direkam_pada: new Date(dibukaPada + (mulaiDetik + i) * 1000).toISOString(),
+    penanda_perangkat: 'android-akt',
+    penanda_perangkat_asal: 'android-akt',
+    lokasi_tiruan: false,
+  })))
+
+const sebelumBorongan = await n(
+  `select count(*) n from public.location_logs where sesi_tugas_id=$1`, [idSesi])
+
+let jumlahTersimpan = null
+await (async () => {
+  await db.exec('begin')
+  await db.query(`select set_config('request.jwt.claims',$1,true)`,
+    [JSON.stringify({ sub: ID.anggota1, role: 'authenticated' })])
+  await db.exec('set local role authenticated')
+  const r = await db.query(`select public.kirim_titik_borongan($1::jsonb) as n`, [borongan(idSesi, 5)])
+  jumlahTersimpan = Number(r.rows[0].n)
+  await db.exec('commit')
+})()
+
+cek('U-BRG-01', 'Lima Titik tersimpan lewat SATU pemanggilan', jumlahTersimpan === 5)
+cek('U-BRG-02', 'Seluruhnya benar-benar masuk location_logs',
+  await n(`select count(*) n from public.location_logs where sesi_tugas_id=$1`, [idSesi])
+    === sebelumBorongan + 5)
+cek('U-BRG-03', 'Baterai ikut tercatat — kolom yang selama ini selalu kosong',
+  await n(`select count(*) n from public.location_logs
+            where sesi_tugas_id=$1 and baterai_persen is not null`, [idSesi]) === 5)
+
+// Kiriman ulang seluruh kelompok tidak boleh menggandakan apa pun.
+const kelompokTetap = borongan(idSesi, 3, 150)
+for (const _ of [1, 2]) {
+  await db.exec('begin')
+  await db.query(`select set_config('request.jwt.claims',$1,true)`,
+    [JSON.stringify({ sub: ID.anggota1, role: 'authenticated' })])
+  await db.exec('set local role authenticated')
+  await db.query(`select public.kirim_titik_borongan($1::jsonb)`, [kelompokTetap])
+  await db.exec('commit')
+}
+cek('U-BRG-04', 'Kelompok yang sama dikirim dua kali tidak menggandakan Titik',
+  await n(`select count(*) n from public.location_logs where sesi_tugas_id=$1`, [idSesi])
+    === sebelumBorongan + 8)
+
+await sebagai(ID.anggota1, async () => {
+  const e = await (async () => {
+    try { await db.query(`select public.kirim_titik_borongan($1::jsonb)`, ['{"bukan":"larik"}']); return null }
+    catch (err) { return err.message }
+  })()
+  cek('U-BRG-05', 'Bentuk selain larik ditolak', e !== null && e.includes('BENTUK_TIDAK_SAH'))
+})
+
+// Sesi milik orang lain tetap ditolak — borongan tidak melonggarkan apa pun.
+await sebagai(ID.kanit1, async () => {
+  const e = await (async () => {
+    try { await db.query(`select public.kirim_titik_borongan($1::jsonb)`, [borongan(idSesi, 1)]); return null }
+    catch (err) { return err.message }
+  })()
+  cek('U-BRG-06', 'Sesi milik orang lain tetap ditolak lewat jalur borongan',
+    e !== null && e.includes('BUKAN_PEMEGANG'))
+})
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji aktivitas Titik lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)

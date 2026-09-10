@@ -76,6 +76,57 @@ export interface TitikMasuk {
   usiaMs: number
   /** Perangkat melaporkan lokasi ini berasal dari penyedia tiruan. */
   lokasiTiruan: boolean
+  /**
+   * Sisa daya saat Titik ditangkap, 0-100. Kolomnya sudah ada sejak
+   * migrasi 0015 tetapi selalu diisi null — sehingga tidak pernah ada
+   * bukti berapa sebenarnya biaya baterai satu sesi. Diisi sekarang
+   * supaya pertanyaan itu dijawab data lapangan, bukan perkiraan.
+   */
+  bateraiPersen: number | null
+}
+
+/**
+ * Menyetorkan beberapa Titik sekaligus dalam SATU pemanggilan.
+ *
+ * Perekaman dijalankan rapat (keputusan pemilik produk, 11 September
+ * 2026), dan yang membatasi kerapatan itu bukan baterai melainkan
+ * jumlah pemanggilan Server Action. Mengirim berkelompok memutus
+ * kaitan antara "seberapa rapat merekam" dan "seberapa sering
+ * memanggil server" — lihat migrasi 0058.
+ *
+ * Satu kelompok = satu transaksi: bila satu Titik ditolak, tidak ada
+ * yang tersimpan separuh, dan antrean mengirim ulang seluruh kelompok.
+ * Aman diulang karena antrean_id dibuat perangkat dan bersifat tetap.
+ */
+export async function kirimTitikBorongan(daftar: TitikMasuk[]): Promise<HasilTindakan> {
+  if (daftar.length === 0) return { sukses: 'Tidak ada Titik.' }
+  const sekarang = Date.now()
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('kirim_titik_borongan', {
+    p_titik: daftar.map(t => ({
+      sesi_id: t.sesiId,
+      lat: t.lat,
+      lng: t.lng,
+      akurasi_meter: t.akurasiMeter,
+      kecepatan_mps: t.kecepatanMps,
+      arah_derajat: t.arahDerajat,
+      baterai_persen: t.bateraiPersen,
+      sumber_lokasi: t.akurasiMeter != null && t.akurasiMeter <= 50 ? 'gps' : 'jaringan',
+      antrean_id: t.antreanId,
+      // Umur dihitung terhadap SATU patokan waktu server untuk seluruh
+      // kelompok, supaya jarak antar Titik di dalamnya tetap utuh.
+      direkam_pada: new Date(sekarang - Math.min(Math.max(t.usiaMs, 0), 24 * 60 * 60 * 1000)).toISOString(),
+      penanda_perangkat: t.penandaPerangkat,
+      penanda_perangkat_asal: t.penandaPerangkat,
+      lokasi_tiruan: t.lokasiTiruan,
+    })),
+  })
+
+  if (error) {
+    if (error.message.includes('SESI_TERTUTUP')) return { galat: 'Sesi Tugas ini sudah berakhir.' }
+    return { galat: `Gagal mengirim titik: ${error.message}` }
+  }
+  return { sukses: `${daftar.length} titik terkirim.` }
 }
 
 export async function kirimTitikWeb(titik: TitikMasuk): Promise<HasilTindakan> {
@@ -90,7 +141,7 @@ export async function kirimTitikWeb(titik: TitikMasuk): Promise<HasilTindakan> {
     p_akurasi_meter: titik.akurasiMeter,
     p_kecepatan_mps: titik.kecepatanMps,
     p_arah_derajat: titik.arahDerajat,
-    p_baterai_persen: null,
+    p_baterai_persen: titik.bateraiPersen,
     p_sumber_lokasi: titik.akurasiMeter != null && titik.akurasiMeter <= 50 ? 'gps' : 'jaringan',
     p_antrean_id: titik.antreanId,
     p_direkam_pada: new Date(Date.now() - usia).toISOString(),

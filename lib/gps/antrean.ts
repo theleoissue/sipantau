@@ -1,5 +1,5 @@
 import { Preferences } from '@capacitor/preferences'
-import { kirimTitikWeb, type TitikMasuk } from '@/app/(app)/tugas/aksi'
+import { kirimTitikBorongan, type TitikMasuk } from '@/app/(app)/tugas/aksi'
 import {
   antrekanKe, kirimAntreanDari,
   type HasilKirimAntrean, type Penyimpanan, type TitikTersimpan,
@@ -68,13 +68,15 @@ export async function kirimAntrean(): Promise<HasilKirimAntrean> {
   if (sedangMengalir) return { terkirim: 0, tersisa: await jumlahTertunda() }
   sedangMengalir = true
   try {
-    return await kirimAntreanDari(penyimpanan, (titik, usiaMs) => {
+    return await kirimAntreanDari(penyimpanan, (kelompok, usia) =>
       // ditangkapPada tidak ikut dikirim: server menerima UMUR, bukan
       // waktu perangkat — lihat TitikMasuk.usiaMs.
-      const sisa = { ...(titik as unknown as TitikAntre) } as Partial<TitikAntre>
-      delete sisa.ditangkapPada
-      return kirimTitikWeb({ ...(sisa as Omit<TitikAntre, 'ditangkapPada'>), usiaMs })
-    })
+      kirimTitikBorongan(kelompok.map((titik, i) => {
+        const sisa = { ...(titik as unknown as TitikAntre) } as Partial<TitikAntre>
+        delete sisa.ditangkapPada
+        return { ...(sisa as Omit<TitikAntre, 'ditangkapPada'>), usiaMs: usia[i] }
+      })),
+    )
   } finally {
     sedangMengalir = false
   }

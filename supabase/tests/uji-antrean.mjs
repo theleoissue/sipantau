@@ -33,7 +33,7 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 {
   const simpan = penyimpanan([titik('a'), titik('b'), titik('c')])
   const urutan = []
-  const hasil = await kirimAntreanDari(simpan, async t => { urutan.push(t.antreanId); return {} })
+  const hasil = await kirimAntreanDari(simpan, async k => { k.forEach(t => urutan.push(t.antreanId)); return {} })
   cek('U-ANT-01', 'Titik dikirim dari yang paling lama, berurutan', urutan.join('') === 'abc')
   cek('U-ANT-02', 'Antrean kosong setelah semua terkirim', simpan.lihat().length === 0)
   cek('U-ANT-03', 'Jumlah terkirim dilaporkan apa adanya', hasil.terkirim === 3 && hasil.tersisa === 0)
@@ -44,10 +44,11 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 // ---------------------------------------------------------------------
 {
   const simpan = penyimpanan([titik('a'), titik('b'), titik('c')])
-  const hasil = await kirimAntreanDari(simpan, async t => {
-    if (t.antreanId === 'b') throw new Error('jaringan mati')
+  // Kelompok dipaksa satu per satu supaya kegagalan di tengah dapat diuji.
+  const hasil = await kirimAntreanDari(simpan, async k => {
+    if (k.some(t => t.antreanId === 'b')) throw new Error('jaringan mati')
     return {}
-  })
+  }, Date.now, 1)
   cek('U-ANT-04', 'Berhenti pada kegagalan jaringan, tidak memaksa terus', hasil.galat === 'jaringan')
   cek('U-ANT-05', 'Titik yang belum terkirim TETAP tersimpan, tidak hilang',
     simpan.lihat().map(t => t.antreanId).join('') === 'bc')
@@ -55,7 +56,7 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 
   // Jaringan pulih: lanjut dari tempat berhenti, urutan tetap terjaga.
   const urutan = []
-  const lanjut = await kirimAntreanDari(simpan, async t => { urutan.push(t.antreanId); return {} })
+  const lanjut = await kirimAntreanDari(simpan, async k => { k.forEach(t => urutan.push(t.antreanId)); return {} }, Date.now, 1)
   cek('U-ANT-07', 'Sesudah jaringan pulih, sisanya terkirim urut', urutan.join('') === 'bc')
   cek('U-ANT-08', 'Antrean bersih setelah pemulihan', lanjut.tersisa === 0 && simpan.lihat().length === 0)
 }
@@ -65,8 +66,8 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 // ---------------------------------------------------------------------
 {
   const simpan = penyimpanan([titik('a'), titik('b')])
-  const hasil = await kirimAntreanDari(simpan, async t =>
-    t.antreanId === 'a' ? { galat: 'SESI_TERTUTUP' } : {})
+  const hasil = await kirimAntreanDari(simpan, async k =>
+    k.some(t => t.antreanId === 'a') ? { galat: 'SESI_TERTUTUP' } : {}, Date.now, 1)
   cek('U-ANT-09', 'Titik yang DITOLAK server dibuang, tidak menyumbat antrean',
     simpan.lihat().map(t => t.antreanId).join('') === 'b')
   cek('U-ANT-10', 'Galat penolakan diteruskan apa adanya', hasil.galat === 'SESI_TERTUTUP')
@@ -78,14 +79,14 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 {
   const simpan = penyimpanan([titik('a', 10_000)])
   let usiaTerkirim = null
-  await kirimAntreanDari(simpan, async (_t, usiaMs) => { usiaTerkirim = usiaMs; return {} },
+  await kirimAntreanDari(simpan, async (_k, usia) => { usiaTerkirim = usia[0]; return {} },
     () => 25_000)
   cek('U-ANT-11', 'Umur dihitung pada saat pengiriman (25s - 10s = 15s)', usiaTerkirim === 15_000)
 }
 {
   const simpan = penyimpanan([titik('a', 90_000)])
   let usiaTerkirim = null
-  await kirimAntreanDari(simpan, async (_t, usiaMs) => { usiaTerkirim = usiaMs; return {} },
+  await kirimAntreanDari(simpan, async (_k, usia) => { usiaTerkirim = usia[0]; return {} },
     () => 30_000)
   cek('U-ANT-12', 'Jam perangkat yang mundur tidak menghasilkan umur negatif', usiaTerkirim === 0)
 }
