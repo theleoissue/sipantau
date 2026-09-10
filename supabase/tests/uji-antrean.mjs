@@ -6,6 +6,8 @@
 // bahkan menulis "Akan dicoba lagi" padahal tidak ada yang disimpan.
 
 import { antrekanKe, kirimAntreanDari, BATAS_ANTREAN } from '../../lib/gps/antrean-inti.ts'
+import { mutuAkurasi, AKURASI_DIRAGUKAN_METER } from '../../lib/gps/tipe.ts'
+import { readFileSync } from 'node:fs'
 
 let lulus = 0, gagal = 0
 const cek = (k, t, ok) => {
@@ -122,8 +124,6 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 // Tingkatan mutu akurasi (Jalur A3)
 // =====================================================================
 
-const { mutuAkurasi, AKURASI_DIRAGUKAN_METER } = await import('../../lib/gps/tipe.ts')
-
 cek('U-MUT-01', 'Tepat 10 m masih tergolong tinggi', mutuAkurasi(10) === 'tinggi')
 cek('U-MUT-02', 'Di atas 10 m turun ke sedang', mutuAkurasi(10.1) === 'sedang')
 cek('U-MUT-03', 'Tepat 30 m masih sedang — batas basis data belum terlampaui',
@@ -136,7 +136,6 @@ cek('U-MUT-05', 'Akurasi yang tidak dilaporkan tidak dianggap buruk',
 // digeser tanpa yang lain, basis data dan layar akan menyebut Titik yang
 // sama dengan dua sebutan berbeda — dan tidak ada yang bergalat.
 {
-  const { readFileSync } = await import('node:fs')
   const sql = readFileSync(
     new URL('../migrations/0056_titik_telat_sesudah_sesi_tutup.sql', import.meta.url), 'utf8')
   cek('U-MUT-06', 'Ambang diragukan di layar sama dengan di fn_catat_titik',

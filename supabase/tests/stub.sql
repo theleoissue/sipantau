@@ -88,6 +88,13 @@ grant select, insert, update, delete on storage.objects to authenticated;
 -- =====================================================================
 create schema if not exists extensions;
 
+-- Supabase sungguhan mengizinkan peran aplikasi memakai skema ini. Tanpa
+-- baris berikut, tiruan di sini menolak setiap kueri BER-security_invoker
+-- yang menyentuh PostGIS — celah yang baru ketahuan saat tampilan pertama
+-- yang memakainya ditulis. HARUS sesudah skemanya dibuat: grant pada
+-- skema yang belum ada menggagalkan seluruh stub.
+grant usage on schema extensions to anon, authenticated, service_role;
+
 create type extensions.geography as (lng double precision, lat double precision);
 
 create or replace function extensions.ST_MakePoint(lng double precision, lat double precision)
