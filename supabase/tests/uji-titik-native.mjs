@@ -244,6 +244,59 @@ cek('U-TN-14', 'Penerbitan ulang menghasilkan token yang berbeda', tokenBaru !==
     hasilSah !== null && (await jml()) === sebelum + 1)
 }
 
+// =====================================================================
+// Antrean di sisi native (migrasi 0059)
+// =====================================================================
+
+const ANTREAN_NATIVE = 'aa000000-0000-0000-0000-000000000001'
+
+// Sesi dituakan sepuluh menit. Di dalam uji ini sesi baru dibuka
+// sepersekian detik lalu, sehingga Titik berumur beberapa detik akan
+// jatuh SEBELUM Mulai Tugas dan ditolak KP-6.4-21 — keadaan yang tidak
+// pernah terjadi di lapangan.
+await db.query(
+  `update public.sesi_tugas set dibuka_pada = dibuka_pada - interval '10 minutes' where id=$1`,
+  [idSesi])
+
+// Titik dengan antrean_id LOLOS walau baru saja ada Titik lain — inilah
+// yang dulu dibuang jendela 10 detik, dan yang membuat perekaman rapat
+// mustahil di jalur native.
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+  [tokenBaru, -6.92, 107.62, 7, 1.4, 90, false, ANTREAN_NATIVE, 4000, 63]))
+
+cek('U-TN-21', 'Titik ber-antrean_id lolos meski ada Titik lain beberapa detik sebelumnya',
+  await n(`select count(*) n from public.location_logs where antrean_id=$1`, [ANTREAN_NATIVE]) === 1)
+
+// Kiriman ulang setelah jawaban server tidak sampai — antrean native
+// mengulang dengan id yang SAMA.
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+  [tokenBaru, -6.92, 107.62, 7, 1.4, 90, false, ANTREAN_NATIVE, 9000, 63]))
+
+cek('U-TN-22', 'Kiriman ulang dengan antrean_id sama tidak menggandakan Titik',
+  await n(`select count(*) n from public.location_logs where antrean_id=$1`, [ANTREAN_NATIVE]) === 1)
+
+cek('U-TN-23', 'Baterai dari jalur native ikut tercatat',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and baterai_persen = 63`, [ANTREAN_NATIVE]) === 1)
+
+// Umur 4 detik berarti waktu tangkap 4 detik SEBELUM tiba — bukan
+// distempel saat tiba seperti perilaku lama.
+cek('U-TN-24', 'Waktu tangkap diturunkan dari umur, bukan waktu tiba',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and direkam_pada < now() - interval '3 seconds'`,
+    [ANTREAN_NATIVE]) === 1)
+
+// Umur yang tidak masuk akal tidak boleh menghasilkan waktu di masa depan.
+const ANTREAN_MINUS = 'aa000000-0000-0000-0000-000000000002'
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+  [tokenBaru, -6.921, 107.621, 7, 1.4, 90, false, ANTREAN_MINUS, -50000, 60]))
+cek('U-TN-25', 'Umur negatif tidak menghasilkan waktu Titik di masa depan',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and direkam_pada <= now()`, [ANTREAN_MINUS]) === 1)
+
 // Sesi ditutup = token mati dengan sendirinya, tanpa perlu dihapus.
 await sebagai(ID.anggota1, () =>
   db.query(`select public.selesaikan_sesi_tugas($1)`, [idSesi]))
