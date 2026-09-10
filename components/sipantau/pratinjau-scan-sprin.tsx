@@ -134,11 +134,12 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
               <svg ref={svg} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet"
                 onPointerMove={selamaSeret} onPointerUp={akhiriSeret} onPointerCancel={akhiriSeret}>
                 <polygon points={sudut.map(p => `${p.x},${p.y}`).join(' ')}
-                  fill="rgba(37,99,235,.18)" stroke="#2563EB" strokeWidth={Math.max(2, w / 220)} />
+                  fill="rgba(37,99,235,.18)" stroke="#2563EB" strokeWidth={Math.max(3, w / 180)} />
                 {sudut.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r={Math.max(14, w / 45)}
-                    fill="#2563EB" stroke="#fff" strokeWidth={Math.max(2, w / 300)}
-                    onPointerDown={e => mulaiSeret(i, e)} />
+                  <g key={i}>
+                    <circle cx={p.x} cy={p.y} r={Math.max(42, w / 12)} fill="transparent" onPointerDown={e => mulaiSeret(i, e)} />
+                    <circle cx={p.x} cy={p.y} r={Math.max(28, w / 22)} fill="#2563EB" stroke="#fff" strokeWidth={Math.max(3, w / 180)} pointerEvents="none" />
+                  </g>
                 ))}
               </svg>
             </div>
