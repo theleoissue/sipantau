@@ -5,6 +5,7 @@ import { statusSinyal, labelTerakhirTerlihat } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from '@/components/sipantau/ikon'
 import { TabelResponsif } from '@/components/sipantau/tabel-responsif'
+import { ResetSandiPersonel } from '@/components/sipantau/reset-sandi-personel'
 
 export const metadata = { title: 'Status Personel — Si PANTAU' }
 
@@ -68,6 +69,7 @@ export default async function HalamanPersonel() {
                   <th>Nama</th><th>Peran</th>
                   {(pengguna.peran === 'kasubdit' || pengguna.peran === 'admin') && <th>Unit</th>}
                   <th>Kehadiran</th><th>Status akun</th><th>Terakhir masuk</th>
+                  {pengguna.peran === 'kanit' && <th>Aksi</th>}
                 </tr>
               </thead>
               <tbody>
@@ -104,6 +106,11 @@ export default async function HalamanPersonel() {
                     <td style={{ whiteSpace: 'nowrap', color: 'var(--ink-2)' }}>
                       {waktuMasuk(p.terakhir_masuk)}
                     </td>
+                    {pengguna.peran === 'kanit' && <td>
+                      {['anggota', 'panit'].includes(p.peran) && p.aktif
+                        ? <ResetSandiPersonel id={p.id} nama={p.nama} nrp={p.nrp} />
+                        : <span className="isyarat">—</span>}
+                    </td>}
                   </tr>
                 ))}
               </tbody>

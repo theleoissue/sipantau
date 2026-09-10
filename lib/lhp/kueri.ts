@@ -1,5 +1,6 @@
 import { klienServer } from '@/lib/supabase/server'
 import type { LhpLengkap } from './tipe'
+import type { Personel } from '@/lib/personel/kueri'
 
 export * from './tipe'
 
@@ -33,6 +34,18 @@ export async function satuLhp(id: string): Promise<LhpLengkap | null> {
 
   if (error) throw new Error(`Gagal membaca LHP: ${error.message}`)
   return (data ?? null) as unknown as LhpLengkap | null
+}
+
+/** Kandidat tambahan dibatasi pada tim SPRIN yang sama oleh fungsi
+ * security-definer 0056. Bagi pembaca selain penyusun draf hasilnya kosong. */
+export async function personelLhpDapatDipilih(lhpId: string): Promise<Personel[]> {
+  const supabase = await klienServer()
+  const { data, error } = await supabase.rpc('personel_lhp_dapat_dipilih', { p_lhp_id: lhpId })
+  if (error) throw new Error(`Gagal membaca kandidat petugas LHP: ${error.message}`)
+  return ((data ?? []) as Array<{
+    id: string; nama: string; nrp: string; pangkat: string | null; peran: string
+    aktif: boolean; terakhir_masuk: string | null; terlihat_pada: string | null; unit_nama: string | null
+  }>).map(p => ({ ...p, unit: p.unit_nama ? { nama: p.unit_nama } : null }))
 }
 
 /** Daftar LHP dalam lingkup pengguna (Kasubdit/Kanit/Panit/Anggota —

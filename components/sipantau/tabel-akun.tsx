@@ -25,7 +25,16 @@ const LENCANA_PERAN: Record<string, string> = {
 
 type DialogAktif = { jenis: 'nonaktif' | 'reset_sandi'; akun: Akun } | null
 
-export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: UnitRingkas[] }) {
+export function TabelAkun({
+  daftar,
+  unitAktif = [],
+  hanyaReset = false,
+}: {
+  daftar: Akun[]
+  unitAktif?: UnitRingkas[]
+  /** Mode Akun Pemeliharaan: hanya pencarian dan reset sandi. */
+  hanyaReset?: boolean
+}) {
   const [cari, setCari] = useState('')
   const [formulir, setFormulir] = useState<'tambah' | Akun | null>(null)
   const [dialog, setDialog] = useState<DialogAktif>(null)
@@ -118,14 +127,14 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
                         </td>
                         <td style={{ whiteSpace: 'nowrap', color: 'var(--ink-2)' }}>{waktuMasuk(a.terakhir_masuk)}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
-                          <button className="btn btn-o btn-sm" onClick={() => setFormulir(a)}>Ubah</button>
+                          {!hanyaReset && <button className="btn btn-o btn-sm" onClick={() => setFormulir(a)}>Ubah</button>}
                           <button
-                            className="btn btn-o btn-sm" style={{ marginLeft: 6 }}
+                            className="btn btn-o btn-sm" style={{ marginLeft: hanyaReset ? 0 : 6 }}
                             onClick={() => setDialog({ jenis: 'reset_sandi', akun: a })}
                           >
                             Reset sandi
                           </button>
-                          {a.aktif ? (
+                          {!hanyaReset && (a.aktif ? (
                             <button
                               className="btn btn-o btn-sm" style={{ color: 'var(--red)', borderColor: '#FCA5A5', marginLeft: 6 }}
                               onClick={() => setDialog({ jenis: 'nonaktif', akun: a })}
@@ -143,7 +152,7 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
                             >
                               Aktifkan kembali
                             </button>
-                          )}
+                          ))}
                         </td>
                       </tr>
                     ))}
@@ -155,13 +164,13 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
         </div>
       </section>
 
-      <div style={{ marginTop: 14 }}>
+      {!hanyaReset && <div style={{ marginTop: 14 }}>
         <button className="btn btn-g" onClick={() => setFormulir('tambah')}>
           <Ikon nama="tambah" />Tambah akun
         </button>
-      </div>
+      </div>}
 
-      {formulir && (
+      {!hanyaReset && formulir && (
         <FormulirAkun
           akun={formulir === 'tambah' ? null : formulir}
           unitAktif={unitAktif}

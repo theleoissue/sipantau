@@ -82,7 +82,7 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { kelompok: 'Tugas Saya' },
       { id: 'tugas',     rute: '/tugas',     ikon: 'satelit',     label: 'Sesi Tugas' },
     ],
-    bilahBawah: ['beranda', 'penugasan', 'peta', 'laporan'],
+    bilahBawah: ['beranda', 'penugasan', 'tugas', 'peta', 'laporan'],
     beranda: '/beranda',
   },
 

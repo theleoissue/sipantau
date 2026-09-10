@@ -50,7 +50,7 @@ export function KelolaTim({
 
   const idPelaksanaAktif = new Set(pelaksana.filter(p => !p.dicabut_pada).map(p => p.pelaksana_id))
   const idPanitAktif = new Set(panit.filter(p => !p.dicabut_pada).map(p => p.panit_id))
-  const calonPelaksana = personelTersedia.filter(p => p.aktif && p.peran !== 'pemeliharaan' && !idPelaksanaAktif.has(p.id))
+  const calonPelaksana = personelTersedia.filter(p => p.aktif && ['anggota', 'panit', 'kanit'].includes(p.peran) && !idPelaksanaAktif.has(p.id))
   const calonPanit = personelTersedia.filter(p => p.aktif && p.peran === 'panit' && !idPanitAktif.has(p.id))
 
   const tampilPanit = bagian === 'panit' || bagian === 'semua'

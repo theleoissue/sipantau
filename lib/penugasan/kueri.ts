@@ -201,8 +201,7 @@ export async function personelDapatDipilih() {
     .from('users')
     .select('id, nama, pangkat, peran')
     .eq('aktif', true)
-    .neq('peran', 'pemeliharaan')
-    .neq('peran', 'kasubdit')
+    .in('peran', ['anggota', 'panit', 'kanit'])
     .order('nama')
 
   if (error) throw new Error(`Gagal membaca daftar personel: ${error.message}`)

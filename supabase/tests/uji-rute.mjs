@@ -35,10 +35,10 @@ cek('U-RUTE-08c','Anggota TIDAK dapat membuka persetujuan scan Kanit', !boleh('/
 cek('U-RUTE-08d','Kanit DAPAT membuka persetujuan scan', boleh('/penugasan/pengajuan','kanit'))
 
 // --- kewenangan eksklusif Kasubdit (BR-07) ---
-for (const p of ['kanit','panit','anggota','pemeliharaan']) {
-  cek('U-RUTE-09',`${p} TIDAK dapat membuka /akun`, !boleh('/akun',p))
-  cek('U-RUTE-10',`${p} TIDAK dapat membuka /akun/unit (sub-rute)`, !boleh('/akun/unit',p))
-  cek('U-RUTE-11',`${p} TIDAK dapat membuka /rekap`, !boleh('/rekap',p))
+for (const [i, p] of ['kanit','panit','anggota','pemeliharaan'].entries()) {
+  cek(`U-RUTE-09${String.fromCharCode(65+i)}`,`${p} TIDAK dapat membuka /akun`, !boleh('/akun',p))
+  cek(`U-RUTE-10${String.fromCharCode(65+i)}`,`${p} TIDAK dapat membuka /akun/unit (sub-rute)`, !boleh('/akun/unit',p))
+  cek(`U-RUTE-11${String.fromCharCode(65+i)}`,`${p} TIDAK dapat membuka /rekap`, !boleh('/rekap',p))
 }
 // Migrasi 0032 (keputusan sadar mengubah PRD): Admin MENGGANTIKAN
 // Kasubdit khusus untuk Manajemen Akun — lihat lib/supabase/types.ts.
@@ -62,13 +62,13 @@ cek('U-RUTE-19','Anggota TIDAK dapat membuka daftar peninjauan /laporan', !boleh
 cek('U-RUTE-21','Panit DAPAT meninjau laporan', boleh('/laporan','panit'))
 
 // --- halaman pemeliharaan tertutup bagi seluruh peran organisasi ---
-for (const p of ['kasubdit','admin','kanit','panit','anggota'])
-  cek('U-RUTE-22',`${p} TIDAK dapat membuka /pemeliharaan`, !boleh('/pemeliharaan',p))
+for (const [i, p] of ['kasubdit','admin','kanit','panit','anggota'].entries())
+  cek(`U-RUTE-22${String.fromCharCode(65+i)}`,`${p} TIDAK dapat membuka /pemeliharaan`, !boleh('/pemeliharaan',p))
 cek('U-RUTE-23','Akun Pemeliharaan TIDAK melihat dashboard peran mana pun (KP-6.1-40)', !boleh('/beranda','pemeliharaan'))
 
 // --- Admin melihat "semua unit" seperti Kasubdit, di luar Manajemen Akun ---
-for (const rute of ['/beranda','/penugasan','/peta','/laporan','/personel','/lhp','/pemberitahuan'])
-  cek('U-RUTE-24',`Admin DAPAT membuka ${rute}`, boleh(rute,'admin'))
+for (const [i, rute] of ['/beranda','/penugasan','/peta','/laporan','/personel','/lhp','/pemberitahuan'].entries())
+  cek(`U-RUTE-24${String.fromCharCode(65+i)}`,`Admin DAPAT membuka ${rute}`, boleh(rute,'admin'))
 cek('U-RUTE-25','Admin TIDAK dapat membuka Sesi Tugas (bukan peran lapangan)', !boleh('/tugas','admin'))
 cek('U-RUTE-26','Admin TIDAK dapat menerbitkan SPT (BR-06, bukan Kanit)', !boleh('/penugasan/terbitkan','admin'))
 

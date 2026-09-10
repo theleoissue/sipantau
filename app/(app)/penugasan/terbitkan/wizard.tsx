@@ -242,7 +242,7 @@ export function WizardTerbitkan({
   }
 
   const calonPanit = personel.filter(p => p.peran === 'panit')
-  const calonPelaksana = personel
+  const calonPelaksana = personel.filter(p => ['anggota', 'panit', 'kanit'].includes(p.peran))
 
   function simpan(terbitkan: boolean) {
     setGalat(null)

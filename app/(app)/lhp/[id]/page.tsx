@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
-import { satuLhp } from '@/lib/lhp/kueri'
-import { daftarPersonel } from '@/lib/personel/kueri'
+import { satuLhp, personelLhpDapatDipilih } from '@/lib/lhp/kueri'
 import { FormulirLhp } from '@/components/sipantau/formulir-lhp'
 import { TombolBagikanWa } from '@/components/sipantau/tombol-bagikan-wa'
 import { Ikon } from '@/components/sipantau/ikon'
@@ -18,12 +17,11 @@ export default async function RincianLhp({
   const { id } = await params
   if (!idValid(id)) notFound()
 
-  // Independen — daftarPersonel() tidak menerima argumen, tidak perlu
-  // menunggu pengguna/lhp lebih dulu.
+  // Kandidat petugas disaring fungsi database menurut LHP dan SPRIN ini.
   const [pengguna, lhp, personelUnit] = await Promise.all([
     wajibkanSudahSiap(),
     satuLhp(id),
-    daftarPersonel(),
+    personelLhpDapatDipilih(id),
   ])
 
   if (!lhp) notFound()

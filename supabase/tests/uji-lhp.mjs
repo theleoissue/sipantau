@@ -157,6 +157,19 @@ const petugas = (await db.query(
 cek('U-LHP-07', 'lhp_petugas terisi otomatis: Panit lebih dulu, pelaksana menyusul',
   petugas.length === 2 && petugas[0].petugas_id === ID.panit1 && petugas[1].petugas_id === ID.anggota1)
 
+await sebagai(ID.anggota1, async () => {
+  const kandidat = (await db.query(`select id from public.personel_lhp_dapat_dipilih($1) order by id`, [lhpSatu])).rows.map(r => r.id)
+  cek('U-LHP-07A', 'Penyusun melihat hanya tim aktif SPRIN sebagai kandidat petugas',
+    kandidat.length === 2 && kandidat.includes(ID.panit1) && kandidat.includes(ID.anggota1))
+  const e = await galat(() => db.query(
+    `insert into public.lhp_petugas (lhp_id,petugas_id,urutan) values ($1,$2,99)`, [lhpSatu, ID.anggota2]))
+  cek('U-LHP-07B', 'Petugas di luar tim SPRIN ditolak pada tingkat database', e?.includes('BUKAN_TIM_SPT'))
+})
+await sebagai(ID.anggota2, async () => {
+  cek('U-LHP-07C', 'Bukan penyusun tidak memperoleh kandidat petugas LHP',
+    await n(`select count(*) n from public.personel_lhp_dapat_dipilih($1)`, [lhpSatu]) === 0)
+})
+
 // =====================================================================
 // RLS baca — lingkup Kasubdit/Kanit/Panit/Anggota (fondasi.md §7)
 // =====================================================================

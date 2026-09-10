@@ -26,7 +26,7 @@ export function BilahBawah({ peran, sesiBerjalan = false }: { peran: Peran; sesi
   if (butir.length === 0) return null
 
   return (
-    <nav id="bb" className={peran === 'anggota' || peran === 'panit' ? 'bb-lapangan' : undefined} aria-label="Navigasi utama">
+    <nav id="bb" className={['anggota', 'panit', 'kanit'].includes(peran) ? 'bb-lapangan' : undefined} aria-label="Navigasi utama">
       {butir.map(b => (
         <Link
           key={b.id}

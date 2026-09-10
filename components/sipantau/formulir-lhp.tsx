@@ -95,7 +95,7 @@ export function FormulirLhp({
   const [uraianBuktiBaru, setUraianBuktiBaru] = useState('')
 
   const idPetugasAda = new Set(lhp.lhp_petugas.map(p => p.petugas_id))
-  const calonPetugas = personelUnit.filter(p => p.aktif && p.peran !== 'pemeliharaan' && !idPetugasAda.has(p.id))
+  const calonPetugas = personelUnit.filter(p => p.aktif && ['anggota', 'panit', 'kanit'].includes(p.peran) && !idPetugasAda.has(p.id))
 
   function ubah<K extends keyof typeof isi>(k: K, v: string) {
     const baru = { ...isi, [k]: v }

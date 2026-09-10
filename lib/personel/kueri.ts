@@ -9,6 +9,7 @@ import { klienServer } from '@/lib/supabase/server'
 export interface Personel {
   id: string
   nama: string
+  nrp: string
   pangkat: string | null
   peran: string
   aktif: boolean
@@ -25,7 +26,7 @@ export async function daftarPersonel(): Promise<Personel[]> {
   const supabase = await klienServer()
   const { data, error } = await supabase
     .from('users')
-    .select('id, nama, pangkat, peran, aktif, terakhir_masuk, terakhir_terlihat, unit:unit_id ( nama ), posisi_terkini ( direkam_pada )')
+    .select('id, nama, nrp, pangkat, peran, aktif, terakhir_masuk, terakhir_terlihat, unit:unit_id ( nama ), posisi_terkini ( direkam_pada )')
     .neq('peran', 'pemeliharaan')
     .order('peran')
     .order('nama')
@@ -33,14 +34,14 @@ export async function daftarPersonel(): Promise<Personel[]> {
   if (error) throw new Error(`Gagal membaca daftar personel: ${error.message}`)
 
   return ((data ?? []) as unknown as {
-    id: string; nama: string; pangkat: string | null; peran: string; aktif: boolean
+    id: string; nama: string; nrp: string; pangkat: string | null; peran: string; aktif: boolean
     terakhir_masuk: string | null; terakhir_terlihat: string | null
     unit: { nama: string } | null
     posisi_terkini: { direkam_pada: string } | { direkam_pada: string }[] | null
   }[]).map(r => {
     const posisi = Array.isArray(r.posisi_terkini) ? r.posisi_terkini[0] : r.posisi_terkini
     return {
-      id: r.id, nama: r.nama, pangkat: r.pangkat, peran: r.peran, aktif: r.aktif,
+      id: r.id, nama: r.nama, nrp: r.nrp, pangkat: r.pangkat, peran: r.peran, aktif: r.aktif,
       terakhir_masuk: r.terakhir_masuk, unit: r.unit,
       terlihat_pada: posisi?.direkam_pada ?? r.terakhir_terlihat,
     }

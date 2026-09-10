@@ -46,8 +46,8 @@ assert.equal((nav.match(/<a /g) || []).length, 5)
 assert.match(nav, /sesi-berjalan/)
 assert.match(nav, /Sedang Bertugas/)
 const atasan = renderToStaticMarkup(h(BilahBawah, {peran:'kanit'}))
-assert.equal((atasan.match(/<a /g) || []).length, 4)
-assert.doesNotMatch(atasan, /bb-pusat/)
+assert.equal((atasan.match(/<a /g) || []).length, 5)
+assert.match(atasan, /bb-pusat/)
 console.log('11 pemeriksaan komponen/validasi crop lulus.')
 if (process.argv.includes('--preview')) {
   require('node:http').createServer((req,res) => {
