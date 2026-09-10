@@ -187,16 +187,23 @@ export function WizardTerbitkan({
 
   useEffect(() => {
     if (draf || !kunciDraf || drafTersedia || sedangKirimBaru.current || !drafLokalSiap.current) return
-    const timer = window.setTimeout(() => {
+    const simpan = () => {
+      if (sedangKirimBaru.current) return
+      try {
       const adaIsian = Boolean(judul.trim() || uraian.trim() || objek.trim() || sasaran.trim() || nomorSpt.trim())
-      if (!adaIsian) return
+      if (!adaIsian) { localStorage.removeItem(kunciDraf); return }
       localStorage.setItem(kunciDraf, JSON.stringify({
         judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber,
         prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana,
       }))
       setStatusSimpanOtomatis('Perubahan tersimpan otomatis di perangkat.')
-    }, 700)
-    return () => window.clearTimeout(timer)
+      } catch { setStatusSimpanOtomatis('Penyimpanan perangkat tidak tersedia. Simpan draf sebelum keluar.') }
+    }
+    const timer = window.setTimeout(simpan, 400)
+    const saatTersembunyi = () => { if (document.hidden) simpan() }
+    window.addEventListener('pagehide', simpan)
+    document.addEventListener('visibilitychange', saatTersembunyi)
+    return () => { window.clearTimeout(timer); window.removeEventListener('pagehide', simpan); document.removeEventListener('visibilitychange', saatTersembunyi); simpan() }
   }, [draf, kunciDraf, drafTersedia, judul, jenisKegiatan, nomorSpt, objek, sasaran, uraian, nomorLp, sumber, prioritas, mulaiTgl, batasTgl, dasar, lokasi, panit, pelaksana])
 
   /**

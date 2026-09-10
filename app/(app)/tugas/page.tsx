@@ -3,6 +3,7 @@ import { daftarPenugasan } from '@/lib/penugasan/kueri'
 import { KartuSesiTugas } from '@/components/sipantau/kartu-sesi-tugas'
 import { LABEL_SEBAB_PENUTUPAN } from '@/lib/gps/tipe'
 import { Ikon } from '@/components/sipantau/ikon'
+import { TabelResponsif } from '@/components/sipantau/tabel-responsif'
 
 export const metadata = { title: 'Sesi Tugas — Si PANTAU' }
 
@@ -64,7 +65,7 @@ export default async function HalamanTugas() {
               <p>Perekaman posisi hanya berjalan selama Sesi Tugas dibuka.</p>
             </div>
           ) : (
-            <table>
+            <TabelResponsif>
               <thead>
                 <tr>
                   <th>Penugasan</th><th>Mulai</th><th>Jarak</th><th>Titik</th><th>Keadaan</th>
@@ -88,7 +89,7 @@ export default async function HalamanTugas() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TabelResponsif>
           )}
         </div>
       </section>

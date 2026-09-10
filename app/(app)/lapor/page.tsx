@@ -19,7 +19,7 @@ export default async function HalamanLapor() {
         </div>
       </div>
 
-      <FormulirLapor daftarSpt={daftarSpt} />
+      <FormulirLapor key={pengguna.id} penggunaId={pengguna.id} daftarSpt={daftarSpt} />
     </>
   )
 }

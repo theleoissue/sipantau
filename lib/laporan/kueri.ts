@@ -42,6 +42,7 @@ export async function satuLaporan(id: string): Promise<LaporanLengkap | null> {
 export async function daftarLaporan(opsi?: {
   status?: StatusLaporan[]
   kueri?: string
+  penugasanId?: string
 }): Promise<LaporanLengkap[]> {
   const supabase = await klienServer()
   let q = supabase
@@ -50,6 +51,7 @@ export async function daftarLaporan(opsi?: {
     .order('dikirim_pada', { ascending: false })
 
   if (opsi?.status?.length) q = q.in('status_laporan', opsi.status)
+  if (opsi?.penugasanId) q = q.eq('penugasan_id', opsi.penugasanId)
   if (opsi?.kueri) q = q.ilike('uraian', `%${opsi.kueri}%`)
 
   const { data, error } = await q

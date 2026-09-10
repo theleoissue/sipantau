@@ -6,6 +6,7 @@ import type { Pengguna } from '@/lib/supabase/types'
 import { BilahSamping } from './bilah-samping'
 import { HeaderAplikasi } from './header-aplikasi'
 import { BilahBawah } from './bilah-bawah'
+import { useStatusSesi } from '@/lib/gps/use-status-sesi'
 
 /**
  * Kerangka tiga tingkat, mengikuti perilaku responsif mockup:
@@ -33,9 +34,12 @@ export function KerangkaAplikasi({
 }) {
   const [laciTerbuka, setLaciTerbuka] = useState(false)
   const [dipaksaPenuh, setDipaksaPenuh] = useState(false)
+  const sesiBerjalan = useStatusSesi(pengguna.id, ['anggota', 'panit', 'kanit'].includes(pengguna.peran))
 
   useEffect(() => {
     if (!laciTerbuka) return
+    const fokusAwal = document.activeElement as HTMLElement | null
+    document.querySelector<HTMLButtonElement>('#sb .sb-tutup')?.focus()
     const tutup = (event: Event) => { event.preventDefault(); setLaciTerbuka(false) }
     const keyboard = (event: KeyboardEvent) => { if (event.key === 'Escape') tutup(event) }
     window.addEventListener('sipantau:kembali', tutup)
@@ -46,6 +50,7 @@ export function KerangkaAplikasi({
       window.removeEventListener('sipantau:kembali', tutup)
       window.removeEventListener('keydown', keyboard)
       document.body.style.overflow = overflow
+      fokusAwal?.focus({ preventScroll: true })
     }
   }, [laciTerbuka])
 
@@ -84,6 +89,7 @@ export function KerangkaAplikasi({
   return (
     <>
       <BilahSamping
+        sesiBerjalan={sesiBerjalan}
         pengguna={pengguna}
         namaUnit={namaUnit}
         onTutupLaci={() => setLaciTerbuka(false)}
@@ -102,6 +108,7 @@ export function KerangkaAplikasi({
 
       <div id="rangka">
         <HeaderAplikasi
+          menuTerbuka={laciTerbuka || dipaksaPenuh}
           pengguna={pengguna}
           jumlahNotifAwal={jumlahNotifAwal}
           onTekanMenu={() => {
@@ -112,7 +119,7 @@ export function KerangkaAplikasi({
         <main id="utama">{children}</main>
       </div>
 
-      <BilahBawah peran={pengguna.peran} />
+      <BilahBawah peran={pengguna.peran} sesiBerjalan={sesiBerjalan} />
     </>
   )
 }

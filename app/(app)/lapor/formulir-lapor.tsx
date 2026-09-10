@@ -26,14 +26,13 @@ function ambilPenandaPerangkat(): string {
 
 type StatusGeo = 'mencari' | 'berhasil' | 'gagal'
 
-const KUNCI_DRAF = 'sipantau:draf-laporan:v1'
-
 type DrafLaporan = {
   sptId: string; jenis: string; statusKegiatan: string; uraian: string; kendala: string
   lokasiId: string; keteranganLokasi: string; alasan: AlasanLokasi; alasanLainnya: string
 }
 
-export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
+export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLapor[]; penggunaId: string }) {
+  const KUNCI_DRAF = `sipantau:draf-laporan:v2:${penggunaId}`
   const router = useRouter()
   const [sptId, setSptId] = useState(daftarSpt[0]?.id ?? '')
   const [jenis, setJenis] = useState('perkembangan')
@@ -48,6 +47,7 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
   const [menyimpan, mulai] = useTransition()
   const [statusDraf, setStatusDraf] = useState('')
   const sudahPulih = useRef(false)
+  const sudahTerkirim = useRef(false)
 
   // Bila API-nya tidak ada sama sekali, keadaan awal langsung 'gagal' —
   // SELALU 'mencari' pada render pertama, di server MAUPUN di klien.
@@ -94,6 +94,7 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
   }
 
   function simpanDrafLokal(otomatis = false) {
+    try {
     const draf = isiDraf()
     const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
     if (!adaIsian) {
@@ -103,15 +104,23 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
     }
     localStorage.setItem(KUNCI_DRAF, JSON.stringify(draf))
     setStatusDraf(otomatis ? 'Draf tersimpan otomatis di perangkat.' : 'Draf tersimpan di perangkat ini.')
+    } catch { setStatusDraf('Penyimpanan perangkat tidak tersedia. Isian belum tersimpan.') }
   }
 
   useEffect(() => {
+    if (sudahPulih.current) return
     const pulihkan = window.setTimeout(() => {
     try {
       const tersimpan = localStorage.getItem(KUNCI_DRAF)
       if (tersimpan) {
         const draf = JSON.parse(tersimpan) as DrafLaporan
-        if (daftarSpt.some(s => s.id === draf.sptId)) setSptId(draf.sptId)
+        if (!draf || !['sptId', 'jenis', 'statusKegiatan', 'uraian', 'kendala', 'lokasiId', 'keteranganLokasi', 'alasan', 'alasanLainnya'].every(k => typeof draf[k as keyof DrafLaporan] === 'string')) throw new Error('Draf tidak valid')
+        if (!daftarSpt.some(s => s.id === draf.sptId)) {
+          localStorage.removeItem(KUNCI_DRAF)
+          sudahPulih.current = true
+          return
+        }
+        setSptId(draf.sptId)
         setJenis(draf.jenis || 'perkembangan')
         setStatusKegiatan(draf.statusKegiatan || 'berjalan')
         setUraian(draf.uraian || '')
@@ -122,23 +131,30 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
         setAlasanLainnya(draf.alasanLainnya || '')
         setStatusDraf('Draf sebelumnya dipulihkan dari perangkat ini.')
       }
-    } catch { localStorage.removeItem(KUNCI_DRAF) }
+    } catch { setStatusDraf('Draf tidak dapat dipulihkan dari perangkat ini.') }
     sudahPulih.current = true
     }, 0)
     return () => window.clearTimeout(pulihkan)
-  }, [daftarSpt])
+  }, [daftarSpt, KUNCI_DRAF])
 
   useEffect(() => {
     if (!sudahPulih.current) return
-    const timer = window.setTimeout(() => {
+    const simpan = () => {
+      if (sudahTerkirim.current) return
+      try {
       const draf: DrafLaporan = { sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya }
       const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
-      if (!adaIsian) return
+      if (!adaIsian) { localStorage.removeItem(KUNCI_DRAF); return }
       localStorage.setItem(KUNCI_DRAF, JSON.stringify(draf))
       setStatusDraf('Draf tersimpan otomatis di perangkat.')
-    }, 700)
-    return () => window.clearTimeout(timer)
-  }, [sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya])
+      } catch { setStatusDraf('Penyimpanan perangkat tidak tersedia. Isian belum tersimpan.') }
+    }
+    const timer = window.setTimeout(simpan, 400)
+    const saatTersembunyi = () => { if (document.hidden) simpan() }
+    window.addEventListener('pagehide', simpan)
+    document.addEventListener('visibilitychange', saatTersembunyi)
+    return () => { window.clearTimeout(timer); window.removeEventListener('pagehide', simpan); document.removeEventListener('visibilitychange', saatTersembunyi); simpan() }
+  }, [KUNCI_DRAF, sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya])
 
   const spt = daftarSpt.find(s => s.id === sptId)
   const lewatBatas = spt?.tanggal_batas ? spt.tanggal_batas < new Date().toISOString().slice(0, 10) : false
@@ -166,7 +182,8 @@ export function FormulirLapor({ daftarSpt }: { daftarSpt: SptUntukLapor[] }) {
       })
       if (hasil?.galat) setGalat(hasil.galat)
       else if (hasil?.id) {
-        localStorage.removeItem(KUNCI_DRAF)
+        sudahTerkirim.current = true
+        try { localStorage.removeItem(KUNCI_DRAF) } catch { /* Laporan sudah tersimpan di server. */ }
         router.push(`/laporan/${hasil.id}`)
       }
     })

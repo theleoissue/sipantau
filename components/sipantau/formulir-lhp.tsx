@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   simpanIsiLhp, finalkanLhpAksi,
@@ -64,7 +64,24 @@ export function FormulirLhp({
     kesimpulan: lhp.kesimpulan ?? '',
     catatan: lhp.catatan ?? '',
   })
-  const [, mulai] = useTransition()
+  const [menyimpan, mulai] = useTransition()
+  const kunciCadangan = `sipantau:lhp:v1:${lhp.disusun_oleh}:${lhp.id}`
+  const [cadangan, setCadangan] = useState<typeof isi | null>(null)
+  const [statusCadangan, setStatusCadangan] = useState('')
+  const [isianSaatSimpan, setIsianSaatSimpan] = useState<typeof isi | null>(null)
+  useEffect(() => {
+    if (!bolehSunting) return
+    const timer = window.setTimeout(() => {
+      try {
+        const teks = localStorage.getItem(kunciCadangan)
+        if (!teks) return
+        const nilai = JSON.parse(teks)
+        const bidang = ['dasar', 'waktu_kegiatan', 'tempat_kegiatan', 'perkara', 'dasar_hukum', 'kronologis', 'langkah', 'rencana_tindak_lanjut', 'kesimpulan', 'catatan']
+        if (nilai && bidang.every(k => typeof nilai[k] === 'string')) setCadangan(nilai)
+      } catch { setStatusCadangan('Cadangan perangkat tidak dapat dibaca.') }
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [bolehSunting, kunciCadangan])
   const [galat, setGalat] = useState<string | null>(null)
   const [tersimpan, setTersimpan] = useState(false)
   const [dialogFinal, setDialogFinal] = useState(false)
@@ -81,16 +98,25 @@ export function FormulirLhp({
   const calonPetugas = personelUnit.filter(p => p.aktif && p.peran !== 'pemeliharaan' && !idPetugasAda.has(p.id))
 
   function ubah<K extends keyof typeof isi>(k: K, v: string) {
-    setIsi(s => ({ ...s, [k]: v }))
+    const baru = { ...isi, [k]: v }
+    setIsi(baru)
+    try { localStorage.setItem(kunciCadangan, JSON.stringify(baru)); setStatusCadangan('Isian dicadangkan di perangkat. Tekan Simpan untuk menyimpan ke server.') }
+    catch { setStatusCadangan('Cadangan perangkat tidak tersedia. Tekan Simpan sebelum keluar.') }
     setTersimpan(false)
   }
 
   function simpan() {
     setGalat(null)
+    setIsianSaatSimpan(isi)
     mulai(async () => {
       const r = await simpanIsiLhp(lhp.id, isi)
       if (r.galat) setGalat(r.galat)
-      else { setTersimpan(true); router.refresh() }
+      else {
+        try {
+          if (localStorage.getItem(kunciCadangan) === JSON.stringify(isi)) localStorage.removeItem(kunciCadangan)
+        } catch { /* Data sudah tersimpan di server. */ }
+        setTersimpan(true); setStatusCadangan(''); router.refresh()
+      }
     })
   }
 
@@ -98,21 +124,29 @@ export function FormulirLhp({
 
   return (
     <div className="lhp-formulir">
+      {bolehSunting && cadangan && <div className="cadangan-banner" role="status">
+        <p>Ada isian LHP di perangkat yang belum disimpan ke server.</p>
+        <button className="btn btn-o" onClick={() => {
+          try { localStorage.removeItem(kunciCadangan) } catch { /* Pemilihan tetap dapat dilanjutkan. */ }
+          setCadangan(null)
+        }}>Gunakan versi server</button>
+        <button className="btn btn-p" onClick={() => { setIsi(cadangan); setCadangan(null); setTersimpan(false) }}>Pulihkan isian</button>
+      </div>}
       {bolehSunting && (
         <div className="lhp-aksi-draf">
           <span>
-            {tersimpan ? 'Tersimpan.' : 'Draf — simpan perubahan sebelum berpindah halaman.'}
+            {menyimpan ? 'Menyimpan…' : tersimpan && JSON.stringify(isianSaatSimpan) === JSON.stringify(isi) ? 'Tersimpan di server.' : statusCadangan || 'Draf — simpan perubahan sebelum berpindah halaman.'}
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-o btn-sm" onClick={simpan}>Simpan</button>
-            <button className="btn btn-p btn-sm" onClick={() => setDialogFinal(true)}>
+            <button className="btn btn-o btn-sm" disabled={menyimpan || !!cadangan} onClick={simpan}>Simpan</button>
+            <button className="btn btn-p btn-sm" disabled={menyimpan || !!cadangan} onClick={() => setDialogFinal(true)}>
               <Ikon nama="kunci_buka" /> Finalkan
             </button>
           </div>
         </div>
       )}
       {galat && <p style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 14 }}>{galat}</p>}
-
+      <fieldset disabled={!!cadangan || menyimpan} style={{ border: 0, minWidth: 0 }}>
       <Bagian nomor="I" judul="Dasar">
         {bolehSunting
           ? <input style={gaya.input} value={isi.dasar} onChange={e => ubah('dasar', e.target.value)} placeholder="Nomor SPT / dasar penugasan" />
@@ -328,6 +362,7 @@ export function FormulirLhp({
           : <p style={gaya.baca}>{teksatau(lhp.catatan ?? '')}</p>}
       </Bagian>
 
+      </fieldset>
       <DialogAksi
         terbuka={dialogFinal}
         judul="Finalkan LHP Ringkas?"
@@ -335,7 +370,10 @@ export function FormulirLhp({
         labelTombol="Finalkan"
         onTutup={() => setDialogFinal(false)}
         onKonfirmasi={async () => {
+          const simpan = await simpanIsiLhp(lhp.id, isi)
+          if (simpan.galat) return { galat: simpan.galat }
           const r = await finalkanLhpAksi(lhp.id)
+          if (!r.galat) { try { localStorage.removeItem(kunciCadangan) } catch { /* Final sudah tersimpan. */ } }
           if (!r.galat) router.refresh()
           return r
         }}

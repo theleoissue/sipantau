@@ -23,10 +23,12 @@ export function BilahSamping({
   pengguna,
   namaUnit,
   onTutupLaci,
+  sesiBerjalan = false,
 }: {
   pengguna: Pengguna
   namaUnit: string | null
   onTutupLaci: () => void
+  sesiBerjalan?: boolean
 }) {
   const jalur = usePathname()
   const profil = PROFIL[pengguna.peran]
@@ -37,6 +39,7 @@ export function BilahSamping({
 
   return (
     <aside id="sb">
+      <button type="button" className="ikon-btn sb-tutup" onClick={onTutupLaci} aria-label="Tutup menu"><Ikon nama="silang" /></button>
       <div className="sb-merek">
         {/* Logo mendatar sudah memuat lambang, nama, DAN subjudulnya
             sekaligus — karena itu ia menggantikan ketiganya, bukan
@@ -100,7 +103,7 @@ export function BilahSamping({
               aria-current={ruteAktif === b.rute ? 'page' : undefined}
             >
               <Ikon nama={b.ikon} />
-              <span className="lbl">{b.label}</span>
+              <span className="lbl">{b.label}{b.id === 'tugas' && sesiBerjalan && <small className="nav-sesi-status">Sedang bertugas</small>}</span>
             </Link>
           ),
         )}

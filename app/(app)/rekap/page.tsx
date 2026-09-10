@@ -1,5 +1,6 @@
 import { rekapLintasUnit } from '@/lib/personel/kueri'
 import { Ikon } from '@/components/sipantau/ikon'
+import { TabelResponsif } from '@/components/sipantau/tabel-responsif'
 
 export const metadata = { title: 'Rekap Lintas Unit — Si PANTAU' }
 
@@ -33,7 +34,7 @@ export default async function HalamanRekap() {
               <h3>Belum ada unit aktif</h3>
             </div>
           ) : (
-            <table>
+            <TabelResponsif>
               <thead>
                 <tr>
                   <th>Unit</th><th>Personel aktif</th><th>Penugasan aktif</th>
@@ -57,7 +58,7 @@ export default async function HalamanRekap() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TabelResponsif>
           )}
         </div>
       </section>

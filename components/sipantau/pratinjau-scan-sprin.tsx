@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DialogModal } from './dialog-modal'
 import { Ikon } from './ikon'
+import { sudutValid } from '@/lib/scan/validasi-sudut'
 import {
   deteksiDokumen, luruskanDanCerahkan, muatOpenCv, sudutBawaan,
   type SudutDokumen, type Titik,
@@ -32,10 +33,24 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
   const [fotoUrl, setFotoUrl] = useState('')
   const [hasilKanvas, setHasilKanvas] = useState<HTMLCanvasElement | null>(null)
   const [hasilUrl, setHasilUrl] = useState('')
+  const [skalaSentuh, setSkalaSentuh] = useState(1)
+  const [pemrosesSiap, setPemrosesSiap] = useState(false)
+  const sudahDisesuaikan = useRef(false)
   const gambar = useRef<HTMLImageElement | null>(null)
   const cvRef = useRef<any>(null)
   const svg = useRef<SVGSVGElement>(null)
   const seret = useRef<number | null>(null)
+  useEffect(() => {
+    const el = svg.current
+    if (!el) return
+    const ukur = () => {
+      const matriks = el.getScreenCTM()
+      if (matriks) setSkalaSentuh(1 / Math.abs(matriks.a))
+    }
+    const pengamat = new ResizeObserver(ukur)
+    pengamat.observe(el); ukur()
+    return () => pengamat.disconnect()
+  }, [tahap])
 
   useEffect(() => {
     let batal = false
@@ -45,15 +60,18 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
     img.onload = async () => {
       if (batal) return
       gambar.current = img
+      setSudut(sudutBawaan(img.naturalWidth, img.naturalHeight))
+      setTahap('sesuaikan')
       try {
         const cv = await muatOpenCv()
         if (batal) return
         cvRef.current = cv
+        setPemrosesSiap(true)
         const terdeteksi = deteksiDokumen(cv, img)
-        setSudut(terdeteksi ?? sudutBawaan(img.naturalWidth, img.naturalHeight))
+        if (!sudahDisesuaikan.current) setSudut(terdeteksi ?? sudutBawaan(img.naturalWidth, img.naturalHeight))
         setTahap('sesuaikan')
       } catch {
-        if (!batal) { setGalat('Pustaka pemroses gambar gagal dimuat. Periksa koneksi internet.'); setTahap('galat') }
+        if (!batal) setGalat('Pemroses gambar belum siap. Periksa koneksi lalu coba muat ulang pemroses.')
       }
     }
     img.onerror = () => { if (!batal) { setGalat('Foto tidak dapat dibaca.'); setTahap('galat') } }
@@ -71,6 +89,7 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
   }
 
   function mulaiSeret(i: number, e: React.PointerEvent) {
+    sudahDisesuaikan.current = true
     e.preventDefault()
     ;(e.target as Element).setPointerCapture(e.pointerId)
     seret.current = i
@@ -84,7 +103,9 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
   function akhiriSeret() { seret.current = null }
 
   function proses() {
-    if (!sudut || !gambar.current) return
+    if (!sudut || !gambar.current || !pemrosesSiap) return
+    if (!sudutValid(sudut)) { setGalat('Sudut saling bersilangan atau terlalu berdekatan. Sesuaikan kembali bingkainya.'); return }
+    setGalat('')
     setTahap('memproses')
     // Beri kesempatan React menggambar status "Memproses…" dulu — warp +
     // normalisasi pencahayaan cukup berat untuk foto beresolusi penuh.
@@ -129,21 +150,39 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
         {tahap === 'sesuaikan' && sudut && (
           <>
             <p className="bantu">Geser keempat sudut mengikuti tepi dokumen, lalu ketuk Luruskan.</p>
-            <div className="pratinjau-scan-kanvas">
-              <img src={fotoUrl} alt="" draggable={false} />
-              <svg ref={svg} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet"
+            <div className="pratinjau-scan-kanvas" style={{ aspectRatio: `${w * 1.12} / ${h + w * .12}` }}>
+              <svg ref={svg} viewBox={`${-w * .06} ${-w * .06} ${w * 1.12} ${h + w * .12}`} preserveAspectRatio="xMidYMid meet"
+                aria-label="Foto dan empat sudut pemotongan"
                 onPointerMove={selamaSeret} onPointerUp={akhiriSeret} onPointerCancel={akhiriSeret}>
+                <image href={fotoUrl} x="0" y="0" width={w} height={h} />
                 <polygon points={sudut.map(p => `${p.x},${p.y}`).join(' ')}
                   fill="rgba(37,99,235,.18)" stroke="#2563EB" strokeWidth={Math.max(3, w / 180)} />
                 {sudut.map((p, i) => (
                   <g key={i}>
-                    <circle cx={p.x} cy={p.y} r={Math.max(42, w / 12)} fill="transparent" onPointerDown={e => mulaiSeret(i, e)} />
-                    <circle cx={p.x} cy={p.y} r={Math.max(28, w / 22)} fill="#2563EB" stroke="#fff" strokeWidth={Math.max(3, w / 180)} pointerEvents="none" />
+                    <circle cx={p.x} cy={p.y} r={26 * skalaSentuh} fill="transparent" onPointerDown={e => mulaiSeret(i, e)}
+                      tabIndex={0} role="button" aria-label={`Sudut ${i + 1}. Gunakan tombol panah untuk menggeser.`}
+                      onKeyDown={e => {
+                        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+                        e.preventDefault()
+                        sudahDisesuaikan.current = true
+                        const jarak = (e.shiftKey ? 10 : 2) * skalaSentuh
+                        const baru = [...sudut] as SudutDokumen
+                        baru[i] = { x: Math.max(0, Math.min(w, p.x + (e.key === 'ArrowLeft' ? -jarak : e.key === 'ArrowRight' ? jarak : 0))), y: Math.max(0, Math.min(h, p.y + (e.key === 'ArrowUp' ? -jarak : e.key === 'ArrowDown' ? jarak : 0))) }
+                        setSudut(baru)
+                      }} />
+                    <circle cx={p.x} cy={p.y} r={11 * skalaSentuh} fill="#2563EB" stroke="#fff" strokeWidth={2 * skalaSentuh} pointerEvents="none" />
                   </g>
                 ))}
               </svg>
             </div>
-            <button type="button" className="btn btn-p" onClick={proses}>
+            {galat && <p className="bantu" role="alert">{galat}</p>}
+            {!pemrosesSiap && <button type="button" className="btn btn-o" onClick={async () => {
+              setGalat('Memuat pemroses gambar…')
+              try { cvRef.current = await muatOpenCv(); setPemrosesSiap(true); setGalat('') }
+              catch { setGalat('Pemroses belum dapat dimuat. Periksa koneksi lalu coba lagi.') }
+            }}>Muat ulang pemroses</button>}
+            <button type="button" className="btn btn-o" onClick={() => { sudahDisesuaikan.current = true; setSudut(sudutBawaan(w, h)); setGalat('') }}>Atur ulang bingkai</button>
+            <button type="button" className="btn btn-p" disabled={!pemrosesSiap} onClick={proses}>
               <Ikon nama="centang" />Luruskan &amp; cerahkan
             </button>
           </>

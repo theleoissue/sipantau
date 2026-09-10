@@ -31,9 +31,9 @@ export function muatOpenCv(): Promise<any> {
     const skrip = document.createElement('script')
     skrip.src = '/opencv-js'
     skrip.onload = pakai
-    skrip.onerror = () => gagal(new Error('Gagal memuat pustaka pemroses gambar'))
+    skrip.onerror = () => { skrip.remove(); gagal(new Error('Gagal memuat pustaka pemroses gambar')) }
     document.head.appendChild(skrip)
-  })
+  }).catch(error => { cvPromise = null; throw error })
   return cvPromise
 }
 

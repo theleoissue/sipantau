@@ -56,6 +56,7 @@ export function KartuSesiTugas({
   sptTersedia: SptRingkas[]
 }) {
   const router = useRouter()
+  useEffect(() => { window.dispatchEvent(new Event('sipantau:sesi-berubah')) }, [sesi?.id])
   const [tanya, setTanya] = useState(false)
   const [proses, mulai] = useTransition()
   const [galat, setGalat] = useState<string | null>(null)

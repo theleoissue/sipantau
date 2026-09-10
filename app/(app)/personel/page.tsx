@@ -4,6 +4,7 @@ import { LABEL_PERAN } from '@/lib/supabase/types'
 import { statusSinyal, labelTerakhirTerlihat } from '@/lib/gps/tipe'
 import { inisial } from '@/lib/utils'
 import { Ikon } from '@/components/sipantau/ikon'
+import { TabelResponsif } from '@/components/sipantau/tabel-responsif'
 
 export const metadata = { title: 'Status Personel — Si PANTAU' }
 
@@ -61,7 +62,7 @@ export default async function HalamanPersonel() {
               <h3>Belum ada personel</h3>
             </div>
           ) : (
-            <table>
+            <TabelResponsif>
               <thead>
                 <tr>
                   <th>Nama</th><th>Peran</th>
@@ -106,7 +107,7 @@ export default async function HalamanPersonel() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TabelResponsif>
           )}
         </div>
       </section>

@@ -22,10 +22,12 @@ export function HeaderAplikasi({
   pengguna,
   jumlahNotifAwal = 0,
   onTekanMenu,
+  menuTerbuka = false,
 }: {
   pengguna: Pengguna
   jumlahNotifAwal?: number
   onTekanMenu: () => void
+  menuTerbuka?: boolean
 }) {
   const jalur = usePathname()
   const router = useRouter()
@@ -81,7 +83,7 @@ export function HeaderAplikasi({
 
   return (
     <header id="hd">
-      <button className="ikon-btn" onClick={onTekanMenu} aria-label="Menu">
+      <button className="ikon-btn" onClick={onTekanMenu} aria-label="Menu" aria-expanded={menuTerbuka} aria-controls="sb">
         <Ikon nama="menu" />
       </button>
 

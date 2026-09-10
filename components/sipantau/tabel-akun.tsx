@@ -9,6 +9,7 @@ import { DialogAksi } from './dialog-aksi'
 import { DialogKataSandiBaru } from './dialog-kata-sandi-baru'
 import { FormulirAkun } from './formulir-akun'
 import { Ikon } from './ikon'
+import { TabelResponsif } from './tabel-responsif'
 
 function waktuMasuk(iso: string | null): string {
   if (!iso) return 'Belum pernah masuk'
@@ -87,7 +88,7 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
                 }}>
                   {namaUnit}
                 </div>
-                <table>
+                <TabelResponsif>
                   <thead>
                     <tr>
                       <th>Nama</th><th>NRP</th><th>Peran</th><th>Kehadiran</th><th>Status</th><th>Terakhir masuk</th><th></th>
@@ -147,7 +148,7 @@ export function TabelAkun({ daftar, unitAktif }: { daftar: Akun[]; unitAktif: Un
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </TabelResponsif>
               </div>
             ))
           )}

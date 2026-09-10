@@ -14,7 +14,7 @@ import { Ikon } from './ikon'
  * lambat di telepon — sasaran sentuhnya besar dan selalu terlihat,
  * sesuai docs/00-fondasi.md §10.5.
  */
-export function BilahBawah({ peran }: { peran: Peran }) {
+export function BilahBawah({ peran, sesiBerjalan = false }: { peran: Peran; sesiBerjalan?: boolean }) {
   const jalur = usePathname()
   const profil = PROFIL[peran]
 
@@ -32,10 +32,10 @@ export function BilahBawah({ peran }: { peran: Peran }) {
           key={b.id}
           href={b.rute}
           aria-current={jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'page' : undefined}
-          className={`${jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'on' : ''} ${b.id === 'tugas' ? 'bb-pusat' : ''}`}
+          className={`${jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'on' : ''} ${b.id === 'tugas' ? `bb-pusat ${sesiBerjalan ? 'sesi-berjalan' : ''}` : ''}`}
         >
           <span className="bb-ikon"><Ikon nama={b.ikon} /></span>
-          <span className="bb-label">{b.id === 'penugasan' ? 'Penugasan' : b.label}</span>
+          <span className="bb-label">{b.id === 'tugas' && sesiBerjalan ? 'Sedang Bertugas' : b.id === 'penugasan' ? 'Penugasan' : b.label}</span>
         </Link>
       ))}
     </nav>

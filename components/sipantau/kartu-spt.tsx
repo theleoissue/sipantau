@@ -48,7 +48,8 @@ export function KartuSpt({ spt }: { spt: PenugasanLengkap }) {
 
       {/* Prinsip Non-Menghakimi: menyatakan fakta "sudah membuka",
           bukan menyimpulkan "belum melaksanakan". */}
-      <div className="mj-baris">
+      <p className="spt-progres-label">Dibuka oleh {sudahBaca} dari {pelaksanaAktif.length} pelaksana</p>
+      <div className="mj-baris" aria-hidden="true">
         <div className="mj">
           <span style={{ width: `${persen}%`, background: warnaMaju }} />
         </div>

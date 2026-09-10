@@ -5,7 +5,7 @@ import { klienServer } from '@/lib/supabase/server'
 import { satuPenugasan, lewatBatas, hariTerlampaui, riwayatPerpanjangan, bolehHapusPermanen } from '@/lib/penugasan/kueri'
 import { ruteSptDenganTitik } from '@/lib/gps/kueri'
 import { daftarLhp } from '@/lib/lhp/kueri'
-import { riwayatLaporanSaya } from '@/lib/laporan/kueri'
+import { daftarLaporan } from '@/lib/laporan/kueri'
 import { catatTandaTerima } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
 import { RuteSpt } from '@/components/sipantau/rute-spt'
@@ -102,7 +102,7 @@ export default async function RincianPenugasan({
     akuKanitPemilik ? bolehHapusPermanen(id) : Promise.resolve(false),
     akuKanitPemilik ? daftarPersonel() : Promise.resolve([]),
     daftarLhp({ penugasanId: id }),
-    akuPelaksana ? riwayatLaporanSaya(pengguna.id) : Promise.resolve([]),
+    daftarLaporan({ penugasanId: id }),
   ])
   const bolehUbahTim = akuKanitPemilik && !['selesai', 'dibatalkan'].includes(spt.status)
 
@@ -123,7 +123,7 @@ export default async function RincianPenugasan({
   // baris 442) — draf awal Kronologis, bukan versi final. Hanya laporan
   // pada SPT INI, milik pengguna sendiri, diurutkan waktu kirim.
   const kronologisOtomatis = laporanSaya
-    .filter(l => l.penugasan_id === id)
+    .filter(l => l.penugasan_id === id && l.pelapor_id === pengguna.id)
     .sort((a, b) => new Date(a.dikirim_pada).getTime() - new Date(b.dikirim_pada).getTime())
     .map(l => `${new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(l.dikirim_pada))} WIB — ${l.uraian}`)
     .join('\n\n')
@@ -213,7 +213,8 @@ export default async function RincianPenugasan({
         </section>
       )}
 
-      <section className="rincian-spt-tindakan" aria-label="Tindakan penugasan">
+      <details className="rincian-spt-tindakan bagian-lipat" aria-label="Tindakan penugasan">
+        <summary>Kelola status dan batas waktu</summary>
         <div className="rincian-spt-tindakan-kepala">
           <div>
             <span>Tindakan penugasan</span>
@@ -230,7 +231,7 @@ export default async function RincianPenugasan({
           isPanitAktif={akuPanitAktif}
           bolehHapus={bolehHapus}
         />
-      </section>
+      </details>
 
       {spt.status === 'dibatalkan' && spt.alasan_pembatalan && (
         <div className="kartu" style={{ marginBottom: 18, borderLeft: '3px solid var(--red)' }}>
@@ -277,11 +278,8 @@ export default async function RincianPenugasan({
             </div>
           </section>
 
-          <section className="kartu">
-            <div className="kartu-h">
-              <h3>Dasar penugasan</h3>
-              <span className="isyarat">{dasar.length} dasar</span>
-            </div>
+          <details className="kartu bagian-lipat">
+            <summary>Dasar penugasan <span>{dasar.length} dasar</span></summary>
             <div className="kartu-b rata lok-daftar">
               {dasar.length === 0 ? (
                 <div style={{ padding: 16, fontSize: 13, color: 'var(--ink-3)' }}>
@@ -298,17 +296,22 @@ export default async function RincianPenugasan({
                 </div>
               ))}
             </div>
-          </section>
+          </details>
 
           {/* Rekam kegiatan berisi laporan harian — Modul 6.3. */}
           <section className="kartu">
             <div className="kartu-h"><h3>Rekam kegiatan</h3></div>
             <div className="kartu-b">
-              <div className="kosong" style={{ padding: '20px 0' }}>
+              {laporanSaya.length === 0 ? <div className="kosong" style={{ padding: '20px 0' }}>
                 <Ikon nama="masuk_kotak" />
                 <h3>Belum ada laporan</h3>
                 <p>Laporan kegiatan harian akan muncul di sini.</p>
-              </div>
+              </div> : <div className="rekam-laporan">{laporanSaya.slice(0, 10).map(l => (
+                <Link key={l.id} href={`/laporan/${l.id}`}>
+                  <strong>{l.pelapor?.nama ?? 'Pelapor'}</strong>
+                  <p>{l.uraian}</p><small>{tanggal(l.dikirim_pada)}</small>
+                </Link>
+              ))}{laporanSaya.length > 10 && <p className="bantu">Menampilkan 10 laporan terbaru.</p>}</div>}
             </div>
           </section>
 

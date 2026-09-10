@@ -41,6 +41,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   const [native, setNative] = useState(false)
   const [menyiapkan, setMenyiapkan] = useState(false)
   const [memindai, mulai] = useTransition()
+  const [tahapBaca, setTahapBaca] = useState('')
 
   useEffect(() => {
     const timer = window.setTimeout(() => setNative(Capacitor.isNativePlatform()), 0)
@@ -68,17 +69,29 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   }
 
   async function proses() {
+    // Sisakan ruang multipart agar permintaan tidak ditolak sebelum aksi berjalan.
+    if (halaman.reduce((total, file) => total + file.size, 0) > 3.8 * 1024 * 1024) {
+      setPesan('Total berkas melebihi 3,8 MB. Hapus halaman yang tidak diperlukan atau gunakan berkas yang lebih kecil sebelum membaca SPRIN.')
+      return
+    }
+    setPesan('')
+    setTahapBaca('Mengirim berkas dan membaca isi SPRIN…')
+    try {
     const fd = new FormData()
     halaman.forEach(berkas => fd.append('berkas', berkas))
     const hasil = await scanSprin(fd)
     if (hasil.data) {
+      setTahapBaca('Mengisi draf dari hasil pembacaan…')
       onHasil(hasil.data)
       setPesan(pesanSukses)
     } else setPesan(hasil.galat ?? 'Scan gagal.')
+    } catch { setPesan('Pembacaan terputus. Halaman Anda tetap tersedia; periksa koneksi lalu coba lagi.') }
+    finally { setTahapBaca('') }
   }
 
   async function bukaKamera() {
     setMenyiapkan(true)
+    setPesan('Membuka kamera…')
     try {
       let foto
       try {
@@ -87,8 +100,9 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
         setPesan('Pengambilan foto dibatalkan atau kamera tidak dapat dibuka.')
         return
       }
-      const uri = foto.webPath ?? foto.path
+      const uri = foto.webPath ?? (foto.path ? Capacitor.convertFileSrc(foto.path) : undefined)
       if (!uri) { setPesan('Foto diterima, tetapi lokasi berkasnya tidak tersedia. Coba potret ulang.'); return }
+      setPesan('Menyiapkan foto untuk dirapikan…')
       tambah([await berkasDariUriKamera(uri)])
     } catch {
       setPesan('Foto sudah diambil, tetapi tidak dapat disiapkan. Coba potret ulang atau gunakan Unggah berkas.')
@@ -121,8 +135,8 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
   }
 
   const sibuk = menyiapkan || memindai || antrianKoreksi.length > 0
-  return <section className="scan-sprin">
-    <div><strong>Scan SPRIN</strong><p>Tambahkan setiap halaman dari kamera atau unggah PDF/foto. Semua halaman dibaca bersama sebagai satu SPRIN.</p></div>
+  return <section className="scan-sprin" aria-busy={menyiapkan || memindai}>
+    <div><strong>Scan SPRIN</strong><p>Tambahkan foto setiap halaman, PDF, atau DOCX. Semua berkas dibaca bersama sebagai satu SPRIN; periksa hasilnya sebelum diterbitkan.</p></div>
     <input ref={input} type="file" hidden multiple accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp" onChange={e => {
       const berkas = Array.from(e.target.files ?? [])
       e.target.value = ''
@@ -140,13 +154,20 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     </button>}
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah DOCX / PDF / foto</button>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
-      <span><b>{halaman.length}</b> {halaman.length === 1 ? 'berkas siap dipindai' : 'halaman/berkas siap dipindai'}</span>
-      <button type="button" className="btn btn-o btn-sm" disabled={memindai} onClick={() => { setHalaman([]); setAntrianKoreksi([]) }}><Ikon nama="silang" />Kosongkan</button>
+      <span><b>{halaman.length}</b> berkas siap • {(halaman.reduce((total, file) => total + file.size, 0) / 1024 / 1024).toFixed(1)} / 3,8 MB</span>
+      <button type="button" className="btn btn-o btn-sm" disabled={sibuk} onClick={() => { setHalaman([]); setAntrianKoreksi([]); setPesan('') }}><Ikon nama="silang" />Kosongkan</button>
       <button type="button" className="btn btn-p" disabled={sibuk} onClick={() => mulai(proses)}><Ikon nama="cari" />{memindai ? 'Membaca semua halaman…' : `Pindai ${halaman.length} halaman`}</button>
     </div>}
+    {halaman.length > 0 && <ol className="scan-daftar-berkas">{halaman.map((file, i) => <li key={`${file.name}-${i}`}>
+      <span><b>{i + 1}. {file.name}</b><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></span>
+      <button type="button" className="ikon-btn" disabled={sibuk || i === 0} aria-label={`Pindahkan berkas ${i + 1} ke atas`} onClick={() => setHalaman(h => { const baru = [...h]; [baru[i - 1], baru[i]] = [baru[i], baru[i - 1]]; return baru })}><Ikon nama="naik" /></button>
+      <button type="button" className="ikon-btn" disabled={sibuk} aria-label={`Hapus berkas ${i + 1}`} onClick={() => setHalaman(h => h.filter((_, n) => n !== i))}><Ikon nama="silang" /></button>
+    </li>)}</ol>}
+    {tahapBaca && <p className="scan-status" role="status">{tahapBaca}</p>}
     {pesan && <p className="bantu" role="status">{pesan}</p>}
     {antrianKoreksi[0] && (
       <PratinjauScanSprin
+        key={`${antrianKoreksi[0].name}-${antrianKoreksi[0].lastModified}`}
         berkas={antrianKoreksi[0]}
         onSelesai={hasil => { setHalaman(h => [...h, hasil]); setAntrianKoreksi(q => q.slice(1)) }}
         onBatal={() => setAntrianKoreksi(q => q.slice(1))}
