@@ -2,11 +2,12 @@
 
 import { DialogModal } from './dialog-modal'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
 import { BackgroundGeolocation } from '@capgo/background-geolocation'
-import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, kirimTitikWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
+import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
+import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
 import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
@@ -92,10 +93,48 @@ export function KartuSesiTugas({
 
   const iniSesiWeb = sesi?.penanda_perangkat.startsWith('web-') ?? false
   const [jumlahTerkirim, setJumlahTerkirim] = useState(0)
+  const [tertunda, setTertunda] = useState(0)
   const [galatKirim, setGalatKirim] = useState<string | null>(null)
   const idPengawas = useRef<number | null>(null)
   const sedangMengirim = useRef(false)
   const terakhirKirim = useRef(0)
+
+  /** Mengosongkan antrean sejauh yang jaringan izinkan, lalu melaporkan apa adanya. */
+  const alirkan = useCallback(async () => {
+    const hasil = await kirimAntrean()
+    setTertunda(hasil.tersisa)
+    if (hasil.terkirim > 0) setJumlahTerkirim(n => n + hasil.terkirim)
+    if (hasil.galat === 'jaringan') {
+      // Kalimat ini menggantikan "Akan dicoba lagi" yang dulu tidak
+      // pernah benar: tidak ada yang disimpan dan tidak ada yang diulang.
+      setGalatKirim(
+        `Jaringan terputus. ${hasil.tersisa} titik tersimpan di perangkat dan akan terkirim sendiri begitu sinyal kembali.`,
+      )
+    } else if (hasil.galat) {
+      setGalatKirim(hasil.galat)
+    } else {
+      setGalatKirim(null)
+    }
+  }, [])
+
+  // Antrean dari sesi sebelumnya ikut dihitung dan dialirkan: aplikasi
+  // bisa saja ditutup dalam keadaan masih menyimpan Titik.
+  useEffect(() => {
+    if (!sesi) return
+    void jumlahTertunda().then(setTertunda)
+    const saatOnline = () => { void alirkan() }
+    window.addEventListener('online', saatOnline)
+    // Sinyal seluler yang menguat tidak selalu memicu peristiwa 'online',
+    // jadi tetap ada percobaan berkala — dilewati saat peramban sendiri
+    // tahu masih luring, supaya tidak membakar baterai percuma.
+    const timer = window.setInterval(() => {
+      if (navigator.onLine !== false) void alirkan()
+    }, 60_000)
+    return () => {
+      window.removeEventListener('online', saatOnline)
+      window.clearInterval(timer)
+    }
+  }, [sesi, alirkan])
 
   // Selama sesi WEB ini berjalan (dan komponennya tetap terpasang di
   // tab ini — BR-65 mengingatkan: berhenti begitu tab ditutup), kirim
@@ -118,7 +157,9 @@ export function KartuSesiTugas({
         // pengawas melihat "Terakhir terlihat" membeku, dan tidak ada
         // satu pun pesan galat yang muncul di mana pun.
         try {
-          const r = await kirimTitikWeb({
+          // Titik DISIMPAN dulu, baru dikirim. Urutan ini yang membuat
+          // jaringan putus tidak lagi menghapus rekaman.
+          await antrekan({
             sesiId: sesi.id,
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
@@ -127,15 +168,12 @@ export function KartuSesiTugas({
             arahDerajat: pos.coords.heading ?? null,
             penandaPerangkat: penandaPerangkatWeb(),
             antreanId: crypto.randomUUID(),
-            usiaMs: Math.max(0, Date.now() - pos.timestamp),
+            ditangkapPada: pos.timestamp,
             // Peramban tidak melaporkan lokasi tiruan; hanya jalur native
             // yang tahu. Jangan mengaku tahu di sini.
             lokasiTiruan: false,
           })
-          if (r.galat) setGalatKirim(r.galat)
-          else { setGalatKirim(null); setJumlahTerkirim(n => n + 1) }
-        } catch {
-          setGalatKirim('Titik gagal terkirim — jaringan terputus. Akan dicoba lagi.')
+          await alirkan()
         } finally {
           sedangMengirim.current = false
         }
@@ -258,7 +296,8 @@ export function KartuSesiTugas({
         // ditolak — lihat keterangan panjang pada jalur web di atas.
         penandaPerangkatNative()
           .then(penanda =>
-            kirimTitikWeb({
+            // Disimpan dulu, baru dialirkan — sama seperti jalur web.
+            antrekan({
               sesiId: sesi!.id,
               lat: lokasi.latitude,
               lng: lokasi.longitude,
@@ -273,14 +312,10 @@ export function KartuSesiTugas({
               lokasiTiruan: lokasi.simulated,
               penandaPerangkat: penanda,
               antreanId: crypto.randomUUID(),
-              usiaMs: lokasi.time == null ? 0 : Math.max(0, Date.now() - lokasi.time),
+              ditangkapPada: lokasi.time ?? Date.now(),
             }),
           )
-          .then(r => {
-            if (r.galat) setGalatKirim(r.galat)
-            else { setGalatKirim(null); setJumlahTerkirim(n => n + 1) }
-          })
-          .catch(() => setGalatKirim('Titik gagal terkirim — jaringan terputus. Akan dicoba lagi.'))
+          .then(alirkan)
           .finally(() => { sedangMengirim.current = false })
       },
       )
@@ -490,6 +525,19 @@ export function KartuSesiTugas({
       )}
       {galatKirim && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 8 }}>{galatKirim}</p>}
 
+      {/* Jumlah tertunda ditampilkan APA ADANYA. Tanpa ini, petugas tidak
+          punya cara tahu ada rekaman yang belum sampai ke server. */}
+      {tertunda > 0 && (
+        <div className="sesi-syarat" style={{ color: '#FDE68A' }}>
+          <Ikon nama="riwayat" />
+          <span>
+            {tertunda} titik menunggu dikirim. Tersimpan di perangkat dan
+            akan terkirim sendiri begitu jaringan pulih — jangan tutup
+            aplikasi sebelum angkanya nol.
+          </span>
+        </div>
+      )}
+
       {izinTerputus && (
         <div className="sesi-syarat" style={{ color: '#FDE68A' }}>
           <Ikon nama="awas" />
@@ -548,6 +596,11 @@ export function KartuSesiTugas({
                 className="btn btn-d" style={{ flex: 1, justifyContent: 'center' }}
                 disabled={proses}
                 onClick={() => mulai(async () => {
+                  // Antrean dikosongkan DULU. Titik yang menyusul sesudah
+                  // sesi tertutup memang tetap diterima (migrasi 0056),
+                  // tetapi mengirimnya selagi sesi masih terbuka membuat
+                  // posisi_terkini ikut terisi benar sampai detik terakhir.
+                  await alirkan()
                   const r = await selesaiTugas(sesi.id)
                   if (r.galat) { setGalat(r.galat); setTanya(false) }
                 })}
