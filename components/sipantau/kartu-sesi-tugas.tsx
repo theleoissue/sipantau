@@ -9,6 +9,7 @@ import { BackgroundGeolocation } from '@capgo/background-geolocation'
 import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
 import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
 import { bateraiPersen } from '@/lib/gps/baterai'
+import { periksaKesehatanPelacak, bukaPengaturanBaterai, bukaPengaturanAutostart, panduanAutostart, type KesehatanPelacak } from '@/lib/gps/kesehatan-pelacak'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
 import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
@@ -99,6 +100,22 @@ export function KartuSesiTugas({
   const [jumlahTerkirim, setJumlahTerkirim] = useState(0)
   const [tertunda, setTertunda] = useState(0)
   const [akurasiTerakhir, setAkurasiTerakhir] = useState<number | null>(null)
+  const [kesehatan, setKesehatan] = useState<KesehatanPelacak | null>(null)
+
+  // Diperiksa saat sesi berjalan. Penghematan baterai yang masih aktif
+  // adalah sebab paling sering perekaman berhenti diam-diam di lapangan —
+  // dan satu-satunya waktu yang tepat menegurnya adalah ketika petugas
+  // memang sedang bertugas.
+  useEffect(() => {
+    if (!sesi) return
+    let batal = false
+    void periksaKesehatanPelacak().then(h => { if (!batal) setKesehatan(h) })
+    return () => { batal = true }
+    // Sengaja hanya sesi.id: objek sesi berganti identitas tiap kali
+    // datanya menyegarkan diri (jumlah_titik bertambah), padahal
+    // pemeriksaan ini cuma perlu diulang saat SESI-nya benar-benar baru.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesi?.id])
   const [galatKirim, setGalatKirim] = useState<string | null>(null)
   const idPengawas = useRef<number | null>(null)
   const sedangMengirim = useRef(false)
@@ -539,6 +556,36 @@ export function KartuSesiTugas({
         </div>
       )}
       {galatKirim && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 8 }}>{galatKirim}</p>}
+
+      {/* Penghematan baterai yang masih aktif adalah sebab paling sering
+          perekaman berhenti tanpa suara: begitu sistem membunuh prosesnya,
+          tidak ada JS yang berjalan, dan pustaka pelacak sendiri menyatakan
+          kiriman yang gagal "logged and dropped". Diperingatkan saat sesi
+          berjalan, lengkap dengan jalan pintas ke pengaturannya. */}
+      {sesi && kesehatan && !kesehatan.hematBateraiDikecualikan && (
+        <div className="sesi-syarat" style={{ color: '#FDE68A', flexWrap: 'wrap' }}>
+          <Ikon nama="awas" />
+          <span>
+            Penghematan baterai masih aktif untuk SiPANTAU. Sistem dapat
+            menghentikan perekaman tanpa pemberitahuan — titik yang belum
+            terkirim bisa hilang. Kecualikan aplikasi ini agar Sesi Tugas
+            aman sampai selesai.
+            {panduanAutostart(kesehatan.pabrikan) && (
+              <> <b>{kesehatan.pabrikan}:</b> {panduanAutostart(kesehatan.pabrikan)}</>
+            )}
+          </span>
+          <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 8 }}>
+            <button type="button" className="btn btn-o btn-sm" onClick={() => void bukaPengaturanBaterai()}>
+              Buka pengaturan baterai
+            </button>
+            {kesehatan.adaLayarAutostart && (
+              <button type="button" className="btn btn-o btn-sm" onClick={() => void bukaPengaturanAutostart()}>
+                Buka autostart
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mutu GPS petugas sendiri. Saat lemah, posisinya memang tetap
           direkam sebagai bukti tetapi TIDAK menggerakkan ikon di peta
