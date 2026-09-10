@@ -118,8 +118,8 @@ export function PratinjauScanSprin({ berkas, onSelesai, onBatal }: {
       <div className="pratinjau-scan">
         <div className="pratinjau-scan-kepala">
           <strong>Rapikan halaman</strong>
-          <button type="button" className="btn btn-o btn-sm" onClick={onBatal} disabled={tahap === 'memproses'}>
-            <Ikon nama="silang" />Batal
+          <button type="button" className="btn btn-o btn-sm pratinjau-scan-tutup" aria-label="Batalkan perapian halaman" title="Batal" onClick={onBatal} disabled={tahap === 'memproses'}>
+            <Ikon nama="silang" />
           </button>
         </div>
 
