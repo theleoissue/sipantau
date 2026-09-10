@@ -67,15 +67,22 @@ export function HeaderAplikasi({
     return () => { supabase.removeChannel(kanal) }
   }, [pengguna.id, jumlahNotifAwal])
 
-  const butir = PROFIL[pengguna.peran].nav.find(
+  const butir = [...PROFIL[pengguna.peran].nav].sort((a, b) => ('rute' in b ? b.rute.length : 0) - ('rute' in a ? a.rute.length : 0)).find(
     b => 'rute' in b && (jalur === b.rute || jalur.startsWith(b.rute + '/')),
   )
-  const judul = butir && 'label' in butir ? butir.label : ''
+  const judulKhusus = jalur.startsWith('/penugasan/terbitkan') ? 'Terbitkan Penugasan'
+    : jalur === '/penugasan/scan' ? 'Pindai Surat Perintah'
+    : /^\/penugasan\/[^/]+\/sunting$/.test(jalur) ? 'Revisi Penugasan'
+    : /^\/penugasan\/[^/]+$/.test(jalur) && jalur !== '/penugasan/pengajuan' ? 'Detail Penugasan'
+    : /^\/laporan\/[^/]+$/.test(jalur) ? 'Detail Laporan'
+    : /^\/lhp\/[^/]+$/.test(jalur) ? 'Detail LHP Ringkas'
+    : jalur === '/pemberitahuan' ? 'Pemberitahuan' : null
+  const judul = judulKhusus ?? (butir && 'label' in butir ? butir.label : '')
 
   return (
     <header id="hd">
       <button className="ikon-btn" onClick={onTekanMenu} aria-label="Menu">
-        <Ikon nama="dasbor" />
+        <Ikon nama="menu" />
       </button>
 
       <div className="jejak">{judul}</div>

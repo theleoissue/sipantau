@@ -34,6 +34,39 @@ export function KerangkaAplikasi({
   const [laciTerbuka, setLaciTerbuka] = useState(false)
   const [dipaksaPenuh, setDipaksaPenuh] = useState(false)
 
+  useEffect(() => {
+    if (!laciTerbuka) return
+    const tutup = (event: Event) => { event.preventDefault(); setLaciTerbuka(false) }
+    const keyboard = (event: KeyboardEvent) => { if (event.key === 'Escape') tutup(event) }
+    window.addEventListener('sipantau:kembali', tutup)
+    window.addEventListener('keydown', keyboard)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('sipantau:kembali', tutup)
+      window.removeEventListener('keydown', keyboard)
+      document.body.style.overflow = overflow
+    }
+  }, [laciTerbuka])
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const perbarui = () => {
+      const menulis = document.activeElement?.matches('input, textarea, [contenteditable="true"]')
+      document.body.classList.toggle('keyboard-terbuka', !!menulis && window.innerHeight - viewport.height > 150)
+    }
+    viewport.addEventListener('resize', perbarui)
+    document.addEventListener('focusin', perbarui)
+    document.addEventListener('focusout', perbarui)
+    return () => {
+      viewport.removeEventListener('resize', perbarui)
+      document.removeEventListener('focusin', perbarui)
+      document.removeEventListener('focusout', perbarui)
+      document.body.classList.remove('keyboard-terbuka')
+    }
+  }, [])
+
   // Laci ditutup lewat penangan klik pada butir navigasi, BUKAN lewat
   // efek yang menyimak perubahan jalur. Menyetel keadaan dari dalam
   // efek menghasilkan render beruntun, dan di telepon itu terlihat

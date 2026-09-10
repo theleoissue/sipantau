@@ -31,6 +31,9 @@ export function BilahSamping({
   const jalur = usePathname()
   const profil = PROFIL[pengguna.peran]
   const warna = WARNA_PERAN[pengguna.peran]
+  const ruteAktif = profil.nav.filter((b): b is Extract<typeof b, { rute: string }> => 'rute' in b)
+    .filter(b => jalur === b.rute || jalur.startsWith(b.rute + '/'))
+    .sort((a, b) => b.rute.length - a.rute.length)[0]?.rute
 
   return (
     <aside id="sb">
@@ -93,7 +96,8 @@ export function BilahSamping({
               key={b.id}
               href={b.rute}
               onClick={onTutupLaci}
-              className={`nav-i ${jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'on' : ''}`}
+              className={`nav-i ${ruteAktif === b.rute ? 'on' : ''}`}
+              aria-current={ruteAktif === b.rute ? 'page' : undefined}
             >
               <Ikon nama={b.ikon} />
               <span className="lbl">{b.label}</span>

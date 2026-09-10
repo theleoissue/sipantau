@@ -281,6 +281,10 @@ body.mini #rangka{margin-left:var(--sb-mini)}
 .ikon-btn svg{width:19px;height:19px;stroke-width:1.9}
 .jejak{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-3);flex:1;min-width:0;overflow:hidden}
 .jejak .sep{opacity:.5}
+.jejak{white-space:nowrap;text-overflow:ellipsis;display:block}
+#hd>.ikon-btn{flex-shrink:0;min-width:44px;min-height:44px}
+.hd-kanan{flex-shrink:0}
+:where(a,button,summary,input,select,textarea):focus-visible{outline:3px solid #2563eb;outline-offset:3px}
 .jejak .kini{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hd-kanan{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .lonceng-titik{position:absolute;top:5px;right:5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--red);color:#fff;font-size:9.5px;font-weight:700;display:grid;place-items:center;font-family:var(--mono);border:2px solid var(--card)}
@@ -974,6 +978,22 @@ tbody tr.bisa-klik{cursor:pointer}
   position: relative;
 }
 #bb a svg { width: 21px; height: 21px; stroke-width: 1.9; }
+#bb .bb-ikon{display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#bb .bb-label{max-width:100%;overflow-wrap:normal}
+#bb a{min-width:0}
+#bb.bb-lapangan{box-shadow:0 -4px 20px rgba(15,28,50,.06)}
+#bb a.bb-pusat{justify-content:flex-end;padding-bottom:8px;gap:5px;position:relative}
+#bb .bb-pusat .bb-ikon{width:56px;height:56px;margin-top:-22px;border-radius:20px;background:var(--primary);color:white;border:3px solid var(--card);box-shadow:0 3px 12px rgba(15,28,50,.2)}
+#bb .bb-pusat svg{width:26px;height:26px}
+#bb .bb-pusat.on .bb-ikon{background:#1d4ed8}
+#bb .bb-pusat.on::before{display:none}
+body.keyboard-terbuka #bb{display:none}
+@media(max-width:768px){
+  body:has(#bb.bb-lapangan) #utama{padding-bottom:calc(120px + var(--aman-bawah))}
+  #bb.bb-lapangan a{font-size:10px;padding-inline:2px}
+  #bb .bb-label{line-height:1.25}
+  .dialog-modal{padding:max(12px,var(--aman-atas)) max(12px,var(--aman-kanan)) max(12px,var(--aman-bawah)) max(12px,var(--aman-kiri))}
+}
 #bb a.on { color: var(--primary); }
 #bb a.on::before {
   content: '';
@@ -1200,7 +1220,8 @@ button.peta-orang{width:100%;text-align:left}
   #utama :where(input, select, textarea, button) { scroll-margin-bottom: calc(118px + var(--aman-bawah)); }
 
   .kartu-h > :last-child:not(:only-child) { max-width: 100%; }
-  .kartu-h .btn, .laporan-kartu-kaki .btn { width: 100%; }
+  .kartu-h .btn { max-width: 100%; white-space: normal; }
+  .laporan-kartu-kaki .btn { width: 100%; }
   .laporan-kartu-kaki .btn { margin-left: 0; }
   .laporan-pelapor, .laporan-penugasan { min-width: 0; }
 

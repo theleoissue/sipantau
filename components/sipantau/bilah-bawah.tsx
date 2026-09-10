@@ -26,16 +26,16 @@ export function BilahBawah({ peran }: { peran: Peran }) {
   if (butir.length === 0) return null
 
   return (
-    <nav id="bb" aria-label="Navigasi utama">
+    <nav id="bb" className={peran === 'anggota' || peran === 'panit' ? 'bb-lapangan' : undefined} aria-label="Navigasi utama">
       {butir.map(b => (
         <Link
           key={b.id}
           href={b.rute}
           aria-current={jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'page' : undefined}
-          className={jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'on' : ''}
+          className={`${jalur === b.rute || jalur.startsWith(b.rute + '/') ? 'on' : ''} ${b.id === 'tugas' ? 'bb-pusat' : ''}`}
         >
-          <Ikon nama={b.ikon} />
-          <span>{b.label}</span>
+          <span className="bb-ikon"><Ikon nama={b.ikon} /></span>
+          <span className="bb-label">{b.id === 'penugasan' ? 'Penugasan' : b.label}</span>
         </Link>
       ))}
     </nav>

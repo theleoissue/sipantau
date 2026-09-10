@@ -19,7 +19,7 @@ export interface ProfilPeran {
   label: string
   /** Menu bilah samping, sudah termasuk kepala kelompoknya. */
   nav: ButirNav[]
-  /** Empat menu yang muncul di bilah bawah pada layar telepon. */
+  /** Menu utama mobile; peran lapangan menempatkan Sesi Tugas di tengah. */
   bilahBawah: string[]
   beranda: string
 }
@@ -99,7 +99,7 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'tugas',     rute: '/tugas',     ikon: 'satelit',     label: 'Sesi Tugas' },
       { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat',     label: 'Riwayat Laporan' },
     ],
-    bilahBawah: ['beranda', 'penugasan', 'peta', 'tugas'],
+    bilahBawah: ['beranda', 'penugasan', 'tugas', 'peta', 'laporan'],
     beranda: '/beranda',
   },
 
@@ -123,7 +123,7 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat', label: 'Riwayat Laporan' },
       { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',  label: 'LHP Ringkas' },
     ],
-    bilahBawah: ['beranda', 'tugas', 'lapor', 'riwayat'],
+    bilahBawah: ['beranda', 'penugasan', 'tugas', 'peta', 'lapor'],
     beranda: '/beranda',
   },
 

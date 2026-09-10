@@ -16,11 +16,20 @@ export function NavigasiPerangkat() {
     let dibuang = false
     let pendengar: Awaited<ReturnType<typeof App.addListener>> | undefined
     void App.addListener('backButton', ({ canGoBack }) => {
+      const modal = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].at(-1)
+      if (modal) {
+        modal.dispatchEvent(new Event('cancel', { cancelable: true }))
+        return
+      }
+      const kembali = new Event('sipantau:kembali', { cancelable: true })
+      if (!window.dispatchEvent(kembali)) return
       if (canGoBack) router.back()
       // Tautan langsung/pemulihan WebView kadang tidak memiliki riwayat
       // browser meski pengguna sedang jauh dari Beranda. Kembali ke
       // Beranda lebih berguna daripada menutup aplikasi mendadak.
-      else if (jalur !== '/beranda') router.replace('/beranda')
+      else if (jalur.startsWith('/penugasan/')) router.replace('/penugasan')
+      else if (jalur.startsWith('/lhp/')) router.replace('/lhp')
+      else if (jalur !== '/beranda' && jalur !== '/pemeliharaan') router.replace('/beranda')
       else void App.minimizeApp()
     }).then(handle => {
       if (dibuang) void handle.remove()
