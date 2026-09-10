@@ -593,6 +593,51 @@ await sebagaiTanpaRollback(ID.anggota1, async () => {
 cek('U-GPS-22g', 'Hanya ada satu baris untuk antrean_id itu',
   await n(`select count(*) n from public.location_logs where antrean_id=$1`, [ANTREAN_TETAP]) === 1)
 
+// =====================================================================
+// Titik susulan sesudah sesi ditutup (0056) — keputusan pemilik produk
+// 11 September 2026. Ini keadaan lapangan yang paling sering: sinyal
+// baru pulih sesudah petugas keluar dari kawasan pabrik.
+// =====================================================================
+
+const hitungSebelumSusulan = await n(
+  `select jumlah_titik n from public.sesi_tugas where id=$1`, [idSesiUtuh])
+
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  await db.query(`select public.selesaikan_sesi_tugas($1)`, [idSesiUtuh])
+})
+
+cek('U-GPS-23a', 'Menutup sesi menghapus posisi_terkini (KP-6.4-30)',
+  await n(`select count(*) n from public.posisi_terkini where sesi_tugas_id=$1`, [idSesiUtuh]) === 0)
+
+const ANTREAN_SUSULAN = '77770000-0000-0000-0000-000000000002'
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  const e = await galat(() => db.query(
+    `select public.kirim_titik($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [idSesiUtuh, -6.913, 107.613, 9, 1.1, 280, 78, 'gps',
+     ANTREAN_SUSULAN, new Date(Date.now() - 10 * 60_000).toISOString(),
+     'android-hp-utuh', 'android-hp-utuh', false]))
+  cek('U-GPS-23b', 'Titik yang DITANGKAP saat sesi berjalan tetap diterima sesudah sesi ditutup', e === null)
+})
+
+cek('U-GPS-23c', 'Titik susulan benar-benar tersimpan',
+  await n(`select count(*) n from public.location_logs where antrean_id=$1`, [ANTREAN_SUSULAN]) === 1)
+
+cek('U-GPS-23d', 'Titik susulan TIDAK menghidupkan posisi_terkini — petugas tidak muncul lagi di peta langsung',
+  await n(`select count(*) n from public.posisi_terkini where sesi_tugas_id=$1`, [idSesiUtuh]) === 0)
+
+cek('U-GPS-23e', 'jumlah_titik tetap bertambah walau Titik tiba tidak berurutan',
+  await n(`select jumlah_titik n from public.sesi_tugas where id=$1`, [idSesiUtuh]) === hitungSebelumSusulan + 1)
+
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  const e = await galat(() => db.query(
+    `select public.kirim_titik($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [idSesiUtuh, -6.914, 107.614, 9, 1.1, 280, 78, 'gps',
+     '77770000-0000-0000-0000-000000000003', new Date().toISOString(),
+     'android-hp-utuh', 'android-hp-utuh', false]))
+  cek('U-GPS-23f', 'Titik yang DITANGKAP sesudah sesi ditutup tetap ditolak (SESI_TERTUTUP)',
+    e !== null && e.includes('SESI_TERTUTUP'))
+})
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji GPS lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
