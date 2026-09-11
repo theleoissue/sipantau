@@ -65,6 +65,9 @@ export default async function HalamanSuntingDraf({
         nama: l.nama, alamat: l.alamat ?? '', keterangan: l.keterangan ?? '',
         lat: l.lat != null ? String(l.lat) : '', lng: l.lng != null ? String(l.lng) : '',
         radius: l.radius_meter != null ? String(l.radius_meter) : '300',
+        googlePlaceId: l.google_place_id ?? '', namaResmi: l.nama_resmi ?? '',
+        alamatResmi: l.alamat_resmi ?? '', sumberKoordinat: (l.sumber_koordinat ?? '') as '' | 'manual' | 'google_places' | 'google_geocoding' | 'openstreetmap',
+        statusVerifikasi: (l.status_verifikasi ?? 'belum_diverifikasi') as 'belum_diverifikasi' | 'perlu_diperiksa' | 'terverifikasi',
       })),
   }
 

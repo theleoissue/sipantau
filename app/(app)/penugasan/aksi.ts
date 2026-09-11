@@ -198,7 +198,11 @@ interface IsianDasarLokasi {
   tanggal_mulai: string | null
   tanggal_batas: string | null
   dasar: { jenis: string; nomor: string; tanggal: string; keterangan: string }[]
-  lokasi: { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }[]
+  lokasi: {
+    nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string
+    googlePlaceId?: string; namaResmi?: string; alamatResmi?: string; sumberKoordinat?: string
+    statusVerifikasi?: string
+  }[]
 }
 
 /**
@@ -320,6 +324,13 @@ export async function simpanPenugasan(isian: IsianTerbitkan): Promise<HasilAksi>
           lng: adaKoordinat ? Number(l.lng) : null,
           // Radius hanya bermakna pada titik berkoordinat.
           radius_meter: adaKoordinat ? Number(l.radius || 300) : null,
+          google_place_id: l.googlePlaceId?.trim() || null,
+          nama_resmi: l.namaResmi?.trim() || null,
+          alamat_resmi: l.alamatResmi?.trim() || null,
+          sumber_koordinat: adaKoordinat ? (l.sumberKoordinat || 'manual') : null,
+          status_verifikasi: adaKoordinat ? 'terverifikasi' : (l.statusVerifikasi || 'belum_diverifikasi'),
+          diverifikasi_oleh: adaKoordinat ? user.id : null,
+          diverifikasi_pada: adaKoordinat ? new Date().toISOString() : null,
         }
       }),
     )
@@ -409,6 +420,9 @@ export async function terbitkanDraf(penugasanId: string): Promise<HasilAksi> {
 export async function perbaruiDraf(penugasanId: string, isian: IsianDasarLokasi): Promise<HasilAksi> {
   const supabase = await klienServer()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { galat: 'Sesi Anda sudah berakhir. Masuk kembali.' }
+
   const { data: existing } = await supabase
     .from('penugasan').select('status').eq('id', penugasanId).maybeSingle<{ status: string }>()
   if (!existing) return { galat: 'Penugasan tidak ditemukan.' }
@@ -478,6 +492,13 @@ export async function perbaruiDraf(penugasanId: string, isian: IsianDasarLokasi)
           lat: adaKoordinat ? Number(l.lat) : null,
           lng: adaKoordinat ? Number(l.lng) : null,
           radius_meter: adaKoordinat ? Number(l.radius || 300) : null,
+          google_place_id: l.googlePlaceId?.trim() || null,
+          nama_resmi: l.namaResmi?.trim() || null,
+          alamat_resmi: l.alamatResmi?.trim() || null,
+          sumber_koordinat: adaKoordinat ? (l.sumberKoordinat || 'manual') : null,
+          status_verifikasi: adaKoordinat ? 'terverifikasi' : (l.statusVerifikasi || 'belum_diverifikasi'),
+          diverifikasi_oleh: adaKoordinat ? user.id : null,
+          diverifikasi_pada: adaKoordinat ? new Date().toISOString() : null,
         }
       }),
     )

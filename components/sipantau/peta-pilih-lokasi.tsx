@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Ikon } from './ikon'
 
 interface TitikPeta {
@@ -10,9 +10,21 @@ interface TitikPeta {
 }
 
 interface HasilCari {
-  lat: string
-  lon: string
-  display_name: string
+  id: string
+  nama: string
+  alamat: string
+  lat?: number
+  lng?: number
+  sumber: 'google_places' | 'openstreetmap'
+}
+
+export interface TempatDipilih {
+  placeId: string | null
+  nama: string
+  alamat: string
+  lat: number
+  lng: number
+  sumber: 'google_places' | 'openstreetmap'
 }
 
 /**
@@ -37,11 +49,13 @@ export function PetaPilihLokasi({
   aktif,
   onAktifChange,
   onUbahKoordinat,
+  onPilihTempat,
 }: {
   titik: TitikPeta[]
   aktif: number
   onAktifChange: (i: number) => void
   onUbahKoordinat: (i: number, lat: string, lng: string) => void
+  onPilihTempat?: (i: number, tempat: TempatDipilih) => void
 }) {
   const elPeta = useRef<HTMLDivElement>(null)
   const peta = useRef<import('leaflet').Map | null>(null)
@@ -52,6 +66,8 @@ export function PetaPilihLokasi({
   const [galatCari, setGalatCari] = useState<string | null>(null)
   const [hasilCari, setHasilCari] = useState<HasilCari[]>([])
   const [hasilTerpilih, setHasilTerpilih] = useState<HasilCari | null>(null)
+  const [sessionToken, setSessionToken] = useState(() => crypto.randomUUID())
+  const [penyedia, setPenyedia] = useState<'google' | 'openstreetmap' | null>(null)
 
   // Bacaan terkini lewat ref supaya efek pemasangan-sekali di bawah
   // tidak perlu didaftarkan ulang tiap kali titik/aktif berubah —
@@ -62,11 +78,13 @@ export function PetaPilihLokasi({
   const aktifRef = useRef(aktif)
   const onAktifRef = useRef(onAktifChange)
   const onUbahRef = useRef(onUbahKoordinat)
+  const onPilihRef = useRef(onPilihTempat)
   useEffect(() => {
     titikRef.current = titik
     aktifRef.current = aktif
     onAktifRef.current = onAktifChange
     onUbahRef.current = onUbahKoordinat
+    onPilihRef.current = onPilihTempat
   })
 
   // Bangun peta SEKALI saat pemasangan.
@@ -136,43 +154,103 @@ export function PetaPilihLokasi({
         className: 'peta-pin-pratinjau', iconSize: [34, 42], iconAnchor: [17, 42],
         html: '<div class="peta-pin-pratinjau-isi"><span></span></div>',
       })
-      const marker = L.marker([Number(hasilTerpilih.lat), Number(hasilTerpilih.lon)], { icon: ikon })
+      if (hasilTerpilih.lat == null || hasilTerpilih.lng == null) return
+      const marker = L.marker([hasilTerpilih.lat, hasilTerpilih.lng], { icon: ikon })
         .addTo(peta.current)
-        .bindTooltip('Ketuk pin ini untuk memakai lokasi', { direction: 'top', offset: [0, -36] })
-      marker.on('click', () => {
-        onUbahRef.current(aktifRef.current, Number(hasilTerpilih.lat).toFixed(6), Number(hasilTerpilih.lon).toFixed(6))
-      })
+        .bindTooltip('Pratinjau lokasi — konfirmasi di bawah peta', { direction: 'top', offset: [0, -36] })
       penandaHasil.current = marker
     })
     return () => { batal = true }
   }, [hasilTerpilih])
+
+  const panggilTempat = useCallback(async (badan: Record<string, string>) => {
+    const res = await fetch('/api/tempat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(badan),
+    })
+    const data = await res.json() as { hasil?: HasilCari[] | HasilCari; galat?: string; kode?: string }
+    if (!res.ok) throw Object.assign(new Error(data.galat ?? 'Pencarian gagal'), { kode: data.kode })
+    return data
+  }, [])
+
+  // Saran Google muncul ketika pengguna berhenti mengetik. Pencarian
+  // tombol tetap tersedia untuk kueri pendek dan sebagai fallback OSM.
+  useEffect(() => {
+    const kueri = cari.trim()
+    if (kueri.length < 3) return
+    const timer = window.setTimeout(async () => {
+      setMencari(true); setGalatCari(null)
+      try {
+        const data = await panggilTempat({ aksi: 'autocomplete', kueri, sessionToken })
+        setHasilCari(Array.isArray(data.hasil) ? data.hasil : [])
+        setPenyedia('google')
+      } catch (error) {
+        // Kunci yang belum dipasang bukan galat formulir. Tombol Cari
+        // masih menyediakan Nominatim sebagai cadangan.
+        if ((error as { kode?: string }).kode !== 'GOOGLE_BELUM_SIAP') setGalatCari((error as Error).message)
+      } finally { setMencari(false) }
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [cari, sessionToken, panggilTempat])
 
   async function cariLokasi() {
     if (!cari.trim()) return
     setMencari(true)
     setGalatCari(null)
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(cari.trim())}`
-      const res = await fetch(url, { headers: { 'Accept-Language': 'id' } })
-      const data = await res.json() as HasilCari[]
-      if (data.length > 0 && peta.current) {
-        pilihHasil(data[0])
-        setHasilCari(data)
+      const data = await panggilTempat({ aksi: 'cari', kueri: cari.trim(), sessionToken })
+      const daftar = Array.isArray(data.hasil) ? data.hasil : []
+      if (daftar.length > 0) {
+        setHasilCari(daftar); setPenyedia('google')
+        await pilihHasil(daftar[0])
       } else {
         setHasilCari([])
         setHasilTerpilih(null)
         setGalatCari(`Lokasi "${cari}" tidak ditemukan. Coba nama lain.`)
       }
     } catch {
-      setGalatCari('Pencarian lokasi gagal — periksa koneksi internet.')
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(cari.trim())}`
+        const res = await fetch(url, { headers: { 'Accept-Language': 'id' } })
+        const osm = await res.json() as { place_id: number; lat: string; lon: string; display_name: string }[]
+        const daftar: HasilCari[] = osm.map(h => ({
+          id: String(h.place_id), nama: h.display_name.split(',')[0] || h.display_name,
+          alamat: h.display_name, lat: Number(h.lat), lng: Number(h.lon), sumber: 'openstreetmap',
+        }))
+        setHasilCari(daftar); setPenyedia('openstreetmap')
+        if (daftar[0]) await pilihHasil(daftar[0])
+        else setGalatCari(`Lokasi "${cari}" tidak ditemukan. Coba sertakan kecamatan atau kabupaten.`)
+      } catch { setGalatCari('Pencarian lokasi gagal — periksa koneksi internet.') }
     } finally {
       setMencari(false)
     }
   }
 
-  function pilihHasil(hasil: HasilCari) {
-    setHasilTerpilih(hasil)
-    peta.current?.setView([Number(hasil.lat), Number(hasil.lon)], 16, { animate: true })
+  async function pilihHasil(hasil: HasilCari) {
+    setMencari(true); setGalatCari(null)
+    try {
+      let lengkap = hasil
+      if (hasil.sumber === 'google_places' && (hasil.lat == null || hasil.lng == null)) {
+        const data = await panggilTempat({ aksi: 'detail', placeId: hasil.id, sessionToken })
+        lengkap = data.hasil as HasilCari
+      }
+      if (lengkap.lat == null || lengkap.lng == null) throw new Error('Koordinat tempat tidak tersedia.')
+      setHasilTerpilih(lengkap)
+      peta.current?.setView([lengkap.lat, lengkap.lng], 16, { animate: true })
+    } catch (error) { setGalatCari((error as Error).message) }
+    finally { setMencari(false) }
+  }
+
+  function gunakanHasil() {
+    if (!hasilTerpilih || hasilTerpilih.lat == null || hasilTerpilih.lng == null) return
+    const tempat: TempatDipilih = {
+      placeId: hasilTerpilih.sumber === 'google_places' ? hasilTerpilih.id : null,
+      nama: hasilTerpilih.nama, alamat: hasilTerpilih.alamat,
+      lat: hasilTerpilih.lat, lng: hasilTerpilih.lng, sumber: hasilTerpilih.sumber,
+    }
+    onUbahRef.current(aktifRef.current, tempat.lat.toFixed(6), tempat.lng.toFixed(6))
+    onPilihRef.current?.(aktifRef.current, tempat)
+    setSessionToken(crypto.randomUUID())
   }
 
   return (
@@ -181,7 +259,12 @@ export function PetaPilihLokasi({
         <div className="peta-cari">
           <input
             type="text" value={cari} placeholder="Cari lokasi, mis. Cikarang Barat…"
-            onChange={e => setCari(e.target.value)}
+            autoComplete="off" role="combobox" aria-expanded={hasilCari.length > 0}
+            aria-controls="hasil-pencarian-tempat"
+            onChange={e => {
+              setCari(e.target.value)
+              if (e.target.value.trim().length < 3) { setHasilCari([]); setHasilTerpilih(null) }
+            }}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); cariLokasi() } }}
           />
           <button type="button" onClick={cariLokasi} disabled={mencari} aria-label="Cari lokasi">
@@ -192,18 +275,25 @@ export function PetaPilihLokasi({
       </div>
       {galatCari && <p style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 6 }}>{galatCari}</p>}
       {hasilCari.length > 0 && (
-        <div className="peta-hasil-cari" aria-label="Hasil pencarian lokasi">
-          <p>Pilih hasil untuk melihat pin pratinjau, lalu ketuk pinnya di peta untuk memakai lokasi.</p>
+        <div id="hasil-pencarian-tempat" className="peta-hasil-cari" aria-label="Hasil pencarian lokasi">
+          <p>Pilih hasil untuk melihat pin pratinjau. Periksa alamatnya sebelum digunakan.</p>
           {hasilCari.map((hasil, i) => (
-            <button key={`${hasil.lat}-${hasil.lon}`} type="button" onClick={() => pilihHasil(hasil)}
-                    className={hasilTerpilih === hasil ? 'on' : undefined}>
-              <span>{i + 1}</span>{hasil.display_name}
+            <button key={hasil.id} type="button" onClick={() => void pilihHasil(hasil)}
+                    className={hasilTerpilih?.id === hasil.id ? 'on' : undefined}>
+              <span>{i + 1}</span><span className="peta-hasil-teks"><strong>{hasil.nama}</strong><small>{hasil.alamat}</small></span>
             </button>
           ))}
+          {hasilTerpilih?.lat != null && (
+            <div className="peta-konfirmasi-tempat">
+              <div><strong>{hasilTerpilih.nama}</strong><small>{hasilTerpilih.alamat}</small></div>
+              <button type="button" className="btn btn-p btn-sm" onClick={gunakanHasil}>Gunakan lokasi ini</button>
+            </div>
+          )}
+          <small className="peta-penyedia">{penyedia === 'google' ? 'Powered by Google' : 'Hasil cadangan OpenStreetMap'}</small>
         </div>
       )}
       <p className="peta-pilih-lokasi-bantu">
-        Pilih titik tugas di bawah agar aktif (emas). Klik peta untuk menjatuhkan pin, atau gunakan hasil pencarian sebagai pratinjau lalu ketuk pinnya untuk mengonfirmasi. Pin dapat diseret untuk penyesuaian halus.
+        Pilih titik tugas di bawah agar aktif (emas). Klik peta untuk menjatuhkan pin, atau cari tempat dan konfirmasi hasilnya. Pin dapat diseret untuk penyesuaian halus.
       </p>
     </div>
   )

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { simpanPenugasan, perbaruiDraf, revisiPenugasan, type DataScanSprin } from '../aksi'
 import { Ikon } from '@/components/sipantau/ikon'
-import { PetaPilihLokasi } from '@/components/sipantau/peta-pilih-lokasi'
+import { PetaPilihLokasi, type TempatDipilih } from '@/components/sipantau/peta-pilih-lokasi'
 import { ScanSprin } from '@/components/sipantau/scan-sprin'
 import { DialogModal } from '@/components/sipantau/dialog-modal'
 
@@ -34,13 +34,26 @@ const JENIS_DASAR = [
 ] as const
 
 const BULAN_ROMAWI = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII']
-const VERSI_DRAF_LOKAL = 'v2'
+const VERSI_DRAF_LOKAL = 'v3'
 
 interface Personel { id: string; nama: string; pangkat: string | null; peran: string }
 
 type Dasar = { jenis: string; nomor: string; tanggal: string; keterangan: string }
-type Lokasi = { nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string }
+type Lokasi = {
+  nama: string; alamat: string; keterangan: string; lat: string; lng: string; radius: string
+  googlePlaceId: string; namaResmi: string; alamatResmi: string
+  sumberKoordinat: '' | 'manual' | 'google_places' | 'google_geocoding' | 'openstreetmap'
+  statusVerifikasi: 'belum_diverifikasi' | 'perlu_diperiksa' | 'terverifikasi'
+}
 type DrafLokal = Record<string, unknown>
+
+function lokasiKosong(isian?: Partial<Lokasi>): Lokasi {
+  return {
+    nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300',
+    googlePlaceId: '', namaResmi: '', alamatResmi: '', sumberKoordinat: '',
+    statusVerifikasi: 'belum_diverifikasi', ...isian,
+  }
+}
 
 function namaSerupa(a: string, b: string) {
   const bersih = (nilai: string) => nilai.toLocaleLowerCase('id-ID')
@@ -129,8 +142,8 @@ export function WizardTerbitkan({
     ],
   )
   const [lokasi, setLokasi] = useState<Lokasi[]>(draf?.lokasi.length ? draf.lokasi : scanAwal?.lokasi?.length
-    ? scanAwal.lokasi.map(l => ({ nama: l.nama, alamat: l.alamat || '', keterangan: l.keterangan || '', lat: '', lng: '', radius: '300' }))
-    : [{ nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' }])
+    ? scanAwal.lokasi.map(l => lokasiKosong({ nama: l.nama, alamat: l.alamat || '', keterangan: l.keterangan || '', statusVerifikasi: 'perlu_diperiksa' }))
+    : [lokasiKosong()])
   const [titikAktif, setTitikAktif] = useState(0)
   const timAwal = scanAwal ? cocokkanTimScan(scanAwal, personel) : { panit: [], pelaksana: [] }
   const [panit, setPanit] = useState<string[]>(timAwal.panit)
@@ -220,15 +233,53 @@ export function WizardTerbitkan({
     setNomorSpt(`SP.Gas.Lidik/____/${bulan}/${kode}/${tahun}/Ditreskrimsus`)
   }
 
+  async function lengkapiLokasiScan(daftar: Lokasi[]) {
+    setStatusScan(`Mencari koordinat untuk ${daftar.length} lokasi hasil scan…`)
+    const lengkap = await Promise.all(daftar.map(async lokasiScan => {
+      const kueri = [lokasiScan.nama, lokasiScan.alamat].filter(Boolean).join(', ')
+      if (!kueri) return lokasiScan
+      try {
+        const res = await fetch('/api/tempat', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aksi: 'cari', kueri, sessionToken: crypto.randomUUID() }),
+        })
+        if (!res.ok) return lokasiScan
+        const data = await res.json() as { hasil?: {
+          id: string; nama: string; alamat: string; lat?: number; lng?: number
+          sumber: 'google_places' | 'openstreetmap'
+        }[] }
+        const calon = data.hasil?.[0]
+        if (!calon || calon.lat == null || calon.lng == null) return lokasiScan
+        return lokasiKosong({
+          ...lokasiScan,
+          lat: calon.lat.toFixed(6), lng: calon.lng.toFixed(6),
+          googlePlaceId: calon.sumber === 'google_places' ? calon.id : '',
+          namaResmi: calon.nama, alamatResmi: calon.alamat,
+          sumberKoordinat: calon.sumber,
+          statusVerifikasi: 'perlu_diperiksa',
+        })
+      } catch { return lokasiScan }
+    }))
+    setLokasi(lengkap)
+    const ditemukan = lengkap.filter(l => l.lat && l.lng).length
+    setStatusScan(ditemukan
+      ? `${ditemukan} dari ${lengkap.length} kandidat lokasi ditemukan. Periksa dan konfirmasi setiap titik sebelum menerbitkan.`
+      : 'Teks lokasi berhasil dibaca, tetapi koordinat belum ditemukan. Cari lokasi secara manual pada langkah Titik Lokasi.')
+  }
+
   function terapkanScan(data: DataScanSprin) {
     setNomorSpt(data.nomor_spt || nomorSpt); setJudul(data.judul || judul); setObjek(data.objek || objek); setSasaran(data.sasaran || sasaran); setUraian(data.uraian_tugas || uraian); setNomorLp(data.nomor_lp || nomorLp); setSumber(data.sumber_informasi || sumber)
     if (['penyelidikan', 'pulbaket', 'pengamanan'].includes(data.jenis_kegiatan)) setJenisKegiatan(data.jenis_kegiatan)
     if (['normal', 'penting', 'urgent'].includes(data.prioritas)) setPrioritas(data.prioritas)
     setMulaiTgl(data.tanggal_mulai || mulaiTgl); setBatasTgl(data.tanggal_batas || batasTgl)
     if (data.dasar?.length) setDasar(data.dasar)
-    if (data.lokasi?.length) setLokasi(data.lokasi.map(l => ({
-      nama: l.nama, alamat: l.alamat || '', keterangan: l.keterangan || '', lat: '', lng: '', radius: '300',
-    })))
+    if (data.lokasi?.length) {
+      const lokasiScan = data.lokasi.map(l => lokasiKosong({
+        nama: l.nama, alamat: l.alamat || '', keterangan: l.keterangan || '', statusVerifikasi: 'perlu_diperiksa',
+      }))
+      setLokasi(lokasiScan)
+      void lengkapiLokasiScan(lokasiScan)
+    }
     const cocok = cocokkanTimScan(data, personel)
     if (cocok.panit.length) setPanit(cocok.panit)
     if (cocok.pelaksana.length) setPelaksana(cocok.pelaksana)
@@ -246,6 +297,11 @@ export function WizardTerbitkan({
 
   function simpan(terbitkan: boolean) {
     setGalat(null)
+    if (terbitkan && lokasi.some(l => l.lat && l.lng && l.statusVerifikasi !== 'terverifikasi')) {
+      setN(3)
+      setGalat('Periksa dan konfirmasi kandidat lokasi hasil scan sebelum menerbitkan penugasan.')
+      return
+    }
     mulai(async () => {
       const isianDasar = dasar.filter(d => d.nomor.trim() || d.keterangan.trim())
       const isianLokasi = lokasi.filter(l => l.nama.trim())
@@ -568,7 +624,17 @@ export function WizardTerbitkan({
                 aktif={Math.min(titikAktif, lokasi.length - 1)}
                 onAktifChange={setTitikAktif}
                 onUbahKoordinat={(i, lat, lng) => setLokasi(lokasi.map((x, j) =>
-                  j === i ? { ...x, lat, lng } : x))}
+                  j === i ? { ...x, lat, lng, sumberKoordinat: 'manual', googlePlaceId: '', namaResmi: '', alamatResmi: '', statusVerifikasi: 'terverifikasi' } : x))}
+                onPilihTempat={(i: number, tempat: TempatDipilih) => setLokasi(lokasi.map((x, j) =>
+                  j === i ? {
+                    ...x,
+                    nama: x.nama.trim() || tempat.nama,
+                    alamat: tempat.alamat || x.alamat,
+                    lat: tempat.lat.toFixed(6), lng: tempat.lng.toFixed(6),
+                    googlePlaceId: tempat.placeId ?? '', namaResmi: tempat.nama,
+                    alamatResmi: tempat.alamat, sumberKoordinat: tempat.sumber,
+                    statusVerifikasi: 'terverifikasi',
+                  } : x))}
               />
 
               {lokasi.map((l, i) => (
@@ -593,18 +659,30 @@ export function WizardTerbitkan({
                            onChange={e => setLokasi(lokasi.map((x, j) =>
                              j === i ? { ...x, alamat: e.target.value } : x))} />
                   </div>
+                  {l.statusVerifikasi === 'perlu_diperiksa' && l.lat && l.lng && (
+                    <div className="peringatan-inline" role="status" style={{ marginBottom: 12 }}>
+                      <div>
+                        <strong>Kandidat lokasi ditemukan</strong>
+                        <small>{l.namaResmi || l.nama}{l.alamatResmi ? ` — ${l.alamatResmi}` : ''}</small>
+                      </div>
+                      <button type="button" className="btn btn-p btn-sm" onClick={() => setLokasi(lokasi.map((x, j) =>
+                        j === i ? { ...x, statusVerifikasi: 'terverifikasi' } : x))}>
+                        Konfirmasi titik
+                      </button>
+                    </div>
+                  )}
                   <div className="f2">
                     <div className="fg">
                       <label>Lintang (lat)</label>
                       <input value={l.lat} inputMode="decimal" placeholder="-6.6489"
                              onChange={e => setLokasi(lokasi.map((x, j) =>
-                               j === i ? { ...x, lat: e.target.value } : x))} />
+                               j === i ? { ...x, lat: e.target.value, sumberKoordinat: 'manual', googlePlaceId: '', namaResmi: '', alamatResmi: '', statusVerifikasi: 'terverifikasi' } : x))} />
                     </div>
                     <div className="fg">
                       <label>Bujur (lng)</label>
                       <input value={l.lng} inputMode="decimal" placeholder="108.1689"
                              onChange={e => setLokasi(lokasi.map((x, j) =>
-                               j === i ? { ...x, lng: e.target.value } : x))} />
+                               j === i ? { ...x, lng: e.target.value, sumberKoordinat: 'manual', googlePlaceId: '', namaResmi: '', alamatResmi: '', statusVerifikasi: 'terverifikasi' } : x))} />
                     </div>
                   </div>
                   <div className="f2">
@@ -634,7 +712,7 @@ export function WizardTerbitkan({
               <button type="button" className="tambah-baris"
                       onClick={() => {
                         setLokasi([...lokasi,
-                          { nama: '', alamat: '', keterangan: '', lat: '', lng: '', radius: '300' }])
+                        lokasiKosong()])
                         setTitikAktif(lokasi.length)
                       }}>
                 <Ikon nama="tambah" /> Tambah titik lokasi

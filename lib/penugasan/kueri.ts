@@ -28,6 +28,11 @@ export interface TitikLokasi {
   lat: number | null
   lng: number | null
   radius_meter: number | null
+  google_place_id: string | null
+  nama_resmi: string | null
+  alamat_resmi: string | null
+  sumber_koordinat: string | null
+  status_verifikasi: string
 }
 
 export interface DasarPenugasan {
@@ -149,7 +154,8 @@ export function hariTerlampaui(p: { tanggal_batas: string | null }): number {
 const KOLOM_LENGKAP = `
   *,
   unit ( nama, kode_klasifikasi ),
-  penugasan_lokasi ( id, urutan, nama, alamat, keterangan, lat, lng, radius_meter ),
+  penugasan_lokasi ( id, urutan, nama, alamat, keterangan, lat, lng, radius_meter,
+                      google_place_id, nama_resmi, alamat_resmi, sumber_koordinat, status_verifikasi ),
   penugasan_dasar ( id, urutan, jenis, nomor, tanggal, keterangan ),
   penugasan_pelaksana ( id, pelaksana_id, urutan, dibaca_pada, dicabut_pada, alasan_pencabutan,
                         users:pelaksana_id ( id, nama, pangkat, peran, nrp ) ),
