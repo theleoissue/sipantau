@@ -76,15 +76,19 @@ export function KartuSesiTugas({
   // baru muncul menggantikannya (posisinya berdekatan di tata letak).
   // Tanpa jeda ini, dialog "Selesaikan Sesi Tugas?" bisa muncul sendiri
   // tepat setelah sesi baru saja dibuka.
-  const [siapAkhiri, setSiapAkhiri] = useState(false)
+  // ID sesi yang sudah melewati masa pengaman. Menyimpan boolean saja
+  // tidak cukup: instance komponen React ini dapat tetap hidup ketika
+  // sesi lama selesai lalu sesi baru dibuka, sehingga nilai `true` lama
+  // ikut terbawa ke tombol sesi baru.
+  const [sesiSiapDiakhiri, setSesiSiapDiakhiri] = useState<string | null>(null)
+  // Klik sentuhan hanya sah bila pointer BARU dimulai pada tombol
+  // Selesaikan. Ini menolak ghost click Android yang touchstart-nya
+  // berasal dari tombol Mulai Tugas sebelum tampilan berganti.
+  const akhirDitekan = useRef(false)
   useEffect(() => {
-    // Kontrol geser hanya dirender saat sesi ada, dan alur aplikasi
-    // selalu kembali ke "belum ada sesi" sebelum sesi baru dibuka
-    // (tidak pernah langsung berpindah sesi-ke-sesi) — jadi siapAkhiri
-    // sudah pasti false dari sononya di sini, tidak perlu disetel
-    // ulang secara sinkron.
     if (!sesi) return
-    const id = setTimeout(() => setSiapAkhiri(true), 1200)
+    const sesiId = sesi.id
+    const id = setTimeout(() => setSesiSiapDiakhiri(sesiId), 1500)
     return () => clearTimeout(id)
     // Sengaja hanya sesi.id, bukan seluruh objek sesi — objek ini
     // berubah tiap router.refresh() (mis. jumlah_titik bertambah),
@@ -726,8 +730,20 @@ export function KartuSesiTugas({
 
       {galat && <p style={{ color: '#FCA5A5', fontSize: 12.5, marginTop: 10 }}>{galat}</p>}
 
-      <button type="button" className="btn sesi-selesai" disabled={!siapAkhiri || proses}
-        onClick={() => setTanya(true)}>
+      <button
+        type="button"
+        className="btn sesi-selesai"
+        disabled={sesiSiapDiakhiri !== sesi.id || proses}
+        onPointerDown={() => { akhirDitekan.current = true }}
+        onPointerCancel={() => { akhirDitekan.current = false }}
+        onClick={e => {
+          // detail===0 adalah aktivasi keyboard/aksesibilitas dan tetap
+          // sah tanpa pointer. Klik pointer wajib diawali di tombol ini.
+          const sah = e.detail === 0 || akhirDitekan.current
+          akhirDitekan.current = false
+          if (sah && sesiSiapDiakhiri === sesi.id) setTanya(true)
+        }}
+      >
         <Ikon nama="stop" /> Selesaikan tugas
       </button>
 
