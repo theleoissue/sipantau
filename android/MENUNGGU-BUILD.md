@@ -25,56 +25,13 @@ dibangun ulang.
 
 | Komit | Perubahan | Akibat sebelum dibangun ulang |
 | --- | --- | --- |
-| `3264e5d` | Ikon notifikasi pelacakan (siluet putih), nama saluran Bahasa Indonesia, warna emas SiPANTAU | Notifikasi masih memakai ikon peluncur berwarna. Menurut README pustaka pelacakan, ikon salah tipe membuat notifikasi **dapat digeser hilang padahal seharusnya tidak**, sentuhan padanya membuka pengaturan alih-alih aplikasi, dan tulisannya bisa keliru. Saluran masih bernama "Background Tracking" |
-| menyusul | Ikon peluncur APK dari lambang resmi SI PANTAU — ikon lawas seluruh kerapatan, lapisan depan ikon adaptif, dan warna latarnya | Ikon aplikasi di HP masih memakai bawaan Capacitor (bola dunia putih), bukan lambang SI PANTAU |
-| `(baris ini)` | `capacitor.config.ts` → `server.url` pindah ke `https://www.sipantaujabar.my.id` (pemindahan akun GitHub + Vercel, 5 September 2026) | APK yang sudah terpasang di HP masih menunjuk `sipantau-seven.vercel.app` — akan menjadi layar kosong begitu alamat lama benar-benar mati. Sudah disunting di kode; **belum** ikut sampai HP sampai dibangun ulang |
-| `dc8dd98`…`95e124d` | Plugin Capacitor baru `DokumenScanner` (pemindai dokumen native berbasis ML Kit/CameraX, `DokumenScannerPlugin.java` + `DokumenScannerActivity.java`), terdaftar di `MainActivity.java` dan `AndroidManifest.xml` | Plugin belum ada sama sekali di APK yang terpasang — tombol "Scan dokumen" di halaman Scan SPRIN memanggil `registerPlugin('DokumenScanner')` yang tidak menemukan implementasi native apa pun, sehingga SELALU gagal dengan pesan "Pemindai dokumen tidak dapat dibuka" (kegagalan seragam, bukan galat kamera/izin sungguhan) sampai APK dibangun ulang |
-| `b491d1f` | Urutan `registerPlugin` dipindah ke SEBELUM `super.onCreate()` di `MainActivity.java` | Sebelum ini, ketiga plugin (`AppPlugin`, `CameraPlugin`, `DokumenScanner`) **tidak pernah benar-benar terdaftar**: BridgeActivity membangun Bridge-nya di dalam `super.onCreate()`, jadi pendaftaran sesudahnya hanya menyentuh builder yang tidak dipakai lagi. Inilah sebab sesungguhnya pemindai dokumen selalu gagal — bukan kamera, bukan izin |
-| `(baris ini)` | Plugin Capacitor baru `KesehatanPelacak` (`KesehatanPelacakPlugin.java`) — memeriksa pengecualian penghematan baterai dan membuka layar autostart per merek | Peringatan penghematan baterai tidak pernah muncul di HP. Ini pertahanan utama terhadap sistem yang membunuh proses aplikasi — dan begitu proses mati, antrean luring di JS ikut berhenti sehingga Titik yang gagal terkirim hilang (pustaka pelacaknya sendiri: *"no on-disk queue and no automatic retry"*) |
+| `3be94d9`, `870999e` | **PelacakService** — layanan latar depan perekam posisi milik sendiri (FusedLocationProvider + antrean SQLite + pengunggah dengan percobaan ulang), beserta `PelacakPlugin`, izin lokasi dan layanan latar depan di manifest, dan `play-services-location` | Perekaman masih sepenuhnya di dalam WebView. Akibatnya sudah terlihat di lapangan: begitu jaringan hilang, WebView menampilkan halaman galat bawaan peramban dan **tidak ada satu baris JavaScript pun yang berjalan** — penangkapan Titik berhenti dan antrean tidak bisa dikuras. Sampai APK dibangun ulang, halaman memakai jalur pustaka lama |
 
-## Pemindahan alamat — 5 September 2026
-
-Akun GitHub dan Vercel lama diblokir. Repo GitHub sudah hilang; alamat
-Vercel lama (`sipantau-seven.vercel.app`) masih menjawab 200 saat catatan
-ini ditulis, tetapi tidak dapat lagi menerima penempatan baru karena
-repo sumbernya tidak ada.
-
-Domain baru `sipantaujabar.my.id` sudah didaftarkan, diarahkan ke
-proyek Vercel yang baru, dan **sudah dibuktikan menjawab** —
-`https://sipantaujabar.my.id/masuk` membuka halaman masuk sungguhan.
-Vercel mengalihkan alamat tanpa `www` ke `www.sipantaujabar.my.id`,
-jadi `capacitor.config.ts` langsung menunjuk ke alamat `www` supaya
-WebView tidak menempuh satu langkah pengalihan tambahan setiap dibuka.
-
-Yang membuat ini berbeda dari baris tertunda lainnya: APK adalah
-pembungkus WebView yang menunjuk satu alamat, dan alamat itu **dipanggang
-ke dalam APK saat dibangun**. Begitu alamat lama benar-benar mati,
-seluruh APK yang sudah terpasang di HP anggota menjadi layar kosong
-serentak — bukan sebagian fitur yang tidak jalan, melainkan aplikasinya
-tidak terbuka sama sekali.
-
-Karena itu diputuskan memakai **domain sendiri**, bukan alamat
-`*.vercel.app` yang baru: dengan domain sendiri, perpindahan akun Vercel
-berikutnya cukup diselesaikan lewat DNS, dan APK di lapangan tidak perlu
-disentuh sama sekali. Alamat `*.vercel.app` menuntut pembangunan dan
-pemasangan ulang APK di setiap HP pada setiap perpindahan.
-
-Urutannya mengikat, dan tidak boleh dibalik:
-
-1. Domain didaftarkan dan diarahkan ke proyek Vercel yang baru
-2. Domain itu sudah benar-benar menjawab — diperiksa lebih dulu, bukan
-   dianggap sudah jalan
-3. Baru `capacitor.config.ts` disunting ke domain itu
-4. Baru APK dibangun ulang dan dipasang di seluruh HP
-
-Membangun APK sebelum domainnya menjawab menghasilkan APK yang menunjuk
-ke alamat mati, dan itu baru ketahuan sesudah terpasang di HP orang.
-
-Sekali pemasangan ulang ini tetap tidak terhindarkan — APK yang sekarang
-ada di lapangan menunjuk ke alamat lama. Yang dibeli oleh domain sendiri
-adalah pemasangan ulang **berikutnya**, bukan yang ini.
-
-| menyusul | **PelacakService** — layanan latar depan perekam posisi milik sendiri (FusedLocationProvider + antrean SQLite + pengunggah dengan percobaan ulang), beserta `PelacakPlugin`, izin lokasi/layanan latar depan di manifest, dan `play-services-location` | Perekaman masih sepenuhnya di dalam WebView. Akibatnya nyata dan sudah terlihat di lapangan: begitu jaringan hilang, WebView menampilkan halaman galat bawaan peramban dan **tidak ada satu baris JavaScript pun yang berjalan** — penangkapan Titik berhenti dan antrean tidak bisa dikuras. Halaman akan memakai jalur pustaka lama sampai APK-nya dibangun ulang |
+Dikosongkan 11 September 2026 sesudah APK dibangun dan dipasang. Enam
+baris sebelumnya — ikon notifikasi, ikon peluncur, `server.url` ke
+`www.sipantaujabar.my.id`, plugin `DokumenScanner`, urutan
+`registerPlugin`, dan plugin `KesehatanPelacak` — semuanya **sudah ada di
+HP** dan tidak lagi menunggu apa pun.
 
 ## Cara membangun
 
