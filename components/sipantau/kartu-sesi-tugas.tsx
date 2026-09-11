@@ -353,6 +353,13 @@ export function KartuSesiTugas({
       }
       if (batal) return
 
+      // Sama seperti pada tombol Mulai Tugas: layanan pustaka yang
+      // tertinggal menyala membuat start() ini dijawab "Service already
+      // started", dan pengawasnya tidak pernah terpasang — Titik berhenti
+      // mengalir sementara kartu di layar tetap menyatakan sesi berjalan.
+      try { await BackgroundGeolocation.stop() } catch { /* memang belum menyala */ }
+      if (batal) return
+
       await BackgroundGeolocation.start(
       {
         ...opsiKirim,
@@ -459,10 +466,45 @@ export function KartuSesiTugas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sesi?.id, iniSesiWeb])
 
+  /**
+   * Pesan pustaka pelacak berbahasa Inggris dan bocor apa adanya ke layar
+   * petugas — menabrak syarat "Seluruh antarmuka Bahasa Indonesia"
+   * (CLAUDE.md §7.3). Yang tidak dikenali tetap diberi kalimat sendiri,
+   * bukan diteruskan mentah.
+   */
+  function pesanMulaiTugas(pesan: string | undefined): string {
+    const p = (pesan ?? '').toLowerCase()
+    if (p.includes('already started')) {
+      return 'Perekaman dari sesi sebelumnya masih tertinggal menyala. Sudah dihentikan — ketuk Mulai Tugas sekali lagi.'
+    }
+    if (p.includes('permission') || p.includes('denied')) {
+      return 'Izin lokasi belum diberikan. Buka Setelan → Aplikasi → SiPANTAU → Izin → Lokasi, pilih "Izinkan sepanjang waktu".'
+    }
+    if (p.includes('location services') || p.includes('disabled')) {
+      return 'Layanan lokasi perangkat sedang mati. Nyalakan GPS lalu coba lagi.'
+    }
+    return 'Lokasi tidak tersedia. Aktifkan GPS dan coba lagi.'
+  }
+
   async function mulaiTugasDariAndroid() {
     if (!sptDipilih) return
     setGalatMulai(null)
     setMemulai(true)
+
+    // DIHENTIKAN DULU, SELALU.
+    //
+    // Pustaka menolak start() kedua dengan "Service already started", dan
+    // penolakan itu MENGUNCI DIRI SENDIRI: begitu layanan tertinggal
+    // menyala tanpa sesi — sesi sebelumnya ditutup tanpa sempat berhenti,
+    // proses aplikasi dimatikan sistem lalu layanan dipulihkan
+    // START_STICKY, atau percobaan sebelumnya berhenti di jalur galat —
+    // setiap ketukan Mulai Tugas sesudahnya menemui pesan yang sama dan
+    // TIDAK ADA satu pun jalan keluar dari dalam aplikasi. Petugas
+    // terkunci tidak bisa membuka Sesi Tugas sama sekali.
+    //
+    // Menghentikan lebih dulu membuat pemanggilan ini selalu berangkat
+    // dari keadaan yang sama, apa pun yang tertinggal sebelumnya.
+    try { await BackgroundGeolocation.stop() } catch { /* memang belum menyala */ }
 
     // Penjaga sekali-pakai LOKAL (bukan status React) — BackgroundGeolocation
     // bisa memanggil callback ini berkali-kali begitu lokasi terus mengalir,
@@ -489,7 +531,12 @@ export function KartuSesiTugas({
         if (error || !lokasi) {
           sudahDiproses = true
           setMemulai(false)
-          setGalatMulai(error?.message ?? 'Lokasi tidak tersedia. Aktifkan GPS dan coba lagi.')
+          // Layanan ikut dihentikan di jalur galat. Bentuk sebelumnya
+          // hanya menampilkan pesan lalu keluar, meninggalkan layanan
+          // menyala — dan justru itulah yang membuat ketukan berikutnya
+          // dijawab "Service already started" tanpa akhir.
+          void BackgroundGeolocation.stop().catch(() => { /* sudah mati */ })
+          setGalatMulai(pesanMulaiTugas(error?.message))
           return
         }
         sudahDiproses = true
