@@ -50,6 +50,35 @@ export async function bukaPengaturanAutostart(): Promise<void> {
   try { await Plugin.bukaPengaturanAutostart() } catch { /* tidak ada yang bisa dilakukan */ }
 }
 
+const KUNCI_ABAIKAN = 'sipantau.peringatan-baterai-diabaikan'
+
+/**
+ * Menyembunyikan peringatan atas pernyataan petugas sendiri.
+ *
+ * PERLU ADA karena pemeriksaannya memang tidak selalu dapat dipercaya:
+ * isIgnoringBatteryOptimizations membaca daftar putih doze bawaan
+ * Android, sedangkan ColorOS (realme/Oppo), MIUI, dan FuntouchOS punya
+ * pengelola daya SENDIRI. Petugas bisa sudah mengizinkan segalanya di
+ * layar merek, dan indikator bawaan itu TETAP false selamanya.
+ *
+ * Peringatan yang mustahil dipenuhi lebih buruk daripada tidak ada — ia
+ * melatih orang mengabaikan peringatan. Jadi disediakan jalan untuk
+ * menyatakan "sudah saya atur", dan pernyataan itu dihormati.
+ */
+export async function abaikanPeringatanBaterai(): Promise<void> {
+  const { Preferences } = await import('@capacitor/preferences')
+  await Preferences.set({ key: KUNCI_ABAIKAN, value: '1' })
+}
+
+export async function peringatanBateraiDiabaikan(): Promise<boolean> {
+  try {
+    const { Preferences } = await import('@capacitor/preferences')
+    return (await Preferences.get({ key: KUNCI_ABAIKAN })).value === '1'
+  } catch {
+    return false
+  }
+}
+
 /** Panduan singkat per merek, dipakai saat layar autostart tidak dapat dibuka langsung. */
 export function panduanAutostart(pabrikan: string): string | null {
   const m = pabrikan.toLowerCase()

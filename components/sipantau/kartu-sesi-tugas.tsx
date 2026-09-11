@@ -9,7 +9,7 @@ import { BackgroundGeolocation } from '@capgo/background-geolocation'
 import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
 import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
 import { bateraiPersen } from '@/lib/gps/baterai'
-import { periksaKesehatanPelacak, bukaPengaturanBaterai, bukaPengaturanAutostart, panduanAutostart, type KesehatanPelacak } from '@/lib/gps/kesehatan-pelacak'
+import { periksaKesehatanPelacak, bukaPengaturanBaterai, bukaPengaturanAutostart, panduanAutostart, abaikanPeringatanBaterai, peringatanBateraiDiabaikan, type KesehatanPelacak } from '@/lib/gps/kesehatan-pelacak'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
 import { penandaPerangkatNative } from '@/lib/gps/penanda-perangkat-native'
 import type { SesiAktifSaya } from '@/lib/gps/tipe'
@@ -106,11 +106,23 @@ export function KartuSesiTugas({
   // adalah sebab paling sering perekaman berhenti diam-diam di lapangan —
   // dan satu-satunya waktu yang tepat menegurnya adalah ketika petugas
   // memang sedang bertugas.
+  const [abaikanBaterai, setAbaikanBaterai] = useState(false)
+
   useEffect(() => {
     if (!sesi) return
     let batal = false
-    void periksaKesehatanPelacak().then(h => { if (!batal) setKesehatan(h) })
-    return () => { batal = true }
+    const periksa = () => {
+      void periksaKesehatanPelacak().then(h => { if (!batal) setKesehatan(h) })
+      void peringatanBateraiDiabaikan().then(v => { if (!batal) setAbaikanBaterai(v) })
+    }
+    periksa()
+    // Diperiksa ULANG tiap aplikasi kembali ke depan layar. Tanpa ini,
+    // petugas yang baru saja membetulkan pengaturannya kembali ke layar
+    // yang masih menampilkan peringatan lama — dan menyimpulkan
+    // perbaikannya gagal.
+    const saatKembali = () => { if (document.visibilityState === 'visible') periksa() }
+    document.addEventListener('visibilitychange', saatKembali)
+    return () => { batal = true; document.removeEventListener('visibilitychange', saatKembali) }
     // Sengaja hanya sesi.id: objek sesi berganti identitas tiap kali
     // datanya menyegarkan diri (jumlah_titik bertambah), padahal
     // pemeriksaan ini cuma perlu diulang saat SESI-nya benar-benar baru.
@@ -562,14 +574,17 @@ export function KartuSesiTugas({
           tidak ada JS yang berjalan, dan pustaka pelacak sendiri menyatakan
           kiriman yang gagal "logged and dropped". Diperingatkan saat sesi
           berjalan, lengkap dengan jalan pintas ke pengaturannya. */}
-      {sesi && kesehatan && !kesehatan.hematBateraiDikecualikan && (
+      {sesi && kesehatan && !kesehatan.hematBateraiDikecualikan && !abaikanBaterai && (
         <div className="sesi-syarat" style={{ color: '#FDE68A', flexWrap: 'wrap' }}>
           <Ikon nama="awas" />
           <span>
             Penghematan baterai masih aktif untuk SiPANTAU. Sistem dapat
             menghentikan perekaman tanpa pemberitahuan — titik yang belum
             terkirim bisa hilang. Kecualikan aplikasi ini agar Sesi Tugas
-            aman sampai selesai.
+            aman sampai selesai. Pada sebagian merek, penanda bawaan
+            Android ini tetap menyala walau Anda sudah mengizinkan
+            semuanya di menu mereknya — kalau sudah diatur, tekan Sudah
+            saya atur.
             {panduanAutostart(kesehatan.pabrikan) && (
               <> <b>{kesehatan.pabrikan}:</b> {panduanAutostart(kesehatan.pabrikan)}</>
             )}
@@ -583,6 +598,12 @@ export function KartuSesiTugas({
                 Buka autostart
               </button>
             )}
+            <button
+              type="button" className="btn btn-o btn-sm"
+              onClick={() => { setAbaikanBaterai(true); void abaikanPeringatanBaterai() }}
+            >
+              Sudah saya atur
+            </button>
           </div>
         </div>
       )}
