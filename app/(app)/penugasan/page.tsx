@@ -80,9 +80,13 @@ export default async function HalamanPenugasan({
         )}
         {(pengguna.peran === 'anggota' || pengguna.peran === 'panit') && (
           <div className="kh-aksi">
-            <Link href="/penugasan/scan" className="btn btn-g">
+            <Link href="/penugasan/usul" className="btn btn-g">
+              <Ikon nama="tambah" />
+              Usulkan SPRIN
+            </Link>
+            <Link href="/penugasan/scan" className="btn btn-o">
               <Ikon nama="kamera" />
-              Ajukan scan SPRIN
+              Scan SPRIN
             </Link>
           </div>
         )}
@@ -93,7 +97,7 @@ export default async function HalamanPenugasan({
           style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <Ikon nama="centang" />
           <span>
-            <b>{menunggu}</b> hasil scan SPRIN menunggu persetujuan Anda.
+            <b>{menunggu}</b> ajuan SPRIN menunggu keputusan Anda.
           </span>
         </Link>
       )}

@@ -190,6 +190,147 @@ cek('U-PS-19', 'Notifikasi Kanit menunjuk kotak persetujuan',
       where penerima_id=$1 and jenis='sprin_diajukan' and tujuan_jenis='pengajuan_sprin'`,
     [ID.kanit1])).rows[0].n) === 2)
 
+// =====================================================================
+// Usulan SPRIN (migrasi 0063)
+//
+// Arahnya kebalikan dari scan: suratnya BELUM ada, dan bawahan meminta
+// Kanit menerbitkannya. Yang dijaga di sini tiga hal yang kalau meleset
+// gagalnya senyap — alasan wajib benar-benar ditegakkan, nomor SPT tidak
+// pernah boleh datang dari pengusul, dan menarik ajuan tidak boleh
+// menjadi cara menghapus keputusan yang sudah diambil.
+// =====================================================================
+
+const USULAN = {
+  alasan: 'Ditemukan aktivitas pembuangan limbah di luar jam kerja pada lokasi yang sama tiga hari berturut-turut.',
+  judul: 'Penyelidikan dugaan pembuangan limbah',
+  objek: 'Kegiatan pembuangan limbah cair',
+  sasaran: 'Kawasan industri sisi timur',
+  uraian_tugas: 'Pengamatan dan pengumpulan keterangan awal.',
+  lokasi: [{ nama: 'Kawasan industri', alamat: 'Jl. Contoh', keterangan: '' }],
+  personel: ['Anggota Satu'],
+}
+
+let idUsulan
+await komit(ID.anggota1, async () => {
+  idUsulan = (await db.query(`select public.ajukan_usulan_sprin($1::jsonb) id`,
+    [JSON.stringify(USULAN)])).rows[0].id
+})
+
+cek('U-PS-20', 'Anggota dapat mengajukan usulan, dan tersimpan sebagai asal=usulan',
+  (await db.query(`select asal, status from public.pengajuan_sprin where id=$1`, [idUsulan]))
+    .rows[0].asal === 'usulan')
+
+cek('U-PS-21', 'Usulan masuk ke kotak yang SAMA dengan scan, bukan daftar terpisah',
+  Number((await db.query(
+    `select count(*) n from public.pengajuan_sprin where unit_id=$1 and status='diajukan'`,
+    [UNIT.satu])).rows[0].n) >= 1)
+
+cek('U-PS-22', 'Ajuan scan yang sudah ada tetap terbaca sebagai asal=scan',
+  (await db.query(`select asal from public.pengajuan_sprin where id=$1`, [pengajuanSatu]))
+    .rows[0].asal === 'scan')
+
+{
+  const e = await galat(() => sebagai(ID.anggota1, () =>
+    db.query(`select public.ajukan_usulan_sprin($1::jsonb)`,
+      [JSON.stringify({ ...USULAN, alasan: '   ' })])))
+  cek('U-PS-23', 'Usulan tanpa alasan ditolak — Kanit tidak boleh diminta memutuskan tanpa bahan',
+    e !== null && e.includes('ALASAN_WAJIB'))
+}
+
+// Nomor SPT berasal dari buku agenda di luar SiPANTAU (modul 6.2).
+// Membiarkan nomor kiriman pengusul lolos membuat Kanit mengira nomor
+// itu sudah sah.
+{
+  let idBernomor
+  await komit(ID.anggota1, async () => {
+    idBernomor = (await db.query(`select public.ajukan_usulan_sprin($1::jsonb) id`,
+      [JSON.stringify({ ...USULAN, nomor_spt: 'SP.Lidik/999/IX/RES.5./2026' })])).rows[0].id
+  })
+  cek('U-PS-24', 'nomor_spt kiriman pengusul DIBUANG, bukan sekadar diabaikan',
+    (await db.query(`select data_scan ? 'nomor_spt' as ada from public.pengajuan_sprin where id=$1`,
+      [idBernomor])).rows[0].ada === false)
+}
+
+{
+  const e = await galat(() => sebagai(ID.kanit1, () =>
+    db.query(`select public.ajukan_usulan_sprin($1::jsonb)`, [JSON.stringify(USULAN)])))
+  cek('U-PS-25', 'Kanit tidak mengusulkan kepada dirinya sendiri',
+    e !== null && e.includes('BUKAN_PENGAJU'))
+}
+
+cek('U-PS-26', 'Kanit diberi tahu dengan kalimat usulan, bukan kalimat scan',
+  Number((await db.query(
+    `select count(*) n from public.notifikasi
+      where penerima_id=$1 and jenis='sprin_diajukan' and judul like 'Usulan SPRIN%'`,
+    [ID.kanit1])).rows[0].n) >= 1)
+
+// --- Menarik ajuan ---
+
+{
+  const e = await galat(() => sebagai(ID.anggota2, () =>
+    db.query(`select public.tarik_pengajuan_sprin($1)`, [idUsulan])))
+  cek('U-PS-27', 'Orang lain tidak dapat menarik ajuan yang bukan miliknya',
+    e !== null && e.includes('TIDAK_DAPAT_DITARIK'))
+}
+
+await komit(ID.anggota1, async () => {
+  await db.query(`select public.tarik_pengajuan_sprin($1)`, [idUsulan])
+})
+cek('U-PS-28', 'Pengusul dapat menarik ajuannya selama belum diputuskan',
+  (await db.query(`select status from public.pengajuan_sprin where id=$1`, [idUsulan]))
+    .rows[0].status === 'ditarik')
+
+cek('U-PS-29', 'Menarik BUKAN menghapus: barisnya tetap ada',
+  Number((await db.query(`select count(*) n from public.pengajuan_sprin where id=$1`,
+    [idUsulan])).rows[0].n) === 1)
+
+{
+  const e = await galat(() => sebagai(ID.kanit1, () =>
+    db.query(`select public.putuskan_pengajuan_sprin($1,'disetujui')`, [idUsulan])))
+  cek('U-PS-30', 'Ajuan yang sudah ditarik tidak dapat diputuskan Kanit',
+    e !== null && e.includes('BUKAN_KANIT_ATAU_TIDAK_DITEMUKAN'))
+}
+
+{
+  let idTetap
+  await komit(ID.anggota1, async () => {
+    idTetap = (await db.query(`select public.ajukan_usulan_sprin($1::jsonb) id`,
+      [JSON.stringify(USULAN)])).rows[0].id
+  })
+  await komit(ID.kanit1, async () => {
+    await db.query(`select public.putuskan_pengajuan_sprin($1,'ditolak')`, [idTetap])
+  })
+  const e = await galat(() => sebagai(ID.anggota1, () =>
+    db.query(`select public.tarik_pengajuan_sprin($1)`, [idTetap])))
+  cek('U-PS-31', 'Yang sudah diputuskan tidak dapat ditarik — keputusan bagian dari jejak',
+    e !== null && e.includes('TIDAK_DAPAT_DITARIK'))
+
+  cek('U-PS-32', 'Penolakan usulan memakai kalimat usulan, bukan kalimat scan',
+    Number((await db.query(
+      `select count(*) n from public.notifikasi
+        where penerima_id=$1 and judul = 'Usulan SPRIN Anda ditolak'`,
+      [ID.anggota1])).rows[0].n) === 1)
+}
+
+// Tanggal yang diisi pengusul WAJIB memakai nama medan yang dibaca
+// wizard terbitkan. Medan bernama lain tersimpan rapi lalu hilang tanpa
+// jejak saat Kanit melanjutkannya jadi penugasan.
+{
+  let idTanggal
+  await komit(ID.panit1, async () => {
+    idTanggal = (await db.query(`select public.ajukan_usulan_sprin($1::jsonb) id`,
+      [JSON.stringify({ ...USULAN, tanggal_mulai: '2026-09-20', tanggal_batas: '2026-09-27' })])).rows[0].id
+  })
+  cek('U-PS-33', 'Tanggal usulan tersimpan pada medan yang dibaca wizard terbitkan',
+    (await db.query(`select data_scan->>'tanggal_mulai' m, data_scan->>'tanggal_batas' b
+                       from public.pengajuan_sprin where id=$1`, [idTanggal]))
+      .rows[0].m === '2026-09-20')
+
+  cek('U-PS-34', 'Panit juga dapat mengusulkan, bukan hanya Anggota',
+    (await db.query(`select diajukan_oleh d from public.pengajuan_sprin where id=$1`, [idTanggal]))
+      .rows[0].d === ID.panit1)
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji pengajuan scan SPRIN lulus`
   : `\n== ${gagal} dari ${lulus + gagal} butir uji pengajuan scan SPRIN GAGAL`)

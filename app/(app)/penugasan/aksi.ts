@@ -65,6 +65,74 @@ export async function ajukanScanSprin(data: DataScanSprin): Promise<HasilAksi> {
   return { sukses: 'Hasil scan telah dikirim ke Kanit untuk ditinjau.' }
 }
 
+/**
+ * Usulan SPRIN — arahnya kebalikan dari scan.
+ *
+ * Scan memasukkan surat yang SUDAH ada; usulan meminta surat
+ * DITERBITKAN. Karena itu medannya jauh lebih sedikit, dan satu medan
+ * yang tidak ada pada scan justru menjadi intinya: alasan.
+ *
+ * nomor_spt sengaja TIDAK ada di sini. Nomor berasal dari buku agenda
+ * Bagian Administrasi di luar SiPANTAU dan tidak pernah dibangkitkan
+ * sistem (modul 6.2) — ia diisi Kanit saat menerbitkan, bukan diusulkan
+ * dari bawah.
+ */
+export interface DataUsulanSprin {
+  /** Kenapa operasi ini perlu. Satu-satunya medan yang wajib. */
+  alasan: string
+  judul: string
+  objek: string
+  sasaran: string
+  uraian_tugas: string
+  lokasi?: { nama: string; alamat: string; keterangan: string }[]
+  /**
+   * Bernama sama dengan medan pada hasil scan, dan itu disengaja meski
+   * di formulir labelnya "perkiraan". Wizard terbitkan membaca
+   * tanggal_mulai/tanggal_batas; medan bernama lain akan tersimpan rapi
+   * di basis data lalu hilang tanpa jejak saat Kanit melanjutkannya
+   * menjadi penugasan — pengusul mengisi tanggal, Kanit tidak pernah
+   * melihatnya. Nilainya memang baru perkiraan, dan Kanit bebas
+   * mengubahnya di wizard.
+   */
+  tanggal_mulai?: string
+  tanggal_batas?: string
+  personel?: string[]
+}
+
+/** Mengirim usulan penerbitan SPRIN ke kotak keputusan Kanit. */
+export async function ajukanUsulanSprin(data: DataUsulanSprin): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('ajukan_usulan_sprin', { p_data: data })
+  if (error) {
+    if (error.message.includes('ALASAN_WAJIB')) {
+      return { galat: 'Tulis alasan atau pertimbangannya. Tanpa itu Kanit tidak punya bahan untuk memutuskan.' }
+    }
+    if (error.message.includes('BUKAN_PENGAJU')) {
+      return { galat: 'Hanya Anggota atau Panit yang dapat mengusulkan penerbitan SPRIN.' }
+    }
+    return { galat: `Usulan belum tersimpan: ${error.message}` }
+  }
+  revalidatePath('/penugasan/usul')
+  revalidatePath('/penugasan/pengajuan')
+  revalidatePath('/penugasan')
+  return { sukses: 'Usulan telah dikirim ke Kanit untuk diputuskan.' }
+}
+
+/** Pengaju membatalkan ajuannya sendiri selama Kanit belum memutuskan. */
+export async function tarikPengajuanSprin(id: string): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { error } = await supabase.rpc('tarik_pengajuan_sprin', { p_id: id })
+  if (error) {
+    if (error.message.includes('TIDAK_DAPAT_DITARIK')) {
+      return { galat: 'Ajuan ini sudah diputuskan Kanit, jadi tidak dapat ditarik lagi.' }
+    }
+    return { galat: `Ajuan belum dapat ditarik: ${error.message}` }
+  }
+  revalidatePath('/penugasan/pengajuan')
+  revalidatePath('/penugasan')
+  return { sukses: 'Ajuan ditarik. Kanit tidak lagi diminta memutuskannya.' }
+}
+
 /** Keputusan Kanit atas scan yang diajukan Anggota/Panit. */
 export async function putuskanPengajuanSprin(
   id: string,

@@ -171,6 +171,11 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   // Scan oleh Panit/Anggota selalu menjadi pengajuan; kotak persetujuan
   // dan penerbitan tetap eksklusif Kanit.
   { pola: /^\/penugasan\/scan\/?$/,                   peran: ['anggota', 'panit', 'kanit'] },
+  // Usulan: hanya yang benar-benar dapat mengusulkan. Kanit tidak
+  // disertakan — ia menerbitkan langsung, dan ajukan_usulan_sprin
+  // memang menolaknya (BUKAN_PENGAJU). Merender formulir yang pasti
+  // gagal dikirim lebih buruk daripada tidak merendernya sama sekali.
+  { pola: /^\/penugasan\/usul\/?$/,                   peran: ['anggota', 'panit'] },
   { pola: /^\/penugasan\/pengajuan(\/.*)?$/,          peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/sunting\/?$/,        peran: ['kanit'] },
   { pola: /^\/penugasan\/[^/]+\/tutup\/?$/,          peran: ['kanit'] },

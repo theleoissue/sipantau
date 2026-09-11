@@ -370,6 +370,34 @@ body.mini #rangka{margin-left:var(--sb-mini)}
 .pr.penting{color:var(--amber);border-color:#FCD34D;background:var(--amber-bg)}
 .pr.urgent{color:#fff;border-color:var(--red);background:var(--red)}
 
+/* Lencana status ajuan SPRIN.
+   .lencana SUDAH dirujuk halaman persetujuan sejak ajuan scan dibuat,
+   tetapi tidak pernah punya aturan di sini — status ajuan selama ini
+   tampil sebagai teks polos tanpa satu pun galat. Bentuknya mengikuti
+   .pr dan .sl di sekitarnya, bukan gaya baru. */
+.lencana{display:inline-flex;align-items:center;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.lencana.diajukan{background:var(--blue-bg);color:var(--blue)}
+.lencana.perlu_perbaikan{background:var(--amber-bg);color:#B45309}
+.lencana.disetujui{background:var(--green-bg);color:#047857}
+.lencana.ditolak{background:var(--red-bg);color:var(--red)}
+.lencana.ditarik{background:var(--bg);color:var(--ink-3);border:1px solid var(--line-2)}
+
+/* Usulan SPRIN — formulir dan daftar ajuan milik pengusul sendiri.
+   Awalan usul-, diperiksa belum terpakai di berkas ini. */
+.usul-asal{display:inline-flex;align-items:center;margin-left:8px;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--bg);color:var(--ink-2);border:1px solid var(--line-2)}
+.usul-baris{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.usul-lokasi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.usul-galat{color:var(--red);font-size:12.5px;margin-bottom:10px}
+.usul-daftar{display:grid;gap:10px}
+.usul-item{display:grid;gap:6px;justify-items:start;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
+.usul-item-kepala{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.usul-item strong{font-size:13.5px}
+.usul-alasan{font-size:12.5px;color:var(--ink-2);line-height:1.6}
+.usul-catatan{font-size:12px;color:var(--ink-2);line-height:1.55;border-left:3px solid var(--gold);padding-left:9px}
+@media(max-width:640px){
+  .usul-baris,.usul-lokasi{grid-template-columns:1fr}
+}
+
 /* lencana status lokasi laporan — tiga nilai */
 .sl{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap}
 .sl svg{width:12px;height:12px;stroke-width:2.2;flex-shrink:0}
