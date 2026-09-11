@@ -638,6 +638,60 @@ await sebagaiTanpaRollback(ID.anggota1, async () => {
     e !== null && e.includes('SESI_TERTUTUP'))
 })
 
+// =====================================================================
+// U-GPS-24 — baris posisi_terkini zombi (migrasi 0062)
+//
+// Yang dijaga BUKAN sekadar "barisnya bersih", melainkan: seorang
+// petugas TIDAK PERNAH boleh terkunci dari membuka Sesi Tugas oleh sisa
+// sesi sebelumnya. Kolom pengguna_id di posisi_terkini bersifat unik,
+// jadi satu baris yatim saja sudah cukup menolak seluruh sesi
+// berikutnya milik orang yang sama — dengan galat mentah basis data,
+// dan tanpa satu pun jalan keluar dari dalam aplikasi.
+// =====================================================================
+
+// Ditanam langsung sebagai baris yatim: inilah keadaan yang tertinggal
+// di lapangan ketika penutupan sesi berbalapan dengan kelompok Titik
+// yang sedang dikirim.
+await db.query(
+  `insert into public.posisi_terkini
+     (sesi_tugas_id, penugasan_id, pengguna_id, unit_id, lat, lng, direkam_pada)
+   select $1, s.penugasan_id, s.pengguna_id, p.unit_id, -6.99, 107.99, now()
+     from public.sesi_tugas s join public.penugasan p on p.id = s.penugasan_id
+    where s.id = $1`, [idSesiA1Baru])
+
+cek('U-GPS-24a', 'Persiapan: baris yatim milik sesi yang sudah ditutup benar-benar ada',
+  await n(`select count(*) n from public.posisi_terkini where sesi_tugas_id=$1`, [idSesiA1Baru]) === 1)
+
+const idSesiSesudahZombi = await sebagaiTanpaRollback(ID.anggota1, async () =>
+  (await db.query(`select id from public.buka_sesi_tugas($1,$2,$3,$4,$5)`,
+    [SPT.a, -6.9, 107.6, 12, 'android-hp-2'])).rows[0].id)
+
+cek('U-GPS-24b', 'Sesi baru TETAP dapat dibuka meski ada baris posisi_terkini yatim',
+  typeof idSesiSesudahZombi === 'string')
+
+cek('U-GPS-24c', 'Baris yatim tersingkir, bukan menumpuk: satu orang tetap satu baris',
+  await n(`select count(*) n from public.posisi_terkini pt
+            join public.sesi_tugas s on s.id = pt.sesi_tugas_id
+           where s.pengguna_id = $1`, [ID.anggota1]) === 1)
+
+cek('U-GPS-24d', 'Baris yang tersisa milik sesi yang BARU, bukan sesi lama',
+  await n(`select count(*) n from public.posisi_terkini where sesi_tugas_id=$1`,
+    [idSesiSesudahZombi]) === 1)
+
+// Penjaga sesungguhnya: pembacaan sesi di fn_catat_titik wajib mengunci
+// barisnya. Tanpa FOR SHARE, penutupan sesi dapat menyelinap di antara
+// pembacaan dan penulisan posisi_terkini — dan baris zombinya lahir
+// kembali. pglite berjalan satu sambungan sehingga balapannya sendiri
+// tidak dapat diperagakan; yang diuji adalah kuncinya benar-benar ada.
+cek('U-GPS-24e', 'fn_catat_titik membaca sesi dengan kunci baris (FOR SHARE)',
+  await n(`select count(*) n from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+            where ns.nspname='public' and p.proname='fn_catat_titik'
+              and p.prosrc ilike '%from public.sesi_tugas where id = p_sesi_id for share%'`) === 1)
+
+await sebagaiTanpaRollback(ID.anggota1, async () => {
+  await db.query(`select public.selesaikan_sesi_tugas($1)`, [idSesiSesudahZombi])
+})
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji GPS lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
