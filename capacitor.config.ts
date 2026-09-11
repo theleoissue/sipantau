@@ -18,6 +18,19 @@ const config: CapacitorConfig = {
     // langkah pengalihan tambahan setiap kali dibuka.
     url: 'https://www.sipantaujabar.my.id',
     cleartext: false,
+    // Halaman yang ditampilkan ketika alamat di atas tidak dapat dimuat.
+    //
+    // Tanpa ini WebView jatuh ke layar galat bawaan Chrome
+    // ("ERR_INTERNET_DISCONNECTED") — layar yang tidak menyebut SiPANTAU
+    // sama sekali, dan di lapangan mudah dibaca sebagai aplikasinya rusak
+    // atau perekamannya berhenti. Keduanya tidak benar.
+    //
+    // Berkasnya diambil dari webDir ('public'), jadi ia ikut terbungkus
+    // ke dalam APK dan tidak menuntut jaringan apa pun untuk tampil.
+    // Catatan dokumentasi Capacitor: di Android halaman ini TIDAK punya
+    // akses ke plugin, sehingga ia tidak dapat membaca jumlah Titik yang
+    // tertahan di antrean perangkat.
+    errorPath: 'luring.html',
   },
   // Disyaratkan @capgo/background-geolocation — tanpa ini pembaruan
   // lokasi berhenti begitu WebView masuk latar belakang (dokumentasi
