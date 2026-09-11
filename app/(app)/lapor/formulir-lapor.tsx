@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { kirimLaporan } from './aksi'
+import { catatFoto } from '@/app/(app)/laporan/aksi'
+import { klienBrowser } from '@/lib/supabase/client'
 import { LABEL_ALASAN_LOKASI, type SptUntukLapor, type AlasanLokasi } from '@/lib/laporan/tipe'
 import { Ikon } from '@/components/sipantau/ikon'
 
@@ -26,6 +28,40 @@ function ambilPenandaPerangkat(): string {
 
 type StatusGeo = 'mencari' | 'berhasil' | 'gagal'
 
+type KoordinatFoto = { lat: number; lng: number; akurasi: number }
+type FotoSiap = {
+  id: string
+  berkas: File
+  sumber: 'kamera' | 'galeri'
+  pratinjau: string
+  diambilPada: string | null
+  koordinat: KoordinatFoto | null
+  status: 'siap' | 'terunggah' | 'gagal'
+}
+
+function bacaKoordinatFoto(): Promise<KoordinatFoto | null> {
+  if (!navigator.geolocation) return Promise.resolve(null)
+  return new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      posisi => resolve({
+        lat: posisi.coords.latitude,
+        lng: posisi.coords.longitude,
+        akurasi: posisi.coords.accuracy,
+      }),
+      () => navigator.geolocation.getCurrentPosition(
+        posisi => resolve({
+          lat: posisi.coords.latitude,
+          lng: posisi.coords.longitude,
+          akurasi: posisi.coords.accuracy,
+        }),
+        () => resolve(null),
+        { timeout: 5_000, maximumAge: 30_000 },
+      ),
+      { timeout: 12_000, enableHighAccuracy: true, maximumAge: 5_000 },
+    )
+  })
+}
+
 type DrafLaporan = {
   sptId: string; jenis: string; statusKegiatan: string; uraian: string; kendala: string
   lokasiId: string; keteranganLokasi: string; alasan: AlasanLokasi; alasanLainnya: string
@@ -48,6 +84,32 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
   const [statusDraf, setStatusDraf] = useState('')
   const sudahPulih = useRef(false)
   const sudahTerkirim = useRef(false)
+  const kamera = useRef<HTMLInputElement>(null)
+  const galeri = useRef<HTMLInputElement>(null)
+  const kunciLokasiKamera = useRef<Promise<KoordinatFoto | null> | null>(null)
+  const [foto, setFoto] = useState<FotoSiap[]>([])
+  const [laporanTersimpanId, setLaporanTersimpanId] = useState<string | null>(null)
+
+  // Pratinjau foto memakai URL objek, dan itu menahan berkasnya di
+  // memori sampai dicabut. hapusFoto sudah mencabut miliknya sendiri;
+  // yang belum adalah saat halaman ditinggalkan selagi masih ada foto
+  // yang menunggu.
+  //
+  // Lewat ref, BUKAN lewat daftar gantungan. Efek pembongkaran yang
+  // bergantung pada [foto] akan ikut berjalan setiap kali foto
+  // bertambah — mencabut pratinjau yang justru sedang tampil, dan
+  // gambarnya berubah kosong. Sedangkan dengan daftar kosong, efeknya
+  // menutup nilai foto dari render PERTAMA yang masih kosong, sehingga
+  // tidak mencabut apa pun. Ref menghindari keduanya.
+  const pratinjauHidup = useRef<string[]>([])
+  // Efek tanpa daftar gantungan: berjalan sesudah SETIAP render, jadi ref
+  // ini selalu memuat daftar terkini. Menyetelnya langsung saat render
+  // dilarang (react-hooks/refs) dan memang tidak aman pada render yang
+  // dibatalkan React.
+  useEffect(() => { pratinjauHidup.current = foto.map(item => item.pratinjau) })
+  useEffect(() => () => {
+    pratinjauHidup.current.forEach(url => URL.revokeObjectURL(url))
+  }, [])
 
   // Bila API-nya tidak ada sama sekali, keadaan awal langsung 'gagal' —
   // SELALU 'mencari' pada render pertama, di server MAUPUN di klien.
@@ -160,12 +222,55 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
   const lewatBatas = spt?.tanggal_batas ? spt.tanggal_batas < new Date().toISOString().slice(0, 10) : false
   const lokasiGagal = statusGeo === 'gagal'
 
+  function bukaKamera() {
+    kunciLokasiKamera.current = bacaKoordinatFoto()
+    kamera.current?.click()
+  }
+
+  async function tambahkanFoto(berkas: File, sumber: 'kamera' | 'galeri') {
+    const id = crypto.randomUUID()
+    const diambilPada = sumber === 'kamera' ? new Date().toISOString() : null
+    const koordinat = sumber === 'kamera'
+      ? await (kunciLokasiKamera.current ?? bacaKoordinatFoto())
+      : null
+    kunciLokasiKamera.current = null
+    setFoto(sekarang => [...sekarang, {
+      id, berkas, sumber, diambilPada, koordinat,
+      pratinjau: URL.createObjectURL(berkas), status: 'siap',
+    }])
+  }
+
+  function hapusFoto(id: string) {
+    setFoto(sekarang => {
+      const target = sekarang.find(item => item.id === id)
+      if (target) URL.revokeObjectURL(target.pratinjau)
+      return sekarang.filter(item => item.id !== id)
+    })
+  }
+
+  async function unggahFoto(item: FotoSiap, laporanId: string) {
+    const ekstensiAsli = item.berkas.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const ekstensi = /^[a-z0-9]{2,5}$/.test(ekstensiAsli) ? ekstensiAsli : 'jpg'
+    const path = `${sptId}/${laporanId}/${item.id}.${ekstensi}`
+    const supabase = klienBrowser()
+    const { error } = await supabase.storage.from('dokumentasi').upload(path, item.berkas)
+    if (error && !error.message.toLowerCase().includes('already exists')) throw new Error(error.message)
+    const hasil = await catatFoto({
+      laporanId, berkasPath: path, sumber: item.sumber,
+      lat: item.koordinat?.lat ?? null,
+      lng: item.koordinat?.lng ?? null,
+      akurasiMeter: item.koordinat?.akurasi ?? null,
+      diambilPada: item.diambilPada,
+    })
+    if (hasil.galat) throw new Error(hasil.galat)
+  }
+
   function kirim() {
     setGalat(null)
     if (!sptId) { setGalat('Pilih penugasan terlebih dahulu.'); return }
 
     mulai(async () => {
-      const hasil = await kirimLaporan({
+      const hasil = laporanTersimpanId ? { id: laporanTersimpanId } : await kirimLaporan({
         penugasan_id: sptId,
         jenis,
         status_kegiatan: statusKegiatan,
@@ -182,8 +287,41 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
       })
       if (hasil?.galat) setGalat(hasil.galat)
       else if (hasil?.id) {
+        setLaporanTersimpanId(hasil.id)
+        // DRAF DIBUANG DI SINI, bukan sesudah foto selesai.
+        //
+        // Sejak baris ini laporannya SUDAH tersimpan di server. Draf yang
+        // dibiarkan hidup membuka jendela laporan ganda: bila unggahan
+        // foto gagal lalu halaman ditutup, laporanTersimpanId (keadaan
+        // komponen) ikut hilang, sedangkan draf tetap ada — membuka
+        // formulir lagi dan menekan Kirim akan MEMBUAT LAPORAN KEDUA
+        // untuk kejadian yang sama. Pada berkas perkara itu bukan
+        // kerepotan kecil.
+        //
+        // Foto yang belum terunggah tidak ikut hilang haknya: ia tetap
+        // dapat ditambahkan dari halaman rincian laporan.
         sudahTerkirim.current = true
         try { localStorage.removeItem(KUNCI_DRAF) } catch { /* Laporan sudah tersimpan di server. */ }
+
+        const belumTerunggah = foto.filter(item => item.status !== 'terunggah')
+        let gagal = 0
+        for (const item of belumTerunggah) {
+          try {
+            await unggahFoto(item, hasil.id)
+            setFoto(sekarang => sekarang.map(f => f.id === item.id ? { ...f, status: 'terunggah' } : f))
+          } catch {
+            gagal += 1
+            setFoto(sekarang => sekarang.map(f => f.id === item.id ? { ...f, status: 'gagal' } : f))
+          }
+        }
+        if (gagal > 0) {
+          setGalat(
+            `Laporan sudah tersimpan, tetapi ${gagal} foto belum berhasil diunggah. `
+            + 'Ketuk Coba unggah lagi. Bila tetap gagal, foto dapat ditambahkan '
+            + 'dari halaman rincian laporan — laporannya sendiri tidak akan hilang.',
+          )
+          return
+        }
         router.push(`/laporan/${hasil.id}`)
       }
     })
@@ -328,8 +466,56 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
                    placeholder="Boleh kosong. Contoh: sedang di luar titik karena mengikuti target." />
           </div>
 
-          <div className="bantu" style={{ marginBottom: 12 }}>
-            Foto dokumentasi dapat ditambahkan setelah laporan ini terkirim, dari halaman rinciannya. Draf tersimpan hanya di perangkat ini dan hilang bila data aplikasi dibersihkan.
+          <div className="fg lapor-dok">
+            <div className="lapor-dok-kepala">
+              <div>
+                <label>Foto dokumentasi</label>
+                <div className="bantu">Tambahkan sekarang agar foto ikut terkirim bersama laporan.</div>
+              </div>
+              {foto.length > 0 && <span className="lapor-dok-jumlah">{foto.length} foto</span>}
+            </div>
+            <div className="lapor-dok-aksi">
+              <button type="button" className="btn btn-o" onClick={bukaKamera} disabled={menyimpan}>
+                <Ikon nama="kamera" /> Ambil foto
+              </button>
+              <button type="button" className="btn btn-o" onClick={() => galeri.current?.click()} disabled={menyimpan}>
+                <Ikon nama="gambar" /> Dari galeri
+              </button>
+            </div>
+            <input ref={kamera} type="file" accept="image/*" capture="environment" hidden
+              onChange={e => { const f = e.target.files?.[0]; if (f) void tambahkanFoto(f, 'kamera'); e.target.value = '' }} />
+            <input ref={galeri} type="file" accept="image/*" multiple hidden
+              onChange={e => { Array.from(e.target.files ?? []).forEach(f => void tambahkanFoto(f, 'galeri')); e.target.value = '' }} />
+            {foto.length > 0 && (
+              <div className="lapor-dok-daftar">
+                {foto.map(item => (
+                  <article className="lapor-dok-item" key={item.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.pratinjau} alt="Pratinjau dokumentasi" />
+                    <div className="lapor-dok-info">
+                      <strong>{item.sumber === 'kamera' ? 'Foto kamera' : 'Foto lampiran'}</strong>
+                      <span className={item.koordinat ? 'foto-lokasi-ok' : ''}>
+                        {item.sumber === 'galeri'
+                          ? 'Tanpa koordinat terverifikasi'
+                          : item.koordinat
+                            ? `GPS ±${Math.round(item.koordinat.akurasi)} m`
+                            : 'GPS belum terekam'}
+                      </span>
+                      {item.status === 'gagal' && <span className="lapor-dok-galat">Unggahan gagal</span>}
+                    </div>
+                    {item.status !== 'terunggah' && (
+                      <button type="button" className="lapor-dok-hapus" aria-label="Hapus foto"
+                        onClick={() => hapusFoto(item.id)} disabled={menyimpan}>×</button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+            <div className="bantu">Foto kamera menyimpan posisi saat pengambilan. Foto galeri tetap diberi label lampiran.</div>
+          </div>
+
+          <div className="laporan-catatan-draf">
+            Draf teks tersimpan di perangkat ini. Foto yang belum dikirim tetap tersedia selama halaman ini tidak ditutup.
           </div>
 
           {statusDraf && <div className="bantu" role="status" style={{ marginBottom: 12 }}>{statusDraf}</div>}
@@ -341,13 +527,13 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
             <button type="button" className="btn btn-g" style={{ flex: 1, justifyContent: 'center' }}
                     onClick={kirim} disabled={menyimpan}>
               <Ikon nama="kirim" />
-              {menyimpan ? 'Mengirim…' : 'Kirim laporan'}
+              {menyimpan ? 'Mengirim laporan dan foto…' : laporanTersimpanId ? 'Coba unggah lagi' : 'Kirim laporan'}
             </button>
           </div>
         </div>
       </section>
 
-      <section className="kartu" style={{ alignSelf: 'start' }}>
+      <section className="kartu laporan-panduan" style={{ alignSelf: 'start' }}>
         <div className="kartu-h"><h3>Sebelum mengirim</h3></div>
         <div className="kartu-b">
           <div className="grs">
