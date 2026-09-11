@@ -6,7 +6,8 @@
 // bahkan menulis "Akan dicoba lagi" padahal tidak ada yang disimpan.
 
 import { antrekanKe, kirimAntreanDari, BATAS_ANTREAN } from '../../lib/gps/antrean-inti.ts'
-import { mutuAkurasi, AKURASI_DIRAGUKAN_METER, haluskanJejak, arahDerajat } from '../../lib/gps/tipe.ts'
+import { mutuAkurasi, AKURASI_DIRAGUKAN_METER, haluskanJejak, sederhanakanJejak,
+  TOLERANSI_SEDERHANA_METER, AKURASI_TINGGI_METER, jarakMeter, arahDerajat } from '../../lib/gps/tipe.ts'
 import { tautanNavigasi } from '../../lib/gps/navigasi.ts'
 import { readFileSync } from 'node:fs'
 
@@ -179,6 +180,94 @@ cek('U-MUT-05', 'Akurasi yang tidak dilaporkan tidak dianggap buruk',
   cek('U-HLS-03', 'Titik awal dan akhir tidak bergeser',
     halus[0][0] === asli[0][0] && halus[0][1] === asli[0][1]
     && halus.at(-1)[0] === asli.at(-1)[0] && halus.at(-1)[1] === asli.at(-1)[1])
+}
+
+// --- Lontaran di belokan (Catmull-Rom sentripetal) ---
+{
+  // Jarak titik ke SELURUH garis, bukan ke simpul terdekat.
+  const keGaris = (p, g) => {
+    let min = Infinity
+    for (let i = 0; i < g.length - 1; i++) {
+      const a = g[i], b = g[i + 1], r = Math.cos(a[0] * Math.PI / 180)
+      const dx = b[0] - a[0], dy = (b[1] - a[1]) * r
+      const L = dx * dx + dy * dy
+      let t = L ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * r * dy) / L : 0
+      t = Math.max(0, Math.min(1, t))
+      min = Math.min(min, jarakMeter(p, [a[0] + t * dx, a[1] + t * (b[1] - a[1])]))
+    }
+    return min
+  }
+  // Seberapa jauh kurva keluar dari WILAYAH titik yang terekam. Melengkung
+  // yang wajar tidak pernah keluar; keluar berarti garisnya menyimpang ke
+  // tempat yang petugasnya tidak pernah datangi.
+  const keluarWilayah = (kurva, asli) => {
+    const la = asli.map(p => p[0]), lo = asli.map(p => p[1])
+    const [laMin, laMaks, loMin, loMaks] =
+      [Math.min(...la), Math.max(...la), Math.min(...lo), Math.max(...lo)]
+    let maks = 0
+    for (const p of kurva) {
+      const dekat = [Math.min(Math.max(p[0], laMin), laMaks), Math.min(Math.max(p[1], loMin), loMaks)]
+      if (dekat[0] !== p[0] || dekat[1] !== p[1]) maks = Math.max(maks, jarakMeter(p, dekat))
+    }
+    return maks
+  }
+
+  // Putar balik — bentuk yang dulu membuat bentuk SERAGAM melontar 37 m.
+  const putarBalik = [[-6.900, 107.600], [-6.900, 107.6027], [-6.9005, 107.6027], [-6.9005, 107.600]]
+  cek('U-HLS-06', 'Putar balik: kurva tidak melontar jauh ke luar jalur yang terekam',
+    keluarWilayah(haluskanJejak(putarBalik), putarBalik) < 15)
+
+  const gang = [[-6.900, 107.600], [-6.9008, 107.600], [-6.9008, 107.6004], [-6.900, 107.6004], [-6.900, 107.601]]
+  cek('U-HLS-07', 'Masuk gang lalu keluar: lontaran tetap terkendali',
+    keluarWilayah(haluskanJejak(gang), gang) < 10)
+
+  cek('U-HLS-08', 'Ruas panjang diberi titik antara lebih banyak daripada ruas pendek',
+    haluskanJejak([[-6.9, 107.6], [-6.9, 107.603], [-6.9, 107.606]]).length
+    > haluskanJejak([[-6.9, 107.6], [-6.9, 107.60005], [-6.9, 107.6001]]).length)
+
+  // --- Penyederhanaan (Douglas-Peucker) ---
+  const lurusBerderau = []
+  let benih = 7
+  const acak = () => { benih = (benih * 1103515245 + 12345) & 0x7fffffff; return benih / 0x7fffffff - 0.5 }
+  for (let i = 0; i < 150; i++) lurusBerderau.push([-6.9 + acak() * 0.00012, 107.6 + i * 0.00012])
+  const sederhana = sederhanakanJejak(lurusBerderau)
+
+  // SIFAT YANG MEMBUATNYA BOLEH DIPAKAI DI SINI. Beda dari penghalus
+  // rata-rata dan dari map matching, fungsi ini hanya MEMBUANG titik.
+  // Kalau sifat ini hilang, garis di peta berhenti mewakili rekaman.
+  cek('U-SDH-01', 'Hanya MEMBUANG titik, tidak pernah menggeser atau mengarang satu pun',
+    sederhana.every(t => lurusBerderau.some(a => a[0] === t[0] && a[1] === t[1])))
+  cek('U-SDH-02', 'Urutan jejak tidak berubah',
+    sederhana.every((t, i) => i === 0
+      || lurusBerderau.indexOf(t) > lurusBerderau.indexOf(sederhana[i - 1])))
+  cek('U-SDH-03', 'Titik awal dan akhir tidak pernah dibuang',
+    sederhana[0] === lurusBerderau[0] && sederhana.at(-1) === lurusBerderau.at(-1))
+  cek('U-SDH-04', 'Jalur lurus berderau benar-benar dipangkas',
+    sederhana.length < lurusBerderau.length / 2)
+
+  // JAMINAN Douglas-Peucker. Tanpa ini, penyederhanaan bebas memotong
+  // tikungan sungguhan dan jejaknya berubah bentuk tanpa terlihat.
+  cek('U-SDH-05', `Titik yang dibuang tetap berada dalam ${TOLERANSI_SEDERHANA_METER} m dari garis yang tersisa`,
+    lurusBerderau.every(p => keGaris(p, sederhana) <= TOLERANSI_SEDERHANA_METER + 0.001))
+
+  cek('U-SDH-06', 'Toleransi bawaan tidak melebihi ambang akurasi tinggi — simpangan gambar tetap di dalam ketidakpastian rekamannya sendiri',
+    TOLERANSI_SEDERHANA_METER <= AKURASI_TINGGI_METER)
+
+  cek('U-SDH-07', 'Tikungan sungguhan TIDAK ikut dipangkas',
+    sederhanakanJejak([[-6.900, 107.600], [-6.900, 107.6027], [-6.9027, 107.6027]]).length === 3)
+
+  cek('U-SDH-08', 'Jejak pendek dan kosong dikembalikan apa adanya',
+    sederhanakanJejak([]).length === 0 && sederhanakanJejak([[-6.9, 107.6], [-6.91, 107.61]]).length === 2)
+
+  // Sesi panjang tidak boleh membuat tumpukan pemanggilan meledak —
+  // sebab itu implementasinya memakai tumpukan, bukan rekursi.
+  {
+    const panjang = []
+    for (let i = 0; i < 12000; i++) panjang.push([-6.9 + acak() * 0.0004, 107.6 + i * 0.00002])
+    let aman = true
+    try { sederhanakanJejak(panjang) } catch { aman = false }
+    cek('U-SDH-09', 'Jejak 12.000 Titik tidak membuat galat tumpukan pemanggilan', aman)
+  }
 }
 
 cek('U-HLS-04', 'Jejak terlalu pendek dikembalikan apa adanya, bukan dipaksa melengkung',

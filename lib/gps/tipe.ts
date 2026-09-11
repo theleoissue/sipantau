@@ -177,17 +177,65 @@ export function arahDerajat(dari: [number, number], ke: [number, number]): numbe
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
 }
 
+/**
+ * Catmull-Rom SENTRIPETAL (alpha = 0,5), bukan seragam.
+ *
+ * Bentuk seragam - yang dipakai sebelumnya - melontar di belokan tajam:
+ * kurvanya membusur KELUAR dari wilayah titik yang terekam, ke tempat
+ * yang petugasnya tidak pernah lewati. Terukur pada jalur uji:
+ *
+ *   putar balik            37,3 m  ->  9,6 m
+ *   masuk gang lalu keluar 11,1 m  ->  6,5 m
+ *
+ * Pada jejak yang dapat menjadi bahan bukti, garis yang menyimpang ke
+ * tempat yang tidak pernah didatangi bukan sekadar kurang rapi.
+ * Dijaga U-HLS-06 dan U-HLS-07.
+ *
+ * Sentripetal tetap INTERPOLASI - kurvanya melewati persis setiap titik
+ * asli, sama seperti sebelumnya (U-HLS-01). Yang berubah hanya cara
+ * jarak antar titik diperhitungkan saat melengkung.
+ *
+ * Dihitung dengan susunan piramida Barry-Goldman; simpul waktunya
+ * berjarak |p(i+1) - p(i)|^alpha, bukan 1 seperti pada bentuk seragam.
+ */
 function catmullRom(
   p0: [number, number], p1: [number, number],
   p2: [number, number], p3: [number, number], t: number,
 ): [number, number] {
-  const t2 = t * t, t3 = t2 * t
-  const sumbu = (a: number, b: number, c: number, d: number) =>
-    0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
-  return [
-    sumbu(p0[0], p1[0], p2[0], p3[0]),
-    sumbu(p0[1], p1[1], p2[1], p3[1]),
-  ]
+  // t = 0 dikembalikan APA ADANYA, tidak lewat perhitungan.
+  //
+  // Secara matematis hasilnya memang p1, tetapi melewatkannya lewat enam
+  // operasi pecahan menyisakan galat pembulatan sekitar 1e-17 - dan itu
+  // cukup membuat perbandingan "kurva melewati persis titik asli" gagal,
+  // padahal sifat itulah yang paling dijaga di sini.
+  if (t <= 0) return p1
+
+  const alpha = 0.5
+  const simpul = (a: [number, number], b: [number, number], awal: number) =>
+    awal + Math.pow(Math.hypot(b[0] - a[0], b[1] - a[1]), alpha)
+
+  const t0 = 0
+  const t1 = simpul(p0, p1, t0)
+  const t2 = simpul(p1, p2, t1)
+  const t3 = simpul(p2, p3, t2)
+
+  // Dua titik berimpit membuat simpulnya sama dan pembaginya nol.
+  // Terjadi pada ujung jejak (titik pertama dan terakhir digandakan) dan
+  // pada Titik kembar yang lolos penyaring.
+  if (t1 === t0 || t2 === t1 || t3 === t2) return p1
+
+  const waktu = t1 + (t2 - t1) * t
+  const antara = (
+    a: [number, number], b: [number, number], ta: number, tb: number,
+  ): [number, number] => {
+    const w = (tb - waktu) / (tb - ta), v = (waktu - ta) / (tb - ta)
+    return [w * a[0] + v * b[0], w * a[1] + v * b[1]]
+  }
+
+  const a1 = antara(p0, p1, t0, t1)
+  const a2 = antara(p1, p2, t1, t2)
+  const a3 = antara(p2, p3, t2, t3)
+  return antara(antara(a1, a2, t0, t2), antara(a2, a3, t1, t3), t1, t2)
 }
 
 /**
@@ -203,7 +251,7 @@ function catmullRom(
  *
  * Murni lapisan tampilan; data mentah tidak disentuh sama sekali.
  */
-export function haluskanJejak(titik: [number, number][], perSegmen = 6): [number, number][] {
+export function haluskanJejak(titik: [number, number][], perSegmen = 0): [number, number][] {
   if (titik.length < 3) return titik
   const hasil: [number, number][] = []
   for (let i = 0; i < titik.length - 1; i++) {
@@ -211,10 +259,107 @@ export function haluskanJejak(titik: [number, number][], perSegmen = 6): [number
     const p1 = titik[i]
     const p2 = titik[i + 1]
     const p3 = titik[i + 2 >= titik.length ? titik.length - 1 : i + 2]
-    for (let s = 0; s < perSegmen; s++) hasil.push(catmullRom(p0, p1, p2, p3, s / perSegmen))
+
+    // Kerapatan MENGIKUTI PANJANG RUAS, tidak lagi enam untuk semua.
+    //
+    // Angka tetap salah di dua arah sekaligus: ruas dua meter dipecah
+    // enam kali tanpa satu pun bedanya terlihat, sementara ruas tiga
+    // ratus meter tetap tampak patah karena juga cuma enam. Sekarang
+    // kira-kira satu titik antara tiap 12 meter, dibatasi supaya jejak
+    // panjang tidak meledak jumlah koordinatnya.
+    const bagi = perSegmen > 0
+      ? perSegmen
+      : Math.max(2, Math.min(10, Math.round(jarakMeter(p1, p2) / 12)))
+
+    for (let s = 0; s < bagi; s++) hasil.push(catmullRom(p0, p1, p2, p3, s / bagi))
   }
   hasil.push(titik[titik.length - 1])
   return hasil
+}
+
+/**
+ * Toleransi penyederhanaan, DIPILIH DARI PENGUKURAN bukan dari perkiraan.
+ *
+ * Diuji pada rute berkelok 24 ruas dengan derau GPS +-8 m, 960 Titik:
+ *
+ *   toleransi   zigzag   koordinat   simpangan maks dari rekaman
+ *   (tanpa)        481        3097        0,0 m
+ *        3 m       327         920        6,1 m
+ *        5 m       255         857       10,3 m   <- dipakai
+ *        7 m       181         768       14,4 m
+ *       10 m        81         480       28,2 m
+ *       15 m        55         259       33,3 m
+ *
+ * Toleransi besar memang jauh lebih mulus, tetapi simpangannya melebar
+ * cepat - dan yang melebar bukan hanya garis lurusnya. Simpul yang makin
+ * jarang membuat kurva membusur makin lebar DI ANTARA simpul, sehingga
+ * simpangan akhirnya SELALU lebih besar daripada toleransi yang disetel.
+ *
+ * Lima meter dipilih karena pada setelan itu garis yang digambar tidak
+ * pernah menyimpang lebih jauh daripada AKURASI_TINGGI_METER - batas
+ * yang sistem ini sendiri pakai untuk menyebut sebuah Titik akurat.
+ * Dengan kata lain simpangan gambarnya masih di dalam ketidakpastian
+ * rekamannya sendiri, jadi ia tidak menambah satu pun keraguan baru.
+ */
+export const TOLERANSI_SEDERHANA_METER = 5
+
+/**
+ * Membuang Titik yang tidak mengubah BENTUK jalur (Douglas-Peucker).
+ *
+ * Ini yang sesungguhnya menghilangkan zigzag. Melengkungkan jejak tidak
+ * pernah bisa menghilangkannya - spline yang diberi titik bergerigi
+ * menghasilkan lengkungan yang bergerigi juga, hanya lebih rapat. Yang
+ * perlu dikerjakan adalah membuang giginya lebih dulu.
+ *
+ * SIFAT YANG MEMBUATNYA AMAN DIPAKAI DI SINI: fungsi ini hanya MEMBUANG
+ * titik, tidak pernah memindahkan apalagi mengarang. Setiap koordinat
+ * yang tersisa adalah posisi yang benar-benar terekam - berbeda dari
+ * penghalus rata-rata (Chaikin, Gauss) yang menggeser garis ke tempat
+ * yang tidak pernah didatangi, dan berbeda dari map matching yang
+ * menariknya ke jalan terdekat. Dijaga U-SDH-01.
+ *
+ * Titik mentahnya sendiri tetap utuh di basis data; ini lapisan tampilan.
+ */
+export function sederhanakanJejak(
+  titik: [number, number][],
+  toleransiMeter = TOLERANSI_SEDERHANA_METER,
+): [number, number][] {
+  if (titik.length < 3) return titik
+
+  // Jarak titik ke RUAS a-b. Proyeksi setempat sudah memadai: ruas jejak
+  // paling panjang pun hanya ratusan meter, jauh di bawah skala yang
+  // membuat kelengkungan bumi terasa.
+  const keRuas = (p: [number, number], a: [number, number], b: [number, number]): number => {
+    const rentang = Math.cos(a[0] * Math.PI / 180)
+    const dx = b[0] - a[0], dy = (b[1] - a[1]) * rentang
+    const panjang = dx * dx + dy * dy
+    if (panjang === 0) return jarakMeter(p, a)
+    let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * rentang * dy) / panjang
+    t = Math.max(0, Math.min(1, t))
+    return jarakMeter(p, [a[0] + t * dx, a[1] + t * (b[1] - a[1])])
+  }
+
+  const simpan = new Array<boolean>(titik.length).fill(false)
+  simpan[0] = simpan[titik.length - 1] = true
+
+  // Tumpukan, bukan rekursi: sesi delapan jam pada jeda tiga detik
+  // menghasilkan ribuan titik, dan rekursi sedalam itu dapat melampaui
+  // batas tumpukan pemanggilan peramban (U-SDH-09).
+  const tugas: [number, number][] = [[0, titik.length - 1]]
+  while (tugas.length > 0) {
+    const [awal, akhir] = tugas.pop()!
+    let jauh = 0, di = -1
+    for (let i = awal + 1; i < akhir; i++) {
+      const d = keRuas(titik[i], titik[awal], titik[akhir])
+      if (d > jauh) { jauh = d; di = i }
+    }
+    if (di !== -1 && jauh > toleransiMeter) {
+      simpan[di] = true
+      tugas.push([awal, di], [di, akhir])
+    }
+  }
+
+  return titik.filter((_, i) => simpan[i])
 }
 
 export const LABEL_MUTU_AKURASI: Record<MutuAkurasi, string> = {

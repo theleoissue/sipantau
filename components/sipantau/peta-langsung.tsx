@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
 import type { PosisiPeta } from '@/lib/gps/tipe'
-import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, mutuAkurasi, arahDerajat, haluskanJejak, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, mutuAkurasi, arahDerajat, haluskanJejak, sederhanakanJejak, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+
+// Disederhanakan DULU, baru dilengkungkan. Urutannya menentukan:
+// melengkungkan titik yang masih bergerigi hanya menghasilkan
+// lengkungan bergerigi yang lebih rapat, bukan jejak yang lebih mulus.
+const jejakGambar = (t: [number, number][]) => haluskanJejak(sederhanakanJejak(t))
 import { inisial } from '@/lib/utils'
 import { Ikon } from './ikon'
 
@@ -111,7 +116,7 @@ export function PetaLangsung({
       penanda.current.get(idSesi)?.setLatLng(ke)
       const garis = garisJejak.current.get(idSesi)
       const dasar = jejak.current.get(idSesi) ?? []
-      if (garis && dasar.length >= 1) garis.setLatLngs(haluskanJejak(dasar))
+      if (garis && dasar.length >= 1) garis.setLatLngs(jejakGambar(dasar))
       return
     }
 
@@ -127,7 +132,7 @@ export function PetaLangsung({
       const dasar = jejak.current.get(idSesi) ?? []
       // Dilengkungkan setiap frame supaya ujung yang sedang bergerak ikut
       // melengkung, bukan menempel sebagai satu ruas lurus di depan kurva.
-      if (garis && dasar.length >= 1) garis.setLatLngs(haluskanJejak([...dasar.slice(0, -1), [lat, lng]]))
+      if (garis && dasar.length >= 1) garis.setLatLngs(jejakGambar([...dasar.slice(0, -1), [lat, lng]]))
 
       if (t < 1) {
         animasiAktif.current.set(idSesi, requestAnimationFrame(frame))
@@ -424,7 +429,7 @@ export function PetaLangsung({
         // supaya ujung garis ikut bergeser halus bersama penandanya.
         const titikJejak = jejak.current.get(pos.sesi_tugas_id) ?? []
         if (!garisJejak.current.has(pos.sesi_tugas_id) && titikJejak.length >= 2) {
-          const garisBaru = L.polyline(haluskanJejak(titikJejak), { color: wSpt, weight: 3.5, opacity: .85 }).addTo(p)
+          const garisBaru = L.polyline(jejakGambar(titikJejak), { color: wSpt, weight: 3.5, opacity: .85 }).addTo(p)
           garisJejak.current.set(pos.sesi_tugas_id, garisBaru)
         }
 
