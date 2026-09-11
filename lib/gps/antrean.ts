@@ -61,6 +61,26 @@ export function antrekan(titik: TitikAntre): Promise<boolean> {
   return antrekanKe(penyimpanan, titik as unknown as TitikTersimpan)
 }
 
+/**
+ * Penolakan yang tidak akan pernah berubah sekeras apa pun diulang.
+ * Selain ini — jaringan, migrasi belum dijalankan, server bermasalah —
+ * Titik DIPERTAHANKAN. Daftar ini sengaja pendek dan tertutup: salah
+ * menebak ke arah "buang" berarti bukti lapangan hilang.
+ */
+const PENOLAKAN_PERMANEN = [
+  'SESI_TERTUTUP',
+  'SESI_TIDAK_DITEMUKAN',
+  'BUKAN_PEMEGANG',
+  'WAKTU_TIDAK_MASUK_AKAL',
+  'BENTUK_TIDAK_SAH',
+  'TERLALU_BANYAK',
+  'Sesi Tugas ini sudah berakhir',
+]
+
+function permanen(pesan: string): boolean {
+  return PENOLAKAN_PERMANEN.some(k => pesan.includes(k))
+}
+
 let sedangMengalir = false
 
 /** Mengosongkan antrean sejauh yang jaringan izinkan. Aman dipanggil bertindihan. */
@@ -68,15 +88,16 @@ export async function kirimAntrean(): Promise<HasilKirimAntrean> {
   if (sedangMengalir) return { terkirim: 0, tersisa: await jumlahTertunda() }
   sedangMengalir = true
   try {
-    return await kirimAntreanDari(penyimpanan, (kelompok, usia) =>
+    return await kirimAntreanDari(penyimpanan, async (kelompok, usia) => {
       // ditangkapPada tidak ikut dikirim: server menerima UMUR, bukan
       // waktu perangkat — lihat TitikMasuk.usiaMs.
-      kirimTitikBorongan(kelompok.map((titik, i) => {
+      const hasil = await kirimTitikBorongan(kelompok.map((titik, i) => {
         const sisa = { ...(titik as unknown as TitikAntre) } as Partial<TitikAntre>
         delete sisa.ditangkapPada
         return { ...(sisa as Omit<TitikAntre, 'ditangkapPada'>), usiaMs: usia[i] }
-      })),
-    )
+      }))
+      return { galat: hasil.galat, tolakPermanen: hasil.galat ? permanen(hasil.galat) : false }
+    })
   } finally {
     sedangMengalir = false
   }

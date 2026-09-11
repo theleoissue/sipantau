@@ -68,10 +68,26 @@ const titik = (id, ditangkapPada = 1_000) => ({ antreanId: id, ditangkapPada })
 {
   const simpan = penyimpanan([titik('a'), titik('b')])
   const hasil = await kirimAntreanDari(simpan, async k =>
-    k.some(t => t.antreanId === 'a') ? { galat: 'SESI_TERTUTUP' } : {}, Date.now, 1)
-  cek('U-ANT-09', 'Titik yang DITOLAK server dibuang, tidak menyumbat antrean',
+    k.some(t => t.antreanId === 'a')
+      ? { galat: 'SESI_TERTUTUP', tolakPermanen: true }
+      : {}, Date.now, 1)
+  cek('U-ANT-09', 'Titik yang ditolak PERMANEN dibuang, tidak menyumbat antrean',
     simpan.lihat().map(t => t.antreanId).join('') === 'b')
   cek('U-ANT-10', 'Galat penolakan diteruskan apa adanya', hasil.galat === 'SESI_TERTUTUP')
+}
+
+// Kegagalan yang BUKAN penolakan permanen tidak boleh membuang apa pun.
+// Bentuk sebelumnya menghapus kelompoknya lebih dulu lalu baru memeriksa
+// galat — satu migrasi yang belum dijalankan cukup untuk melenyapkan
+// seluruh rekaman lapangan tanpa suara.
+{
+  const simpan = penyimpanan([titik('a'), titik('b')])
+  const hasil = await kirimAntreanDari(simpan, async () =>
+    ({ galat: 'function kirim_titik_borongan does not exist' }), Date.now, 1)
+  cek('U-ANT-16', 'Galat server yang tidak dikenal TIDAK membuang Titik',
+    simpan.lihat().map(t => t.antreanId).join('') === 'ab')
+  cek('U-ANT-17', 'Sisa dilaporkan utuh saat galat tidak dikenal',
+    hasil.terkirim === 0 && hasil.tersisa === 2)
 }
 
 // ---------------------------------------------------------------------

@@ -22,10 +22,27 @@ export interface Penyimpanan {
  *
  * `usia` sejajar indeks dengan `kelompok`.
  */
+export interface HasilPengiriman {
+  galat?: string
+  /**
+   * Penolakan ini berlaku SELAMANYA untuk Titik itu sendiri — misalnya
+   * sesinya sudah ditutup, atau waktunya di luar rentang sesi.
+   * Mengulanginya tidak akan pernah berhasil, jadi Titik dibuang supaya
+   * tidak menyumbat antrean di belakangnya.
+   *
+   * Bila TIDAK diisi, kegagalan dianggap keadaan sementara — jaringan,
+   * migrasi yang belum dijalankan, server sedang bermasalah — dan
+   * Titiknya DIPERTAHANKAN. Ini bawaan yang disengaja: menebak salah ke
+   * arah "buang" berarti kehilangan bukti lapangan, menebak salah ke
+   * arah "simpan" paling banter menunda.
+   */
+  tolakPermanen?: boolean
+}
+
 export type Pengirim = (
   kelompok: TitikTersimpan[],
   usia: number[],
-) => Promise<{ galat?: string }>
+) => Promise<HasilPengiriman>
 
 export interface HasilKirimAntrean {
   terkirim: number
@@ -91,11 +108,19 @@ export async function kirimAntreanDari(
 
     const kelompok = daftar.slice(0, Math.max(1, besarKelompok))
     const kini = sekarang()
-    let hasil: { galat?: string }
+    let hasil: HasilPengiriman
     try {
       hasil = await kirim(kelompok, kelompok.map(t => Math.max(0, kini - t.ditangkapPada)))
     } catch {
       return { terkirim, tersisa: daftar.length, galat: 'jaringan' }
+    }
+
+    // Kegagalan yang BUKAN penolakan permanen tidak membuang apa pun.
+    // Bentuk sebelumnya menghapus kelompoknya lebih dulu lalu baru
+    // memeriksa galat, sehingga satu migrasi yang belum dijalankan pun
+    // cukup untuk melenyapkan seluruh rekaman lapangan tanpa suara.
+    if (hasil.galat && !hasil.tolakPermanen) {
+      return { terkirim, tersisa: daftar.length, galat: hasil.galat }
     }
 
     // Dibaca ULANG, bukan memakai `daftar` yang sudah basi: Titik baru
