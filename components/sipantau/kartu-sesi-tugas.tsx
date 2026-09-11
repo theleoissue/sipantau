@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { BackgroundGeolocation } from '@capgo/background-geolocation'
 import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
 import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
+import { hentikanPelacakNative, mulaiPelacakNative, statusPelacakNative } from '@/lib/gps/pelacak-native'
 import { bateraiPersen } from '@/lib/gps/baterai'
 import { periksaKesehatanPelacak, bukaPengaturanBaterai, bukaPengaturanAutostart, panduanAutostart, abaikanPeringatanBaterai, peringatanBateraiDiabaikan, type KesehatanPelacak } from '@/lib/gps/kesehatan-pelacak'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
@@ -131,10 +132,26 @@ export function KartuSesiTugas({
   const [galatKirim, setGalatKirim] = useState<string | null>(null)
   const idPengawas = useRef<number | null>(null)
   const sedangMengirim = useRef(false)
+  // Bila layanan native hidup, DIALAH satu-satunya yang merekam dan
+  // mengirim. Sisi JS berhenti total — dua jalur yang merekam
+  // bersamaan persis yang dulu memaksa adanya penjaga ganda berbasis
+  // jendela waktu, dan penjaga itu membuang Titik diam-diam begitu
+  // kerapatan perekaman berubah.
+  const layananNativeHidup = useRef(false)
   const terakhirKirim = useRef(0)
 
   /** Mengosongkan antrean sejauh yang jaringan izinkan, lalu melaporkan apa adanya. */
   const alirkan = useCallback(async () => {
+    // Layanan native punya antrean dan pengunggahnya SENDIRI, di luar
+    // WebView. Yang bisa dilakukan halaman hanyalah menanyakan sisanya —
+    // memanggil kirimAntrean() di sini akan melaporkan antrean JS yang
+    // memang kosong, dan angka nol itu menutupi Titik yang sesungguhnya
+    // masih tertahan di perangkat.
+    if (layananNativeHidup.current) {
+      const s = await statusPelacakNative()
+      if (s && s.tertahan >= 0) setTertunda(s.tertahan)
+      return
+    }
     const hasil = await kirimAntrean()
     setTertunda(hasil.tersisa)
     if (hasil.terkirim > 0) setJumlahTerkirim(n => n + hasil.terkirim)
@@ -258,6 +275,27 @@ export function KartuSesiTugas({
         const r = await terbitkanTokenNative(sesi!.id, penanda)
         if (batal) return
         if (r.token) {
+          // JALUR UTAMA: layanan latar depan milik sendiri.
+          //
+          // Ia merekam ke antrean SQLite di perangkat dan menyetorkannya
+          // sendiri, seluruhnya di luar WebView. Itu yang menutup cacat
+          // yang tidak bisa ditambal dari sisi JS: saat jaringan hilang,
+          // WebView menampilkan halaman galat bawaan peramban dan sejak
+          // itu tidak ada satu baris JavaScript pun yang berjalan —
+          // penangkapan berhenti dan antrean tidak bisa dikuras.
+          const nyala = await mulaiPelacakNative({ token: r.token, sesiId: sesi!.id })
+          if (batal) return
+          if (nyala?.berjalan) {
+            layananNativeHidup.current = true
+            setTertunda(nyala.tertahan >= 0 ? nyala.tertahan : 0)
+            // Pustaka TIDAK dinyalakan sama sekali. Membiarkannya jalan
+            // berdampingan berarti dua perekam pada satu sesi.
+            return
+          }
+          // Sampai di sini berarti layanan tidak hidup — APK lama yang
+          // belum memuat pluginnya, atau Android menolak menyalakan
+          // layanan latar depan. Perekaman TIDAK boleh ikut berhenti;
+          // jalur pustaka di bawah dipakai apa adanya seperti semula.
           opsiKirim = {
             url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/titik-native`,
             headers: {
@@ -367,7 +405,14 @@ export function KartuSesiTugas({
 
     nyalakanPengawas()
 
-    return () => { batal = true; BackgroundGeolocation.stop() }
+    return () => {
+      batal = true
+      // Layanan native TIDAK dihentikan di sini. Efek ini dibongkar
+      // setiap kali halaman ditinggalkan, sedangkan Sesi Tugas
+      // berakhir hanya ketika petugas menutupnya — menghentikannya di
+      // sini berarti perekaman mati begitu layar berpindah.
+      if (!layananNativeHidup.current) BackgroundGeolocation.stop()
+    }
     // sesi.id, BUKAN objek sesi: objek itu berganti identitas tiap kali
     // data sesi disegarkan (jumlah_titik bertambah), dan setiap
     // pergantian menjalankan ulang efek ini — artinya stop() lalu
@@ -699,6 +744,11 @@ export function KartuSesiTugas({
                   // tetapi mengirimnya selagi sesi masih terbuka membuat
                   // posisi_terkini ikut terisi benar sampai detik terakhir.
                   await alirkan()
+                  // Layanan native dihentikan SEBELUM sesi ditutup: ia
+                  // menyimpan pengaturannya sendiri dan dihidupkan ulang
+                  // sistem bila hanya prosesnya yang dimatikan.
+                  await hentikanPelacakNative()
+                  layananNativeHidup.current = false
                   const r = await selesaiTugas(sesi.id)
                   if (r.galat) { setGalat(r.galat); setTanya(false) }
                 })}

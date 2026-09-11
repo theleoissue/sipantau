@@ -297,6 +297,117 @@ cek('U-TN-25', 'Umur negatif tidak menghasilkan waktu Titik di masa depan',
   await n(`select count(*) n from public.location_logs
             where antrean_id=$1 and direkam_pada <= now()`, [ANTREAN_MINUS]) === 1)
 
+// =====================================================================
+// Kelompok Titik dari antrean perangkat (migrasi 0060)
+//
+// Jalur yang dipakai PelacakService: ia merekam ke SQLite di perangkat
+// lalu menyetorkannya berkelompok. Yang dikejar di sini bukan sekadar
+// "bisa masuk", melainkan tiga janji yang kalau meleset gagalnya SENYAP:
+// kredensialnya tidak lebih longgar daripada jalur satuan, umur benar-
+// benar dipakai sebagai waktu tangkap, dan kelompok yang ditolak tidak
+// menyisakan separuh baris.
+// =====================================================================
+
+const BOR = id => `bb000000-0000-0000-0000-00000000000${id}`
+
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+  [tokenBaru, JSON.stringify([
+    { antrean_id: BOR(1), lat: -6.93, lng: 107.63, akurasi_meter: 8, kecepatan_mps: 1.2,
+      arah_derajat: 45, baterai_persen: 55, lokasi_tiruan: false, usia_ms: 9000 },
+    { antrean_id: BOR(2), lat: -6.9301, lng: 107.6301, akurasi_meter: 9, kecepatan_mps: 1.3,
+      arah_derajat: 46, baterai_persen: 55, lokasi_tiruan: false, usia_ms: 6000 },
+    { antrean_id: BOR(3), lat: -6.9302, lng: 107.6302, akurasi_meter: 9, kecepatan_mps: 1.3,
+      arah_derajat: 47, baterai_persen: 54, lokasi_tiruan: false, usia_ms: 3000 },
+  ])]))
+
+cek('U-TN-26', 'Satu permintaan menyimpan seluruh Titik dalam kelompok',
+  await n(`select count(*) n from public.location_logs where antrean_id in ($1,$2,$3)`,
+    [BOR(1), BOR(2), BOR(3)]) === 3)
+
+// Inilah sebab jalur native dibangun ulang. Penjaga 0040 berbasis jendela
+// 10 detik akan membuang dua dari tiga Titik di atas — diam-diam.
+cek('U-TN-27', 'Titik berjarak 3 detik TIDAK dibuang penjaga jendela waktu',
+  await n(`select count(*) n from public.location_logs where antrean_id=$1`, [BOR(3)]) === 1)
+
+cek('U-TN-28', 'Umur dipakai sebagai waktu tangkap, bukan waktu tiba',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and direkam_pada < now() - interval '8 seconds'`,
+    [BOR(1)]) === 1)
+
+cek('U-TN-29', 'Urutan waktu kelompok terjaga: yang tertua di antrean tercatat paling awal',
+  await n(`select count(*) n from public.location_logs a, public.location_logs b
+            where a.antrean_id=$1 and b.antrean_id=$2 and a.direkam_pada < b.direkam_pada`,
+    [BOR(1), BOR(3)]) === 1)
+
+cek('U-TN-30', 'Baterai dari jalur native tercatat',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and baterai_persen = 55`, [BOR(1)]) === 1)
+
+cek('U-TN-31', 'Penanda perangkat diambil dari token, bukan dari badan permintaan',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and penanda_perangkat='android-uji-1'`, [BOR(1)]) === 1)
+
+// Kiriman ulang sesudah jaringan putus di tengah — antrean perangkat
+// menahan kelompok yang sama dan mengirimnya lagi apa adanya.
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+  [tokenBaru, JSON.stringify([
+    { antrean_id: BOR(1), lat: -6.93, lng: 107.63, akurasi_meter: 8, usia_ms: 20000 },
+  ])]))
+cek('U-TN-32', 'Kiriman ulang dengan antrean_id sama tidak menggandakan baris',
+  await n(`select count(*) n from public.location_logs where antrean_id=$1`, [BOR(1)]) === 1)
+
+{
+  const e = await galat(() => sebagaiService(() => db.query(
+    `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+    ['token-palsu-yang-tidak-pernah-diterbitkan', JSON.stringify([
+      { antrean_id: BOR(8), lat: -6.94, lng: 107.64, usia_ms: 0 },
+    ])])))
+  cek('U-TN-33', 'Token palsu ditolak sama kerasnya dengan jalur satuan',
+    e !== null && e.includes('TOKEN_TIDAK_SAH')
+    && await n(`select count(*) n from public.location_logs where antrean_id=$1`, [BOR(8)]) === 0)
+}
+
+{
+  const e = await galat(() => sebagaiService(() => db.query(
+    `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+    [tokenBaru, JSON.stringify({ lat: -6.94, lng: 107.64 })])))
+  cek('U-TN-34', 'Badan yang bukan larik ditolak', e !== null && e.includes('BENTUK_TIDAK_SAH'))
+}
+
+{
+  const banyak = Array.from({ length: 201 }, (_, i) => ({
+    lat: -6.94, lng: 107.64, usia_ms: i * 10,
+  }))
+  const e = await galat(() => sebagaiService(() => db.query(
+    `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+    [tokenBaru, JSON.stringify(banyak)])))
+  cek('U-TN-35', 'Kelompok di atas 200 Titik ditolak', e !== null && e.includes('TERLALU_BANYAK'))
+}
+
+// SATU TRANSAKSI. Butir kedua mustahil disimpan; yang pertama wajib ikut
+// batal, supaya antrean di perangkat dapat mengirim ulang seluruh
+// kelompok tanpa menghasilkan baris kembar sebagian.
+{
+  await galat(() => sebagaiService(() => db.query(
+    `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+    [tokenBaru, JSON.stringify([
+      { antrean_id: BOR(6), lat: -6.95, lng: 107.65, usia_ms: 1000 },
+      // Umurnya melampaui pembukaan sesi — fn_catat_titik menolaknya
+      // sebagai WAKTU_TIDAK_MASUK_AKAL.
+      { antrean_id: BOR(7), lat: -6.95, lng: 107.65, usia_ms: 999999999 },
+    ])])))
+  cek('U-TN-36', 'Satu butir ditolak: seluruh kelompok batal, tidak ada yang tersimpan separuh',
+    await n(`select count(*) n from public.location_logs where antrean_id in ($1,$2)`,
+      [BOR(6), BOR(7)]) === 0)
+}
+
+cek('U-TN-37', 'Jalur borongan tidak pernah terbuka untuk peran authenticated',
+  await n(`select count(*) n from pg_proc p join pg_namespace s on s.oid=p.pronamespace
+            where s.nspname='public' and p.proname='kirim_titik_native_borongan'
+              and has_function_privilege('authenticated', p.oid, 'execute')`) === 0)
+
 // Sesi ditutup = token mati dengan sendirinya, tanpa perlu dihapus.
 await sebagai(ID.anggota1, () =>
   db.query(`select public.selesaikan_sesi_tugas($1)`, [idSesi]))

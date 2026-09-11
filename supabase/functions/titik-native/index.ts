@@ -45,6 +45,24 @@ interface BadanLokasi {
   simulated?: unknown
 }
 
+/** Bentuk baru: sekelompok Titik dari antrean perangkat (migrasi 0060). */
+interface BadanBorongan {
+  titik?: unknown
+}
+
+/** Satu butir di dalam kelompok. Namanya mengikuti kolom, bukan pustaka. */
+interface ButirTitik {
+  antrean_id?: unknown
+  lat?: unknown
+  lng?: unknown
+  akurasi_meter?: unknown
+  kecepatan_mps?: unknown
+  arah_derajat?: unknown
+  baterai_persen?: unknown
+  lokasi_tiruan?: unknown
+  usia_ms?: unknown
+}
+
 /** Angka yang benar-benar angka. Pustaka mengirim null untuk medan yang
  *  tidak tersedia pada perangkat tertentu (kecepatan dan arah sering
  *  kosong saat diam), dan itu sah — dibedakan dari nilai rusak. */
@@ -64,11 +82,52 @@ Deno.serve(async (req: Request) => {
     return jsonRespons({ kode: 'TOKEN_TIDAK_SAH', keterangan: 'Kepala x-sipantau-token tidak ada' }, 401)
   }
 
-  let badan: BadanLokasi
+  let badan: BadanLokasi & BadanBorongan
   try {
     badan = await req.json()
   } catch {
     return jsonRespons({ kode: 'MASUKAN_TIDAK_LENGKAP', keterangan: 'Badan permintaan bukan JSON' }, 400)
+  }
+
+  const svc = klienService()
+
+  // DUA BENTUK BADAN, dan keduanya wajib tetap dilayani.
+  //
+  // Bentuk kelompok dipakai layanan latar depan milik sendiri: ia
+  // merekam ke antrean SQLite di perangkat lalu menyetorkannya
+  // berkelompok. Bentuk tunggal adalah badan mentah pustaka
+  // @capgo/background-geolocation, dan APK yang sudah di lapangan masih
+  // mengirimnya. Membuang bentuk lama berarti setiap HP yang belum
+  // diperbarui berhenti mengirim Titik tanpa satu pun galat terlihat.
+  if (Array.isArray(badan.titik)) {
+    const daftar = badan.titik as ButirTitik[]
+    if (daftar.length === 0) return jsonRespons({ berhasil: true, jumlah: 0 })
+
+    // Hanya bentuknya yang diperiksa di sini. Seluruh putusan lain —
+    // token sah, sesi masih terbuka, Titik wajar — milik basis data.
+    for (const t of daftar) {
+      if (angkaAtauNull(t.lat) === null || angkaAtauNull(t.lng) === null) {
+        return jsonRespons({ kode: 'MASUKAN_TIDAK_LENGKAP', keterangan: 'setiap Titik wajib punya lat dan lng berupa angka' }, 400)
+      }
+    }
+
+    const { data, error } = await svc.rpc('kirim_titik_native_borongan', {
+      p_token: token,
+      p_titik: daftar.map((t) => ({
+        antrean_id: typeof t.antrean_id === 'string' ? t.antrean_id : null,
+        lat: angkaAtauNull(t.lat),
+        lng: angkaAtauNull(t.lng),
+        akurasi_meter: angkaAtauNull(t.akurasi_meter),
+        kecepatan_mps: angkaAtauNull(t.kecepatan_mps),
+        arah_derajat: angkaAtauNull(t.arah_derajat),
+        baterai_persen: angkaAtauNull(t.baterai_persen),
+        lokasi_tiruan: t.lokasi_tiruan === true,
+        usia_ms: angkaAtauNull(t.usia_ms),
+      })),
+    })
+
+    if (error) return galatKeRespons(error.message)
+    return jsonRespons({ berhasil: true, jumlah: data ?? daftar.length })
   }
 
   // Koordinat wajib ada dan berupa angka. Sisanya boleh kosong.
@@ -83,7 +142,6 @@ Deno.serve(async (req: Request) => {
   // sudah ditutup, Titik wajar atau diragukan. TIDAK ada satu pun yang
   // diputuskan di sini — Fungsi Tepi tidak boleh jadi tempat memindahkan
   // logika yang seharusnya ditegakkan basis data (CLAUDE.md §8).
-  const svc = klienService()
   const { error } = await svc.rpc('kirim_titik_native', {
     p_token: token,
     p_lat: lat,

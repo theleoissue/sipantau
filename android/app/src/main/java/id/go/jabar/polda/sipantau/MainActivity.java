@@ -26,6 +26,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(CameraPlugin.class);
     registerPlugin(DokumenScannerPlugin.class);
     registerPlugin(KesehatanPelacakPlugin.class);
+    registerPlugin(PelacakPlugin.class);
     super.onCreate(savedInstanceState);
     mintaIzinKameraAwal();
   }

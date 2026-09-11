@@ -74,6 +74,8 @@ Sekali pemasangan ulang ini tetap tidak terhindarkan — APK yang sekarang
 ada di lapangan menunjuk ke alamat lama. Yang dibeli oleh domain sendiri
 adalah pemasangan ulang **berikutnya**, bukan yang ini.
 
+| menyusul | **PelacakService** — layanan latar depan perekam posisi milik sendiri (FusedLocationProvider + antrean SQLite + pengunggah dengan percobaan ulang), beserta `PelacakPlugin`, izin lokasi/layanan latar depan di manifest, dan `play-services-location` | Perekaman masih sepenuhnya di dalam WebView. Akibatnya nyata dan sudah terlihat di lapangan: begitu jaringan hilang, WebView menampilkan halaman galat bawaan peramban dan **tidak ada satu baris JavaScript pun yang berjalan** — penangkapan Titik berhenti dan antrean tidak bisa dikuras. Halaman akan memakai jalur pustaka lama sampai APK-nya dibangun ulang |
+
 ## Cara membangun
 
 Tab **Actions** di GitHub → alur **Bangun APK Android** → **Run workflow**.
