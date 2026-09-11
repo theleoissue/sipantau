@@ -270,6 +270,39 @@ export function KartuSesiTugas({
       // itu dijaga hidup sistem (START_STICKY) dan tetap mengirim Titik
       // walau proses aplikasi sudah tidak ada lagi.
       let opsiKirim: { url?: string; headers?: Record<string, string> } = {}
+
+      // PERIKSA LAYANAN DULU, SEBELUM menerbitkan token apa pun.
+      //
+      // Penerbitan ulang MEMATIKAN token sebelumnya seketika (U-TN-15).
+      // Efek ini dijalankan ulang setiap kali halaman dimuat ulang,
+      // sedangkan layanan native berumur jauh lebih panjang daripada
+      // halaman — ia memang dirancang hidup terus walau WebView mati.
+      //
+      // Tanpa pemeriksaan ini, memuat ulang halaman akan mencabut token
+      // yang sedang dipakai layanan. Kalau penyalaan ulangnya lalu gagal
+      // (Android 12 ke atas menolak layanan latar depan yang dinyalakan
+      // dari latar belakang), layanan tetap hidup memegang token mati:
+      // setiap kelompok dijawab TOKEN_TIDAK_SAH, yang ada di daftar
+      // penolakan permanen — dan seluruh antreannya DIBUANG. Persis
+      // bentuk kehilangan data yang layanan ini dibangun untuk menutup.
+      const sudahJalan = await statusPelacakNative()
+      if (batal) return
+      if (sudahJalan?.berjalan && sudahJalan.sesi === sesi!.id) {
+        // Sudah merekam sesi ini dengan token yang masih hidup. Tidak ada
+        // yang perlu disentuh.
+        layananNativeHidup.current = true
+        setTertunda(sudahJalan.tertahan >= 0 ? sudahJalan.tertahan : 0)
+        return
+      }
+      if (sudahJalan?.berjalan) {
+        // Masih merekam sesi LAIN — sesi sebelumnya yang tertutup selagi
+        // aplikasi mati, jadi berhenti() tidak pernah terpanggil.
+        // Dihentikan dulu; kalau tidak, ia terus mengirim untuk sesi yang
+        // sudah tertutup dan seluruh antreannya terbuang.
+        await hentikanPelacakNative()
+        if (batal) return
+      }
+
       try {
         const penanda = await penandaPerangkatNative()
         const r = await terbitkanTokenNative(sesi!.id, penanda)

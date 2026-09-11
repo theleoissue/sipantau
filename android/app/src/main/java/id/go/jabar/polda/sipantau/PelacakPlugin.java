@@ -56,6 +56,11 @@ public class PelacakPlugin extends Plugin {
   private JSObject keadaan() {
     JSObject hasil = new JSObject();
     hasil.put("berjalan", PelacakService.sedangJalan(getContext()));
+    // Sesi mana yang sedang direkam WAJIB ikut dilaporkan. Tanpa itu
+    // halaman tidak bisa membedakan "layanan sudah merekam sesi ini"
+    // dari "layanan masih merekam sesi kemarin yang belum sempat
+    // dihentikan", dan keduanya menuntut tindakan yang berlawanan.
+    hasil.put("sesi", PelacakService.sesiBerjalan(getContext()));
     int tertahan;
     try {
       tertahan = new AntreanTitikDb(getContext()).jumlah();

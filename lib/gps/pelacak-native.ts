@@ -16,6 +16,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 
 export interface StatusPelacak {
   berjalan: boolean
+  /** Sesi Tugas yang sedang direkam layanan, null bila tidak ada. */
+  sesi?: string | null
   /** Titik yang masih tertahan di antrean perangkat; -1 bila tak terbaca. */
   tertahan: number
 }

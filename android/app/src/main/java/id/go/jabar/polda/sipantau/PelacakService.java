@@ -407,6 +407,12 @@ public class PelacakService extends Service {
     konteks.stopService(new Intent(konteks, PelacakService.class));
   }
 
+  /** Sesi Tugas yang sedang direkam, atau null bila tidak ada. */
+  public static String sesiBerjalan(Context konteks) {
+    SharedPreferences p = konteks.getSharedPreferences(PREF, Context.MODE_PRIVATE);
+    return p.getBoolean(K_JALAN, false) ? p.getString(K_SESI, null) : null;
+  }
+
   public static boolean sedangJalan(Context konteks) {
     return konteks.getSharedPreferences(PREF, Context.MODE_PRIVATE)
       .getBoolean(K_JALAN, false);
