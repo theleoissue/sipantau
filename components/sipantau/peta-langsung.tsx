@@ -734,7 +734,7 @@ export function PetaLangsung({
               <button type="button" onClick={() => peta.current?.zoomIn()} aria-label="Perbesar peta" title="Perbesar">+</button>
               <button type="button" onClick={() => peta.current?.zoomOut()} aria-label="Perkecil peta" title="Perkecil">−</button>
             </div>
-            <button type="button" className={`peta-jejak-kontrol ${tampilkanJejak ? 'on' : ''}`} aria-pressed={tampilkanJejak} onClick={() => setTampilkanJejak(v => !v)} aria-label={tampilkanJejak ? 'Sembunyikan jejak perjalanan' : 'Tampilkan jejak perjalanan'} title={tampilkanJejak ? 'Sembunyikan jejak' : 'Tampilkan jejak'}><Ikon nama="riwayat" /></button>
+            <button type="button" className={`peta-jejak-kontrol ${tampilkanJejak ? 'on' : ''}`} aria-pressed={tampilkanJejak} onClick={e => setTampilkanJejak(e.currentTarget.getAttribute('aria-pressed') !== 'true')} aria-label={tampilkanJejak ? 'Sembunyikan jejak perjalanan' : 'Tampilkan jejak perjalanan'} title={tampilkanJejak ? 'Sembunyikan jejak' : 'Tampilkan jejak'}><Ikon nama="riwayat" /></button>
             <button type="button" onClick={lihatSemua} aria-label="Tampilkan semua petugas dan lokasi" title="Lihat semua"><Ikon nama="peta" /></button>
             <button type="button" className={petaMaksimal ? 'on' : ''} onClick={() => setPetaMaksimal(v => !v)} aria-label={petaMaksimal ? 'Keluar dari layar penuh' : 'Buka peta layar penuh'} title={petaMaksimal ? 'Tutup layar penuh' : 'Layar penuh'}><Ikon nama={petaMaksimal ? 'perkecil_layar' : 'perbesar_layar'} /></button>
           </div>

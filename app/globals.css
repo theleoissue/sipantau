@@ -1448,7 +1448,8 @@ button.peta-orang{width:100%;text-align:left}
 
 /* Kontrol Peta Lapangan — cukup besar untuk disentuh dan tidak bergantung
    pada kontrol kecil bawaan Leaflet. */
-.peta-jejak-kontrol.on{border-color:var(--primary)!important;background:var(--primary)!important;color:#fff!important}
+.peta-jejak-kontrol[aria-pressed="false"]{border-color:rgba(148,163,184,.55)!important;background:var(--card)!important;color:var(--ink)!important}
+.peta-jejak-kontrol[aria-pressed="true"]{border-color:var(--primary)!important;background:var(--primary)!important;color:#fff!important}
 .peta-kontrol{position:absolute;z-index:600;top:14px;left:14px;display:grid;gap:8px}
 .peta-kontrol>button,.peta-kontrol-zoom button{display:grid;place-items:center;width:46px;height:46px;border:1px solid rgba(148,163,184,.55);background:var(--card);color:var(--ink);box-shadow:0 4px 14px rgba(15,28,50,.16);font-size:25px;font-weight:500;line-height:1;transition:background var(--t),color var(--t),transform var(--t)}
 .peta-kontrol>button{border-radius:12px}.peta-kontrol>button.on{background:var(--primary);color:#fff}.peta-kontrol button:active{transform:scale(.94)}
