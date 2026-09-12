@@ -88,10 +88,34 @@ public class PelacakService extends Service {
   private static final String K_JALAN = "jalan";
 
   /**
-   * Kerapatan perekaman. Keputusan pemilik produk 11 September 2026:
-   * serapat mungkin, tanpa interval adaptif.
+   * Kerapatan perekaman.
+   *
+   * Keputusan pemilik produk 11 September 2026 adalah "serapat mungkin,
+   * tanpa interval adaptif". DIBALIK atas permintaan eksplisit pemilik
+   * produk 12 September 2026, dan sebabnya berubah nyata: pada 11
+   * September belum ada cara mengetahui petugas sedang diam selain dari
+   * perpindahan koordinat — yaitu justru angka yang sedang meleset. Kini
+   * sensor gerak perangkat menjawabnya tanpa GPS, sehingga penjarangan
+   * tidak lagi berarti menebak.
+   *
+   * Yang dikejar bukan kerapatan demi kerapatan, melainkan bukti yang
+   * utuh sampai sesi berakhir. Merekam tiap tiga detik pada akurasi
+   * tertinggi selama delapan jam menghabiskan baterai, dan baterai habis
+   * berarti perekaman berhenti sama sekali — kegagalan terparah yang
+   * mungkin, dan satu-satunya yang tidak bisa ditambal belakangan.
+   *
+   * Saat diam, Titik yang rapat juga tidak menambah keterangan apa pun:
+   * isinya sebaran derau di sekitar satu tempat yang sama.
+   *
+   * Diam 15 detik, bukan 30. Keadaan gerak diperbarui tiap 20 detik,
+   * jadi jeda 30 detik membuat awal sebuah perjalanan bisa terekam kasar
+   * sampai hampir satu menit. Lima belas detik sudah memangkas lima per
+   * enam pembacaan saat diam, dengan keterlambatan yang jauh lebih aman.
    */
   private static final long JEDA_REKAM_MS = 3_000L;
+  private static final long JEDA_DIAM_MS = 15_000L;
+  private static final long JEDA_JALAN_MS = 5_000L;
+  private static final long JEDA_KENDARA_MS = 3_000L;
   private static final long JEDA_KIRIM_MS = 30_000L;
 
   /**
@@ -129,6 +153,7 @@ public class PelacakService extends Service {
   private PendingIntent tujuanAktivitas;
   private BroadcastReceiver penerimaAktivitas;
   private volatile String aktivitasSensor = null;
+  private volatile long jedaBerlaku = JEDA_REKAM_MS;
   private LocationCallback penerima;
   private AntreanTitikDb antrean;
   private HandlerThread utas;
@@ -216,16 +241,7 @@ public class PelacakService extends Service {
   private void mulaiMerekam() {
     if (penerima != null) return;
 
-    LocationRequest permintaan = new LocationRequest.Builder(
-        Priority.PRIORITY_HIGH_ACCURACY, JEDA_REKAM_MS)
-      .setMinUpdateIntervalMillis(JEDA_REKAM_MS)
-      // Menunggu kunci akurat menahan Titik pertama sampai puluhan detik.
-      // Titik kasar yang datang cepat lebih berguna: mutunya sudah
-      // dinilai basis data lewat akurasi_meter, bukan dibuang di sini.
-      .setWaitForAccurateLocation(false)
-      .setMinUpdateDistanceMeters(0f)
-      .build();
-
+    LocationRequest permintaan = permintaanLokasi(jedaBerlaku);
     penerima = new LocationCallback() {
       @Override
       public void onLocationResult(LocationResult hasil) {
@@ -240,6 +256,44 @@ public class PelacakService extends Service {
       penyedia.requestLocationUpdates(permintaan, penerima, utas.getLooper());
     } catch (SecurityException e) {
       Log.e(TAG, "izin lokasi belum diberikan", e);
+      stopSelf();
+    }
+  }
+
+  private static LocationRequest permintaanLokasi(long jeda) {
+    return new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, jeda)
+      .setMinUpdateIntervalMillis(jeda)
+      // Menunggu kunci akurat menahan Titik pertama sampai puluhan detik.
+      // Titik kasar yang datang cepat lebih berguna: mutunya sudah
+      // dinilai basis data lewat akurasi_meter, bukan dibuang di sini.
+      .setWaitForAccurateLocation(false)
+      .setMinUpdateDistanceMeters(0f)
+      .build();
+  }
+
+  private static long jedaUntuk(String aktivitas) {
+    if ("diam".equals(aktivitas)) return JEDA_DIAM_MS;
+    if ("berjalan".equals(aktivitas)) return JEDA_JALAN_MS;
+    if ("berkendara".equals(aktivitas)) return JEDA_KENDARA_MS;
+    // Sensor belum menjawab: rapat seperti sebelum fitur ini ada.
+    // Ketidaktahuan tidak boleh menjadi alasan merekam lebih jarang.
+    return JEDA_REKAM_MS;
+  }
+
+  /**
+   * Mengganti kerapatan TANPA memutus perekaman. Langganan lama dicabut
+   * dan yang baru dipasang pada utas kerja yang sama, jadi tidak ada
+   * jendela waktu tanpa perekam sama sekali.
+   */
+  private void setelUlangJeda(long jeda) {
+    if (penerima == null || jeda == jedaBerlaku) return;
+    jedaBerlaku = jeda;
+    try {
+      penyedia.removeLocationUpdates(penerima);
+      penyedia.requestLocationUpdates(permintaanLokasi(jeda), penerima, utas.getLooper());
+      Log.i(TAG, "kerapatan perekaman disetel ke " + jeda + " ms");
+    } catch (SecurityException e) {
+      Log.e(TAG, "izin lokasi hilang saat menyetel kerapatan", e);
       stopSelf();
     }
   }
@@ -271,6 +325,11 @@ public class PelacakService extends Service {
         aktivitasSensor = d.getConfidence() >= KEYAKINAN_MINIMUM
           ? terjemahkanGerak(d.getType())
           : null;
+        // Disetel pada utas kerja, tempat langganan lokasi dipasang.
+        final long jeda = jedaUntuk(aktivitasSensor);
+        kerja.post(new Runnable() {
+          @Override public void run() { setelUlangJeda(jeda); }
+        });
       }
     };
 
