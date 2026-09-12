@@ -1454,6 +1454,7 @@ button.peta-orang{width:100%;text-align:left}
 .peta-kontrol>button,.peta-kontrol-zoom button{display:grid;place-items:center;width:46px;height:46px;border:1px solid rgba(148,163,184,.55);background:var(--card);color:var(--ink);box-shadow:0 4px 14px rgba(15,28,50,.16);font-size:25px;font-weight:500;line-height:1;transition:background var(--t),color var(--t),transform var(--t)}
 .peta-kontrol>button{border-radius:12px}.peta-kontrol>button.on{background:var(--primary);color:#fff}.peta-kontrol button:active{transform:scale(.94)}
 @media(hover:hover){.peta-kontrol>button:hover,.peta-kontrol-zoom button:hover{background:var(--primary);color:#fff}}
+@media(hover:none){.peta-kontrol>button:not(.on):not([aria-pressed="true"]),.peta-kontrol-zoom button{background:var(--card)!important;color:var(--ink)!important}.peta-kontrol button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}}
 .peta-kontrol svg{width:20px;height:20px;stroke-width:2}.peta-kontrol-zoom{overflow:hidden;border-radius:12px;box-shadow:0 4px 14px rgba(15,28,50,.12)}
 .peta-kontrol-zoom button{box-shadow:none;border-radius:0}.peta-kontrol-zoom button+button{border-top:0}
 .peta-ikuti-status{position:absolute;z-index:600;left:74px;top:14px;display:flex;align-items:center;gap:7px;min-height:42px;padding:8px 12px;border:1px solid #a7f3d0;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 4px 14px rgba(15,28,50,.15);color:#047857;font-size:11.5px;font-weight:700;backdrop-filter:blur(8px)}
