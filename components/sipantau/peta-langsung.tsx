@@ -651,39 +651,6 @@ export function PetaLangsung({
     })
   }, [titikLokasi, filterSpt, petaSiap])
 
-  // Pandangan peta MENGIKUTI penyaring: pilih satu penugasan → peta
-  // otomatis berpindah ke titik lokasinya (dan posisi personel yang
-  // sedang aktif di sana bila ada); pilih "semua" → zoom out mencakup
-  // seluruh titik lagi. Efek TERPISAH dari efek pembangunan peta (yang
-  // hanya sekali saat pemasangan) — ini boleh berjalan berulang setiap
-  // filterSpt berganti, itulah intinya.
-  useEffect(() => {
-    if (!petaSiap || !peta.current) return
-    import('leaflet').then(L => {
-      const p = peta.current
-      if (!p) return
-
-      const lokasiRelevan = titikLokasi.filter(t => filterSpt === 'semua' || t.penugasan_id === filterSpt)
-      const posisiRelevan = [...posisi.values()].filter(x => filterSpt === 'semua' || x.penugasan_id === filterSpt)
-      const titikBatas: [number, number][] = [
-        ...lokasiRelevan.map(t => [t.lat, t.lng] as [number, number]),
-        ...posisiRelevan.map(x => [x.lat, x.lng] as [number, number]),
-      ]
-
-      if (titikBatas.length === 0) return
-      if (titikBatas.length === 1) {
-        p.setView(titikBatas[0], 15, { animate: true })
-      } else {
-        p.fitBounds(L.latLngBounds(titikBatas), { padding: [40, 40], maxZoom: 15, animate: true })
-      }
-    })
-    // posisi sengaja TIDAK didaftarkan sebagai dependensi — pandangan
-    // hanya perlu mengikuti PERGANTIAN penyaring, bukan setiap
-    // pembaruan posisi Realtime (itu akan mengganggu pengawas yang
-    // sedang menggeser/memperbesar peta secara manual).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterSpt, petaSiap, titikLokasi])
-
   const daftarTampil = [...posisi.values()].filter(x => filterSpt === 'semua' || x.penugasan_id === filterSpt)
 
   const sorotPeta = useCallback((idSesi: string, lat: number, lng: number) => {
