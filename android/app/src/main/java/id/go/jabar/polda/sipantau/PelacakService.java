@@ -399,6 +399,19 @@ public class PelacakService extends Service {
     }
   }
 
+  /** Memulihkan sesi yang memang masih bertanda berjalan sesudah reboot
+   *  atau pembaruan APK. Seluruh kredensial diambil oleh onStartCommand
+   *  dari SharedPreferences; receiver tidak memegang salinannya. */
+  public static void pulihkan(Context konteks) {
+    if (!sedangJalan(konteks)) return;
+    Intent i = new Intent(konteks, PelacakService.class);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      konteks.startForegroundService(i);
+    } else {
+      konteks.startService(i);
+    }
+  }
+
   public static void berhenti(Context konteks) {
     // Tanda "jalan" dimatikan LEBIH DULU supaya sistem yang menghidupkan
     // ulang layanan ini sesudah dimatikan langsung berhenti sendiri.

@@ -77,6 +77,11 @@ Cari nama tabelnya di tabel peta di atas. Kalau tidak ketemu, buka `00-fondasi.m
 
 ## Yang belum ada
 
+Rencana yang belum menjadi spesifikasi aktif dicatat di
+`docs/CATATAN-ARAH-NATIVE-ANDROID.md`. Berkas itu memuat pertimbangan migrasi
+Android native, Maps SDK, dan Roads API; isinya tidak mengubah tumpukan teknologi
+yang dikunci di `CLAUDE.md`.
+
 Tiga modul belum digali dan belum punya berkas:
 
 | Modul | Keterangan |

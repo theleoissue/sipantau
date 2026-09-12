@@ -7,6 +7,7 @@ import { BilahSamping } from './bilah-samping'
 import { HeaderAplikasi } from './header-aplikasi'
 import { BilahBawah } from './bilah-bawah'
 import { useStatusSesi } from '@/lib/gps/use-status-sesi'
+import { NotifikasiDorong } from './notifikasi-dorong'
 
 /**
  * Kerangka tiga tingkat, mengikuti perilaku responsif mockup:
@@ -88,6 +89,7 @@ export function KerangkaAplikasi({
 
   return (
     <>
+      <NotifikasiDorong />
       <BilahSamping
         sesiBerjalan={sesiBerjalan}
         pengguna={pengguna}

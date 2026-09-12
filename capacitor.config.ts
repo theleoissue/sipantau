@@ -40,6 +40,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SystemBars: { insetsHandling: 'css' },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
   },
 };
 

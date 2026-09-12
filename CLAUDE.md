@@ -246,7 +246,7 @@ Kalau tokens tidak diganti, Shadcn akan memakai palet bawaannya dan hasilnya ber
 
 Tidak boleh bertambah tanpa revisi PRD tercatat:
 
-`reset-kata-sandi` · `buat-akun` · `nonaktifkan-akun` · `ekspor-unit` · `titik-native`
+`reset-kata-sandi` · `buat-akun` · `nonaktifkan-akun` · `ekspor-unit` · `titik-native` · `kirim-notifikasi-dorong`
 
 Fungsi Tepi **hanya** untuk operasi yang mensyaratkan kunci istimewa. Dilarang dipakai sebagai tempat memindahkan logika yang seharusnya di RLS. Setiap Fungsi Tepi wajib memeriksa sendiri kewenangan pemanggilnya dari basis data, tidak percaya isi permintaan.
 
@@ -261,6 +261,17 @@ Daftar semula **empat**. Butir kelima ditambahkan atas persetujuan eksplisit pem
 | Fungsi Tepi `titik-native` | **Dipilih** — satu-satunya yang menjaga `anon` tetap nol hak *sekaligus* `service_role` tetap di luar Next.js |
 
 Ia tetap tunduk pada seluruh syarat di atas: tidak ada satu pun logika yang dipindah dari basis data ke sana — token, kepemilikan, sesi masih terbuka, dan kewajaran Titik semuanya diputuskan `kirim_titik_native` (migrasi 0038). Kredensialnya bukan sesi pengguna melainkan token sempit per Sesi Tugas (migrasi 0037): hanya boleh menambah Titik pada satu sesi, mati sendiri begitu sesi ditutup.
+
+### Revisi tercatat — `kirim-notifikasi-dorong`, 12 September 2026
+
+Fungsi keenam ditambahkan atas permintaan eksplisit pemilik produk agar
+pemberitahuan Android muncul secara waktu nyata dengan suara meski aplikasi
+tertutup. Pengiriman FCM HTTP v1 membutuhkan kredensial service account yang
+tidak boleh berada di APK, browser, migrasi SQL, atau Vercel sisi klien. Fungsi
+ini hanya mengantar baris `notifikasi` yang sudah dibuat dan ditentukan
+penerimanya oleh `fn_buat_notifikasi`; ia tidak memutuskan hak, isi, maupun
+penerima. Pemanggilan dibatasi Database Webhook dengan rahasia khusus, dan
+kredensial Firebase disimpan sebagai rahasia Fungsi Tepi.
 
 ---
 

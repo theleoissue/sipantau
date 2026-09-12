@@ -27,6 +27,8 @@ dibangun ulang.
 | --- | --- | --- |
 | `3be94d9`, `870999e` | **PelacakService** — layanan latar depan perekam posisi milik sendiri (FusedLocationProvider + antrean SQLite + pengunggah dengan percobaan ulang), beserta `PelacakPlugin`, izin lokasi dan layanan latar depan di manifest, dan `play-services-location` | Perekaman masih sepenuhnya di dalam WebView. Akibatnya sudah terlihat di lapangan: begitu jaringan hilang, WebView menampilkan halaman galat bawaan peramban dan **tidak ada satu baris JavaScript pun yang berjalan** — penangkapan Titik berhenti dan antrean tidak bisa dikuras. Sampai APK dibangun ulang, halaman memakai jalur pustaka lama |
 | menyusul | **Halaman luring** (`public/luring.html` + `server.errorPath` di `capacitor.config.ts`) | WebView masih jatuh ke layar galat bawaan Chrome saat sinyal putus — layar yang tidak menyebut SiPANTAU sama sekali, dan di lapangan mudah dibaca sebagai aplikasinya rusak atau perekamannya berhenti |
+| menyusul | **Pemberitahuan dorong Android** (`@capacitor/push-notifications`, `@capacitor/local-notifications`, channel suara/getar, dan konfigurasi Firebase) | Lonceng dalam aplikasi tetap realtime ketika halaman hidup, tetapi pemberitahuan belum muncul atau berdering saat aplikasi tertutup |
+| menyusul | **Pemulihan PelacakService sesudah reboot/pembaruan APK** (`PemulihPelacakReceiver` + `RECEIVE_BOOT_COMPLETED`) | Android belum mencoba menghidupkan kembali sesi yang masih berjalan setelah perangkat dinyalakan ulang atau APK diperbarui |
 
 Dikosongkan 11 September 2026 sesudah APK dibangun dan dipasang. Enam
 baris sebelumnya — ikon notifikasi, ikon peluncur, `server.url` ke
