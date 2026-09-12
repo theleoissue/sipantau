@@ -56,6 +56,9 @@ export function PetaLangsung({
   const [terputus, setTerputus] = useState(false)
   const [pembaruanTerakhir, setPembaruanTerakhir] = useState<Date>(new Date())
   const [tik, paksaRenderUlang] = useState(0)
+  const [ikutiSesi, setIkutiSesi] = useState<string | null>(null)
+  const [tampilkanJejak, setTampilkanJejak] = useState(true)
+  const [petaMaksimal, setPetaMaksimal] = useState(false)
   // Menandai peta+lokasiLayer sudah selesai dibangun. WAJIB ada: import
   // 'leaflet' pada efek pembangunan peta dan efek penanda/lokasi
   // masing-masing async sendiri-sendiri, jadi tanpa penanda ini efek
@@ -353,8 +356,9 @@ export function PetaLangsung({
     const animasi = animasiAktif.current
     import('leaflet').then(L => {
       if (batal || !elPeta.current || peta.current) return
-      peta.current = L.map(elPeta.current, { zoomControl: true, attributionControl: true })
+      peta.current = L.map(elPeta.current, { zoomControl: false, attributionControl: true })
         .setView([-6.62, 107.35], 9)
+      peta.current.on('dragstart', () => setIkutiSesi(null))
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19, attribution: '&copy; OpenStreetMap',
       }).addTo(peta.current)
@@ -452,7 +456,7 @@ export function PetaLangsung({
         // supaya ujung garis ikut bergeser halus bersama penandanya.
         const titikJejak = jejak.current.get(pos.sesi_tugas_id) ?? []
         if (!garisJejak.current.has(pos.sesi_tugas_id) && titikJejak.length >= 2) {
-          const garisBaru = L.polyline(jejakGambar(titikJejak), { color: wSpt, weight: 3.5, opacity: .85 }).addTo(p)
+          const garisBaru = L.polyline(jejakGambar(titikJejak), { color: wSpt, weight: 3.5, opacity: tampilkanJejak ? .85 : 0 }).addTo(p)
           garisJejak.current.set(pos.sesi_tugas_id, garisBaru)
         }
 
@@ -488,10 +492,14 @@ export function PetaLangsung({
           + `<div>`
           + `<b>${pos.nama}</b><br>`
           + `<span style="color:${wSpt}">●</span> ${pos.nomor_spt ?? pos.penugasan_id}${pos.judul ? ' — ' + pos.judul : ''}<br>`
-          + `<small>${labelTerakhirTerlihat(pos.direkam_pada)}${pos.baterai_persen != null ? ' · ' + pos.baterai_persen + '% daya' : ''}${pos.izin_terputus ? '<br>Izin lokasi sedang terputus' : ''}</small>`
+          + `<small>${labelTerakhirTerlihat(pos.direkam_pada)}${pos.aktivitas ? ' · ' + pos.aktivitas : ''}${pos.akurasi_meter != null ? ' · ±' + Math.round(pos.akurasi_meter) + ' m' : ''}${pos.baterai_persen != null ? ' · ' + pos.baterai_persen + '% daya' : ''}${pos.izin_terputus ? '<br>Izin lokasi sedang terputus' : ''}</small>`
           + `</div>`
           + `</div>`,
         )
+        if (ikutiSesi === pos.sesi_tugas_id) {
+          const titikIkon = penanda.current.get(pos.sesi_tugas_id)?.getLatLng()
+          if (titikIkon) p.panTo(titikIkon, { animate: true })
+        }
       }
     })
     // tik sengaja terdaftar — balon info dan warna cincin pin memakai
@@ -500,7 +508,20 @@ export function PetaLangsung({
     // "Sedang bertugas" di render biasa). Tanpa ini, keduanya beku
     // pada nilai saat titik GPS TERAKHIR masuk, tidak pernah mengejar
     // waktu berjalan sampai ada titik baru atau halaman dimuat ulang.
-  }, [posisi, filterSpt, petaSiap, tik, animasiKe])
+  }, [posisi, filterSpt, petaSiap, tik, animasiKe, ikutiSesi, tampilkanJejak])
+
+  useEffect(() => {
+    for (const garis of garisJejak.current.values()) garis.setStyle({ opacity: tampilkanJejak ? .85 : 0 })
+  }, [tampilkanJejak])
+
+  useEffect(() => {
+    document.body.classList.toggle('peta-layar-penuh-aktif', petaMaksimal)
+    const id = window.setTimeout(() => peta.current?.invalidateSize(), 80)
+    return () => {
+      window.clearTimeout(id)
+      document.body.classList.remove('peta-layar-penuh-aktif')
+    }
+  }, [petaMaksimal])
 
   // Titik lokasi SPT — penanda TETAP, tidak berubah lewat Realtime
   // (bukan posisi personel). BR-67: koordinat digambar apa adanya,
@@ -563,9 +584,26 @@ export function PetaLangsung({
 
   const daftarTampil = [...posisi.values()].filter(x => filterSpt === 'semua' || x.penugasan_id === filterSpt)
 
-  const sorotPeta = useCallback((lat: number, lng: number) => {
-    peta.current?.setView([lat, lng], 15, { animate: true })
+  const sorotPeta = useCallback((idSesi: string, lat: number, lng: number) => {
+    setIkutiSesi(idSesi)
+    const titikIkon = penanda.current.get(idSesi)?.getLatLng()
+    peta.current?.setView(titikIkon ?? [lat, lng], 17, { animate: true })
   }, [])
+
+  const lihatSemua = useCallback(async () => {
+    const p = peta.current
+    if (!p) return
+    setIkutiSesi(null)
+    const L = await import('leaflet')
+    const lokasi = titikLokasi.filter(t => filterSpt === 'semua' || t.penugasan_id === filterSpt)
+    const orang = [...posisi.values()].filter(x => filterSpt === 'semua' || x.penugasan_id === filterSpt)
+    const semua: [number, number][] = [
+      ...lokasi.map(t => [t.lat, t.lng] as [number, number]),
+      ...orang.map(t => [t.lat, t.lng] as [number, number]),
+    ]
+    if (semua.length === 1) p.setView(semua[0], 17, { animate: true })
+    else if (semua.length > 1) p.fitBounds(L.latLngBounds(semua), { padding: [48, 48], maxZoom: 16, animate: true })
+  }, [filterSpt, posisi, titikLokasi])
 
   return (
     <>
@@ -579,6 +617,9 @@ export function PetaLangsung({
             </option>
           ))}
         </select>
+        <button type="button" className={`peta-jejak-toggle ${tampilkanJejak ? 'on' : ''}`} aria-pressed={tampilkanJejak} onClick={() => setTampilkanJejak(v => !v)}>
+          <Ikon nama="riwayat" /> {tampilkanJejak ? 'Jejak tampil' : 'Jejak disembunyikan'}
+        </button>
         {terputus && (
           <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--ink-3)' }}>
             Pembaruan tertunda · data terakhir {pembaruanTerakhir.toLocaleTimeString('id-ID')}
@@ -586,9 +627,18 @@ export function PetaLangsung({
         )}
       </div>
 
-      <div className="peta-langsung-wadah">
+      <div className={`peta-langsung-wadah ${petaMaksimal ? 'peta-maksimal' : ''}`}>
         <div id="peta-wadah">
           <div id="peta" ref={elPeta} />
+          <div className="peta-kontrol" aria-label="Kontrol peta">
+            <div className="peta-kontrol-zoom">
+              <button type="button" onClick={() => peta.current?.zoomIn()} aria-label="Perbesar peta" title="Perbesar">+</button>
+              <button type="button" onClick={() => peta.current?.zoomOut()} aria-label="Perkecil peta" title="Perkecil">−</button>
+            </div>
+            <button type="button" onClick={lihatSemua} aria-label="Tampilkan semua petugas dan lokasi" title="Lihat semua"><Ikon nama="peta" /></button>
+            <button type="button" className={petaMaksimal ? 'on' : ''} onClick={() => setPetaMaksimal(v => !v)} aria-label={petaMaksimal ? 'Keluar dari layar penuh' : 'Buka peta layar penuh'} title={petaMaksimal ? 'Tutup layar penuh' : 'Layar penuh'}><Ikon nama={petaMaksimal ? 'perkecil_layar' : 'perbesar_layar'} /></button>
+          </div>
+          {ikutiSesi && <button type="button" className="peta-ikuti-status" onClick={() => setIkutiSesi(null)}><span /> Mengikuti petugas <b>×</b></button>}
         </div>
         <div className="peta-panel">
           <div className="kepala">
@@ -604,7 +654,7 @@ export function PetaLangsung({
             ) : daftarTampil.map(pos => (
               <div
                 key={pos.sesi_tugas_id}
-                className="peta-orang"
+                className={`peta-orang ${ikutiSesi === pos.sesi_tugas_id ? 'on' : ''}`}
                 // Leaflet adalah pustaka imperatif — instance peta HARUS
                 // disimpan sebagai ref (bukan state) supaya pembaruan
                 // penanda tidak memicu Leaflet dibangun ulang tiap
@@ -613,7 +663,11 @@ export function PetaLangsung({
                 // saat render, jadi aman meski aturan react-hooks/refs
                 // tidak dapat membuktikannya secara statis.
                 // eslint-disable-next-line react-hooks/refs
-                onClick={() => sorotPeta(pos.lat, pos.lng)}
+                onClick={() => sorotPeta(pos.sesi_tugas_id, pos.lat, pos.lng)}
+                role="button"
+                tabIndex={0}
+                aria-pressed={ikutiSesi === pos.sesi_tugas_id}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') sorotPeta(pos.sesi_tugas_id, pos.lat, pos.lng) }}
               >
                 <div
                   className="av av-sm"
@@ -624,6 +678,11 @@ export function PetaLangsung({
                 <div className="meta">
                   <div className="nm">{pos.nama}</div>
                   <div className="st">{labelTerakhirTerlihat(pos.direkam_pada)}</div>
+                  <div className="peta-orang-info">
+                    <span className={`aktivitas ${pos.aktivitas ?? 'tidak_diketahui'}`}>{pos.aktivitas?.replace('_', ' ') ?? 'Gerak belum diketahui'}</span>
+                    {pos.akurasi_meter != null && <span>GPS ±{Math.round(pos.akurasi_meter)} m</span>}
+                    {pos.baterai_persen != null && <span>Daya {pos.baterai_persen}%</span>}
+                  </div>
                 </div>
               </div>
             ))}
