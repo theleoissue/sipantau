@@ -326,6 +326,159 @@ export function haluskanJejak(titik: [number, number][], perSegmen = 0): [number
  * Dengan kata lain simpangan gambarnya masih di dalam ketidakpastian
  * rekamannya sendiri, jadi ia tidak menambah satu pun keraguan baru.
  */
+/**
+ * Satu Titik beserta keterangan yang dibutuhkan penyaring Kalman.
+ * Jejak peta menyimpan bentuk ini, bukan sekadar pasangan koordinat:
+ * tanpa akurasi dan waktu, penyaring tidak punya dasar untuk memutuskan
+ * pembacaan mana yang layak dipercaya.
+ */
+export interface TitikJejak {
+  la: number
+  lo: number
+  /** Akurasi yang dilaporkan perangkat, meter. null = tidak dilaporkan. */
+  akurasi: number | null
+  /** Waktu rekam, milidetik sejak epoch. */
+  t: number
+}
+
+/**
+ * Seberapa liar gerak yang dianggap mungkin, dalam m/s².
+ *
+ * INI TOMBOL KEKETATANNYA. Makin KECIL makin ketat: penyaring makin
+ * percaya pada modelnya sendiri (gerak lurus berkecepatan tetap) dan
+ * makin menolak pembacaan yang menyimpang. Makin besar makin longgar
+ * dan makin mengikuti tiap pembacaan.
+ *
+ * 0,4 m/s² dipilih ketat dengan sengaja. Percepatan orang berjalan dan
+ * kendaraan kota yang wajar berada di bawah angka itu untuk rentang
+ * beberapa detik, sehingga lompatan GPS yang menuntut percepatan lebih
+ * besar akan ditahan alih-alih diikuti.
+ *
+ * Menaikkannya ke 1,5 membuat jejak mengikuti pembacaan hampir apa
+ * adanya — berguna bila ternyata belokan tajam yang NYATA ikut terpotong.
+ */
+export const KELIARAN_GERAK_MPS2 = 0.4
+
+/** Batas bawah dan atas ragam pengukuran. Perangkat kerap melaporkan
+ *  akurasi yang terlalu optimis; lantai 4 meter mencegah satu pembacaan
+ *  mengaku sempurna lalu menyeret seluruh jalur. Langit-langit 60 meter
+ *  mencegah satu pembacaan buruk membuat penyaring berhenti percaya
+ *  pada apa pun. */
+export const AKURASI_LANTAI_METER = 4
+export const AKURASI_LANGIT_METER = 60
+
+/**
+ * Penyaring Kalman gerak-lurus-berkecepatan-tetap, dua dimensi.
+ *
+ * Dipakai sebagai SUMBER GAMBAR peta, menggantikan Titik mentah. Yang
+ * dikejar bukan keindahan: satu pembacaan meleset 40 meter menarik garis
+ * ke tempat yang tidak pernah didatangi, dan itu menyesatkan pembacanya.
+ *
+ * Yang membuatnya bekerja, dan yang paling sering dilewatkan: ragam
+ * pengukuran diambil dari akurasi TIAP Titik, bukan satu angka tetap.
+ * Pembacaan 4 meter hampir diikuti penuh, pembacaan 30 meter nyaris
+ * diabaikan. Itulah sebabnya titik biru Google meluncur alih-alih
+ * menyentak.
+ *
+ * Koordinat mentahnya TIDAK berubah dan tidak ke mana-mana — location_logs
+ * tetap memuat apa yang sungguh direkam perangkat. Ini murni lapisan
+ * tampilan, dan saklar "GPS mentah" tetap memperlihatkan aslinya.
+ */
+export function saringKalman(titik: TitikJejak[]): [number, number][] {
+  if (titik.length < 3) return titik.map(p => [p.la, p.lo] as [number, number])
+
+  // Bekerja dalam meter pada bidang datar lokal. Untuk satu Sesi Tugas
+  // (puluhan kilometer paling jauh) kesalahan proyeksinya jauh di bawah
+  // ketelitian GPS itu sendiri.
+  const la0 = titik[0].la
+  const mPerLat = 111_320
+  const mPerLng = 111_320 * Math.cos(la0 * Math.PI / 180)
+  const keX = (p: TitikJejak) => (p.lo - titik[0].lo) * mPerLng
+  const keY = (p: TitikJejak) => (p.la - la0) * mPerLat
+
+  const ragam = (akurasi: number | null) => {
+    const a = Math.min(
+      AKURASI_LANGIT_METER,
+      Math.max(AKURASI_LANTAI_METER, akurasi ?? 20),
+    )
+    return a * a
+  }
+
+  // Keadaan: [x, y, vx, vy]. Ragamnya disimpan sebagai dua matriks 2x2
+  // terpisah (sumbu x dan y tidak berkorelasi pada model ini), jadi
+  // cukup empat angka per sumbu alih-alih matriks 4x4 penuh.
+  let x = keX(titik[0]), y = keY(titik[0])
+  let vx = 0, vy = 0
+  let pxx = ragam(titik[0].akurasi), pxv = 0, pvv = 100
+  let pyy = pxx, pyv = 0, pwv = 100
+
+  const hasil: [number, number][] = [[titik[0].la, titik[0].lo]]
+  const q = KELIARAN_GERAK_MPS2 * KELIARAN_GERAK_MPS2
+
+  for (let i = 1; i < titik.length; i++) {
+    // Jeda dibatasi: jam perangkat yang meleset, atau lubang panjang
+    // tanpa sinyal, tidak boleh meledakkan ragamnya.
+    const dt = Math.min(60, Math.max(0.5, (titik[i].t - titik[i - 1].t) / 1000))
+    const dt2 = dt * dt, dt3 = dt2 * dt, dt4 = dt2 * dt2
+
+    // --- ramalan ---
+    x += vx * dt; y += vy * dt
+    pxx += dt * (2 * pxv + dt * pvv) + q * dt4 / 4
+    pxv += dt * pvv + q * dt3 / 2
+    pvv += q * dt2
+    pyy += dt * (2 * pyv + dt * pwv) + q * dt4 / 4
+    pyv += dt * pwv + q * dt3 / 2
+    pwv += q * dt2
+
+    // --- pembaruan ---
+    const r = ragam(titik[i].akurasi)
+    const zx = keX(titik[i]), zy = keY(titik[i])
+
+    const sx = pxx + r
+    const kx1 = pxx / sx, kx2 = pxv / sx
+    const galatX = zx - x
+    x += kx1 * galatX; vx += kx2 * galatX
+    const pxxBaru = pxx * (1 - kx1)
+    pvv -= kx2 * pxv
+    pxv -= kx2 * pxx
+    pxx = pxxBaru
+
+    const sy = pyy + r
+    const ky1 = pyy / sy, ky2 = pyv / sy
+    const galatY = zy - y
+    y += ky1 * galatY; vy += ky2 * galatY
+    const pyyBaru = pyy * (1 - ky1)
+    pwv -= ky2 * pyv
+    pyv -= ky2 * pyy
+    pyy = pyyBaru
+
+    hasil.push([la0 + y / mPerLat, titik[0].lo + x / mPerLng])
+  }
+
+  return hasil
+}
+
+/**
+ * Pembersih yang sama untuk bentuk TitikJejak.
+ *
+ * MENDELEGASIKAN ke bersihkanJejak, tidak menyalin aturannya. Dua
+ * salinan aturan yang sama selalu berakhir menyimpang tanpa terlihat
+ * (CLAUDE.md §11) — dan di sini menyimpangnya berarti jejak hidup dan
+ * jejak riwayat memperlakukan Titik yang sama secara berbeda.
+ *
+ * bersihkanJejak mengembalikan objek larik YANG SAMA dengan masukannya,
+ * jadi asalnya dapat ditemukan kembali lewat identitas, bukan lewat
+ * pencocokan koordinat yang bisa keliru saat dua Titik kebetulan sama.
+ */
+export function bersihkanTitikJejak(titik: TitikJejak[]): TitikJejak[] {
+  const koordinat = titik.map(p => [p.la, p.lo] as [number, number])
+  const asal = new WeakMap<[number, number], TitikJejak>()
+  koordinat.forEach((k, i) => asal.set(k, titik[i]))
+  return bersihkanJejak(koordinat)
+    .map(k => asal.get(k))
+    .filter((p): p is TitikJejak => p != null)
+}
+
 export const TOLERANSI_SEDERHANA_METER = 5
 
 /**

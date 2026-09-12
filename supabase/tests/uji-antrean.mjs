@@ -7,7 +7,8 @@
 
 import { antrekanKe, kirimAntreanDari, BATAS_ANTREAN } from '../../lib/gps/antrean-inti.ts'
 import { mutuAkurasi, AKURASI_DIRAGUKAN_METER, haluskanJejak, sederhanakanJejak,
-  TOLERANSI_SEDERHANA_METER, AKURASI_TINGGI_METER, jarakMeter, arahDerajat } from '../../lib/gps/tipe.ts'
+  TOLERANSI_SEDERHANA_METER, AKURASI_TINGGI_METER, jarakMeter, arahDerajat,
+  saringKalman, bersihkanTitikJejak } from '../../lib/gps/tipe.ts'
 import { tautanNavigasi } from '../../lib/gps/navigasi.ts'
 import { readFileSync } from 'node:fs'
 
@@ -300,6 +301,84 @@ cek('U-ARH-04', 'Arah selalu berada di rentang 0..360',
 }
 cek('U-NAV-04', 'Koordinat negatif dan nol tidak dibuang',
   tautanNavigasi({ lat: 0, lng: -0.5 }).includes('destination=0%2C-0.5'))
+
+// =====================================================================
+// Penyaring Kalman — sumber gambar peta menggantikan Titik mentah
+//
+// Yang dikejar dua hal yang bisa saling bertentangan: getaran turun,
+// TAPI jalurnya tidak menyimpang jauh dari tempat yang sungguh terekam.
+// Penyaring yang terlalu ketat akan memotong belokan nyata dan
+// "merapikan" jejak menjadi kebohongan yang rapi.
+// =====================================================================
+{
+  const deret = (n, f) => Array.from({ length: n }, (_, i) => f(i))
+  const lurus = deret(30, i => ({ la: -6.9 + i * 0.0001, lo: 107.6, akurasi: 8, t: i * 3000 }))
+
+  cek('U-KAL-01', 'Setiap pembacaan tetap menghasilkan satu koordinat, tidak ada yang hilang',
+    saringKalman(lurus).length === lurus.length)
+
+  cek('U-KAL-02', 'Kurang dari tiga Titik dikembalikan apa adanya, tanpa ditebak',
+    saringKalman(lurus.slice(0, 2)).length === 2)
+
+  cek('U-KAL-03', 'Titik pertama tidak pernah digeser — tidak ada dasar untuk menggesernya',
+    jarakMeter(saringKalman(lurus)[0], [lurus[0].la, lurus[0].lo]) < 0.01)
+
+  const hasilLurus = saringKalman(lurus)
+  cek('U-KAL-04', 'Jalur lurus tetap lurus, penyaring tidak mengarang belokan',
+    hasilLurus.every(p => jarakMeter(p, [p[0], 107.6]) < 1))
+
+  // Diam di tempat: derau ±25 m di sekitar satu titik.
+  let benih = 3
+  const acak = () => { benih = (benih * 1103515245 + 12345) & 0x7fffffff; return benih / 0x7fffffff - 0.5 }
+  const diam = deret(40, i => ({
+    la: -6.9 + acak() * 0.00045, lo: 107.6 + acak() * 0.00045, akurasi: 22, t: i * 3000,
+  }))
+  const pusat = [-6.9, 107.6]
+  const rerata = a => a.reduce((x, y) => x + y, 0) / a.length
+  const sebarKasar = rerata(diam.map(p => jarakMeter([p.la, p.lo], pusat)))
+  const sebarHalus = rerata(saringKalman(diam).map(p => jarakMeter(p, pusat)))
+  cek('U-KAL-05', 'Sebaran derau saat diam menyusut, bukan bertambah',
+    sebarHalus < sebarKasar)
+
+  // INI yang membuktikan ragam per-Titik benar-benar dipakai. Satu
+  // pencilan yang sama, dua pengakuan akurasi berbeda. Yang mengaku
+  // akurat WAJIB menarik jalur lebih jauh daripada yang mengaku buruk —
+  // kalau ragamnya diabaikan, keduanya akan menarik sama saja.
+  const denganPencilan = akurasi => {
+    const d = deret(21, i => ({ la: -6.9 + i * 0.0001, lo: 107.6, akurasi: 6, t: i * 3000 }))
+    d[10] = { la: d[10].la, lo: 107.6 + 0.0005, akurasi, t: d[10].t }  // ~55 m melenceng
+    return saringKalman(d)
+  }
+  const tarikanAkurat = jarakMeter(denganPencilan(5)[10], [denganPencilan(5)[10][0], 107.6])
+  const tarikanBuruk = jarakMeter(denganPencilan(50)[10], [denganPencilan(50)[10][0], 107.6])
+  cek('U-KAL-06', 'Pembacaan yang mengaku akurat menarik jalur LEBIH JAUH daripada yang mengaku buruk',
+    tarikanAkurat > tarikanBuruk * 1.5)
+
+  cek('U-KAL-07', 'Pencilan berakurasi buruk tidak menyeret jalur sejauh simpangannya sendiri',
+    tarikanBuruk < 55 / 2)
+
+  // Kejujuran: garis yang digambar tidak boleh menjauh dari Titik yang
+  // sungguh terekam melebihi ketidakpastian pengukurannya sendiri.
+  const berkelok = deret(60, i => ({
+    la: -6.9 + i * 0.00008 + acak() * 0.00004,
+    lo: 107.6 + Math.sin(i / 6) * 0.0004 + acak() * 0.00004,
+    akurasi: 9, t: i * 3000,
+  }))
+  const halusKelok = saringKalman(berkelok)
+  const simpang = halusKelok.map((p, i) => jarakMeter(p, [berkelok[i].la, berkelok[i].lo]))
+    .sort((a, b) => a - b)
+  cek('U-KAL-08', 'Simpangan garis dari Titik asli tetap di dalam ketidakpastian pengukurannya',
+    simpang[Math.floor(simpang.length * 0.95)] < 20)
+
+  // Pembersih bentuk TitikJejak mendelegasikan ke aturan yang sama.
+  const berjalan = deret(12, i => ({ la: -6.9 + i * 0.0004, lo: 107.6, akurasi: 8, t: i * 3000 }))
+  const dibersihkan = bersihkanTitikJejak(berjalan)
+  cek('U-KAL-09', 'bersihkanTitikJejak mengembalikan objek Titik utuh, bukan sekadar koordinat',
+    dibersihkan.length > 0 && typeof dibersihkan[0].akurasi === 'number'
+    && typeof dibersihkan[0].t === 'number')
+  cek('U-KAL-10', 'Yang dikembalikan benar-benar Titik ASLI, bukan salinan yang dibentuk ulang',
+    dibersihkan.every(p => berjalan.includes(p)))
+}
 
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji antrean luring lulus`

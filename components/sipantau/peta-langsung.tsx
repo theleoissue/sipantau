@@ -3,12 +3,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
 import type { PosisiPeta } from '@/lib/gps/tipe'
-import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, mutuAkurasi, arahDerajat, haluskanJejak, sederhanakanJejak, sedangDiam, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanTitikJejak, mutuAkurasi, arahDerajat, haluskanJejak, sederhanakanJejak, saringKalman, sedangDiam, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+import type { TitikJejak } from '@/lib/gps/tipe'
 
-// Disederhanakan DULU, baru dilengkungkan. Urutannya menentukan:
-// melengkungkan titik yang masih bergerigi hanya menghasilkan
-// lengkungan bergerigi yang lebih rapat, bukan jejak yang lebih mulus.
-const jejakGambar = (t: [number, number][]) => haluskanJejak(sederhanakanJejak(t))
+// Peta TIDAK lagi menggambar dari Titik mentah.
+//
+// Urutannya menentukan, dan ketiganya mengerjakan hal berbeda:
+//
+//   saringKalman     menimbang tiap pembacaan menurut akurasinya sendiri
+//                    — yang 4 m hampir diikuti penuh, yang 30 m nyaris
+//                    diabaikan. Inilah yang membuat garis meluncur
+//                    alih-alih menyentak.
+//   sederhanakanJejak membuang simpul yang tidak mengubah bentuk jalur.
+//   haluskanJejak     melengkungkan sisanya.
+//
+// Menyederhanakan sebelum menyaring akan membuang justru pembacaan yang
+// dibutuhkan penyaring untuk menimbang; melengkungkan sebelum
+// menyederhanakan cuma menghasilkan lengkungan bergerigi yang rapat.
+//
+// Koordinat mentahnya tidak ke mana-mana: location_logs tetap memuat apa
+// yang sungguh direkam perangkat, dan ini murni lapisan tampilan.
+const jejakGambar = (t: TitikJejak[]) => haluskanJejak(sederhanakanJejak(saringKalman(t)))
 import { inisial } from '@/lib/utils'
 import { Ikon } from './ikon'
 
@@ -78,13 +93,13 @@ export function PetaLangsung({
   // sangat sering dengan banyak personel aktif), dan tidak perlu
   // memicu render ulang React — efek gambar-ulang di bawah membaca
   // ref ini secara langsung.
-  const jejak = useRef<Map<string, [number, number][]>>(new Map())
+  const jejak = useRef<Map<string, TitikJejak[]>>(new Map())
   const garisJejak = useRef<Map<string, import('leaflet').Polyline>>(new Map())
   /** Arah terakhir yang meyakinkan per sesi — dipertahankan saat petugas berhenti. */
   const arahTerakhir = useRef<Map<string, number>>(new Map())
   // Titik yang jauh dari jejak tapi BELUM dikonfirmasi Titik berikutnya
   // — lihat bersihkanJejak() di lib/gps/tipe.ts untuk alasan lengkapnya.
-  const calonJejak = useRef<Map<string, [number, number]>>(new Map())
+  const calonJejak = useRef<Map<string, TitikJejak>>(new Map())
   // requestAnimationFrame yang sedang berjalan per sesi, supaya Titik
   // baru yang masuk SEBELUM animasi sebelumnya selesai membatalkan yang
   // lama dulu — tanpa ini dua animasi berebut posisi marker yang sama.
@@ -135,7 +150,14 @@ export function PetaLangsung({
       const dasar = jejak.current.get(idSesi) ?? []
       // Dilengkungkan setiap frame supaya ujung yang sedang bergerak ikut
       // melengkung, bukan menempel sebagai satu ruas lurus di depan kurva.
-      if (garis && dasar.length >= 1) garis.setLatLngs(jejakGambar([...dasar.slice(0, -1), [lat, lng]]))
+      if (garis && dasar.length >= 1) {
+        // Ujung yang sedang dianimasikan menggantikan KOORDINAT Titik
+        // terakhir, bukan keterangannya: akurasi dan waktunya tetap milik
+        // pembacaan asli, supaya penyaring menimbangnya sama seperti
+        // sebelum animasi berjalan.
+        const ujung: TitikJejak = { ...dasar[dasar.length - 1], la: lat, lo: lng }
+        garis.setLatLngs(jejakGambar([...dasar.slice(0, -1), ujung]))
+      }
 
       if (t < 1) {
         animasiAktif.current.set(idSesi, requestAnimationFrame(frame))
@@ -180,15 +202,20 @@ export function PetaLangsung({
       posisiAwal.map(async p => {
         const { data } = await supabase
           .from('location_logs')
-          .select('lat, lng, diragukan_sebab')
+          .select('lat, lng, akurasi_meter, direkam_pada, diragukan_sebab')
           .eq('sesi_tugas_id', p.sesi_tugas_id)
           .is('diragukan_sebab', null)
           .order('direkam_pada', { ascending: true })
-        return [p.sesi_tugas_id, (data ?? []).map(t => [Number(t.lat), Number(t.lng)] as [number, number])] as const
+        return [p.sesi_tugas_id, (data ?? []).map(t => ({
+          la: Number(t.lat),
+          lo: Number(t.lng),
+          akurasi: t.akurasi_meter == null ? null : Number(t.akurasi_meter),
+          t: new Date(t.direkam_pada as string).getTime(),
+        } as TitikJejak))] as const
       }),
     ).then(hasil => {
       if (batal) return
-      for (const [id, titik] of hasil) jejak.current.set(id, bersihkanJejak(titik))
+      for (const [id, titik] of hasil) jejak.current.set(id, bersihkanTitikJejak(titik))
       // Memaksa efek gambar-ulang berjalan sekali lagi sekarang juga —
       // tanpa ini, jejak yang baru saja diisi tidak tergambar sampai
       // pembaruan berikutnya (Titik baru masuk, atau pencacang 20 detik).
@@ -265,7 +292,12 @@ export function PetaLangsung({
         // calon sampai Titik BERIKUTNYA menguatkannya). Penanda (marker)
         // TETAP bergerak mengikuti Titik mentah apa adanya di bawah —
         // cuma GARISNYA yang tertunda/tidak menambah segmen baru.
-        const titikBaru: [number, number] = [Number(baris.lat), Number(baris.lng)]
+        const titikBaru: TitikJejak = {
+          la: Number(baris.lat),
+          lo: Number(baris.lng),
+          akurasi: baris.akurasi_meter == null ? null : Number(baris.akurasi_meter),
+          t: new Date(baris.direkam_pada as string).getTime(),
+        }
         const sudah = jejak.current.get(idSesi) ?? []
         const terakhirDigambar = sudah[sudah.length - 1]
 
@@ -290,11 +322,11 @@ export function PetaLangsung({
           calonJejak.current.delete(idSesi)
         } else if (!terakhirDigambar) {
           jejak.current.set(idSesi, [titikBaru])
-        } else if (jarakMeter(terakhirDigambar, titikBaru) < AMBANG_GOYANGAN_METER) {
+        } else if (jarakMeter([terakhirDigambar.la, terakhirDigambar.lo], [titikBaru.la, titikBaru.lo]) < AMBANG_GOYANGAN_METER) {
           calonJejak.current.delete(idSesi) // sudah kembali dekat — calon lama gugur
         } else {
           const calon = calonJejak.current.get(idSesi)
-          if (calon && jarakMeter(calon, titikBaru) < AMBANG_GOYANGAN_METER) {
+          if (calon && jarakMeter([calon.la, calon.lo], [titikBaru.la, titikBaru.lo]) < AMBANG_GOYANGAN_METER) {
             jejak.current.set(idSesi, [...sudah, calon, titikBaru])
             calonJejak.current.delete(idSesi)
           } else {
@@ -431,8 +463,9 @@ export function PetaLangsung({
         // memutar panah mengikuti getaran GPS saat petugas berdiri diam
         // justru membuatnya tampak berputar-putar tanpa sebab.
         const jejakArah = jejak.current.get(pos.sesi_tugas_id) ?? []
-        const sblm = jejakArah.length >= 2 ? jejakArah[jejakArah.length - 2] : null
-        const ujung = jejakArah.length >= 2 ? jejakArah[jejakArah.length - 1] : null
+        const koor = (p: TitikJejak): [number, number] => [p.la, p.lo]
+        const sblm = jejakArah.length >= 2 ? koor(jejakArah[jejakArah.length - 2]) : null
+        const ujung = jejakArah.length >= 2 ? koor(jejakArah[jejakArah.length - 1]) : null
         const arah = sblm && ujung && jarakMeter(sblm, ujung) >= AMBANG_GOYANGAN_METER
           ? arahDerajat(sblm, ujung)
           : arahTerakhir.current.get(pos.sesi_tugas_id)
