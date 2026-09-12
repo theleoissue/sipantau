@@ -104,6 +104,35 @@ export function PetaLangsung({
   // baru yang masuk SEBELUM animasi sebelumnya selesai membatalkan yang
   // lama dulu — tanpa ini dua animasi berebut posisi marker yang sama.
   const animasiAktif = useRef<Map<string, number>>(new Map())
+  /**
+   * Singgahan hasil gambar per sesi.
+   *
+   * Kuncinya IDENTITAS larik jejak, bukan isinya. Penambahan Titik selalu
+   * membuat larik baru (`[...sudah, titikBaru]`), jadi perbandingan
+   * rujukan sudah cukup dan tidak perlu membandingkan ribuan koordinat
+   * untuk tahu apakah sesuatu berubah.
+   */
+  const hasilGambar = useRef<Map<string, { dari: TitikJejak[]; koor: [number, number][] }>>(new Map())
+  /**
+   * Ruas ujung yang sedang dianimasikan — garis terpisah, dua titik saja.
+   *
+   * Sebelumnya seluruh jejak dihitung ulang tiap frame, dan sejak
+   * penyaring Kalman masuk itu berarti 11,8 ms untuk jejak 3.855 Titik:
+   * 709 ms kerja per detik pada 60 fps, untuk SATU petugas. Dengan
+   * beberapa petugas sekaligus utas utamanya habis dan petanya tersendat.
+   * Memisahkan ujungnya membuat kerja per frame menjadi dua koordinat.
+   */
+  const garisUjung = useRef<Map<string, import('leaflet').Polyline>>(new Map())
+  /**
+   * Jejak TANPA Titik terakhir, disinggahkan terpisah.
+   *
+   * Memotong satu koordinat dari hasil gambar bukan hal yang sama dengan
+   * memotong satu Titik jejak: satu Titik menjadi belasan koordinat
+   * sesudah dilengkungkan. Kalau dipotong di sisi hasil, garisnya sampai
+   * lebih dulu di tujuan sementara penandanya masih berjalan — persis
+   * kebalikan dari maksud animasinya.
+   */
+  const hasilTanpaUjung = useRef<Map<string, { dari: TitikJejak[]; koor: [number, number][] }>>(new Map())
 
   /**
    * Menggeser penanda (dan ujung garis jejaknya) halus dari `dari` ke
@@ -126,17 +155,49 @@ export function PetaLangsung({
    */
   const DURASI_ANIMASI_MS = 12_000
 
+  /** jejakGambar yang hanya benar-benar menghitung bila jejaknya berubah. */
+  const gambarTersinggah = useCallback((idSesi: string, dasar: TitikJejak[]): [number, number][] => {
+    const ada = hasilGambar.current.get(idSesi)
+    if (ada && ada.dari === dasar) return ada.koor
+    const koor = jejakGambar(dasar)
+    hasilGambar.current.set(idSesi, { dari: dasar, koor })
+    return koor
+  }, [])
+
   const animasiKe = useCallback((idSesi: string, dari: [number, number], ke: [number, number]) => {
     const sebelumnya = animasiAktif.current.get(idSesi)
     if (sebelumnya != null) cancelAnimationFrame(sebelumnya)
 
+    const dasar = jejak.current.get(idSesi) ?? []
+    const garis = garisJejak.current.get(idSesi)
+    const ujung = garisUjung.current.get(idSesi)
+
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       penanda.current.get(idSesi)?.setLatLng(ke)
-      const garis = garisJejak.current.get(idSesi)
-      const dasar = jejak.current.get(idSesi) ?? []
-      if (garis && dasar.length >= 1) garis.setLatLngs(jejakGambar(dasar))
+      if (garis && dasar.length >= 1) garis.setLatLngs(gambarTersinggah(idSesi, dasar))
+      ujung?.setLatLngs([])
       return
     }
+
+    // DIHITUNG SEKALI, di luar putaran frame. Bagian jejak yang sudah
+    // mapan tidak berubah sepanjang animasi; yang bergerak cuma ujungnya.
+    // DIHITUNG SEKALI per Titik baru, bukan per frame. Dua kali penuh
+    // sepanjang satu animasi dua belas detik — di awal dan di akhir —
+    // alih-alih tujuh ratus kali.
+    let koorTetap: [number, number][]
+    if (dasar.length >= 2) {
+      const singgah = hasilTanpaUjung.current.get(idSesi)
+      if (singgah && singgah.dari === dasar) {
+        koorTetap = singgah.koor
+      } else {
+        koorTetap = jejakGambar(dasar.slice(0, -1))
+        hasilTanpaUjung.current.set(idSesi, { dari: dasar, koor: koorTetap })
+      }
+    } else {
+      koorTetap = gambarTersinggah(idSesi, dasar)
+    }
+    const pangkal = koorTetap[koorTetap.length - 1]
+    if (garis && koorTetap.length >= 1) garis.setLatLngs(koorTetap)
 
     const mulai = performance.now()
     const frame = (sekarang: number) => {
@@ -146,27 +207,22 @@ export function PetaLangsung({
       const lng = dari[1] + (ke[1] - dari[1]) * e
 
       penanda.current.get(idSesi)?.setLatLng([lat, lng])
-      const garis = garisJejak.current.get(idSesi)
-      const dasar = jejak.current.get(idSesi) ?? []
-      // Dilengkungkan setiap frame supaya ujung yang sedang bergerak ikut
-      // melengkung, bukan menempel sebagai satu ruas lurus di depan kurva.
-      if (garis && dasar.length >= 1) {
-        // Ujung yang sedang dianimasikan menggantikan KOORDINAT Titik
-        // terakhir, bukan keterangannya: akurasi dan waktunya tetap milik
-        // pembacaan asli, supaya penyaring menimbangnya sama seperti
-        // sebelum animasi berjalan.
-        const ujung: TitikJejak = { ...dasar[dasar.length - 1], la: lat, lo: lng }
-        garis.setLatLngs(jejakGambar([...dasar.slice(0, -1), ujung]))
-      }
+      // Dua koordinat. Itu saja kerja per frame-nya.
+      if (ujung && pangkal) ujung.setLatLngs([pangkal, [lat, lng]])
 
       if (t < 1) {
         animasiAktif.current.set(idSesi, requestAnimationFrame(frame))
       } else {
         animasiAktif.current.delete(idSesi)
+        // Selesai: ujung dilebur kembali ke jejak mapan, supaya tidak ada
+        // ruas lurus yang tertinggal di depan kurva.
+        const akhir = jejak.current.get(idSesi) ?? []
+        if (garis && akhir.length >= 1) garis.setLatLngs(gambarTersinggah(idSesi, akhir))
+        ujung?.setLatLngs([])
       }
     }
     animasiAktif.current.set(idSesi, requestAnimationFrame(frame))
-  }, [])
+  }, [gambarTersinggah])
 
   // Status Terakhir terlihat menua seiring waktu meski tidak ada
   // pembaruan data — perlu render ulang berkala supaya warnanya benar
@@ -449,6 +505,8 @@ export function PetaLangsung({
       for (const [id, garis] of garisJejak.current) {
         if (!idAktif.has(id)) {
           garis.remove(); garisJejak.current.delete(id); jejak.current.delete(id)
+          garisUjung.current.get(id)?.remove(); garisUjung.current.delete(id)
+          hasilGambar.current.delete(id); hasilTanpaUjung.current.delete(id)
           calonJejak.current.delete(id)
           const raf = animasiAktif.current.get(id)
           if (raf != null) { cancelAnimationFrame(raf); animasiAktif.current.delete(id) }
@@ -489,8 +547,12 @@ export function PetaLangsung({
         // supaya ujung garis ikut bergeser halus bersama penandanya.
         const titikJejak = jejak.current.get(pos.sesi_tugas_id) ?? []
         if (!garisJejak.current.has(pos.sesi_tugas_id) && titikJejak.length >= 2) {
-          const garisBaru = L.polyline(jejakGambar(titikJejak), { color: wSpt, weight: 3.5, opacity: tampilkanJejak ? .85 : 0 }).addTo(p)
-          garisJejak.current.set(pos.sesi_tugas_id, garisBaru)
+          const gaya = { color: wSpt, weight: 3.5, opacity: tampilkanJejak ? .85 : 0 }
+          garisJejak.current.set(pos.sesi_tugas_id,
+            L.polyline(gambarTersinggah(pos.sesi_tugas_id, titikJejak), gaya).addTo(p))
+          // Ruas ujung dibuat berpasangan dan bergaya sama, supaya
+          // pemisahannya tidak terlihat sebagai dua garis berbeda.
+          garisUjung.current.set(pos.sesi_tugas_id, L.polyline([], gaya).addTo(p))
         }
 
         const ada = penanda.current.get(pos.sesi_tugas_id)
@@ -541,10 +603,11 @@ export function PetaLangsung({
     // "Sedang bertugas" di render biasa). Tanpa ini, keduanya beku
     // pada nilai saat titik GPS TERAKHIR masuk, tidak pernah mengejar
     // waktu berjalan sampai ada titik baru atau halaman dimuat ulang.
-  }, [posisi, filterSpt, petaSiap, tik, animasiKe, ikutiSesi, tampilkanJejak])
+  }, [posisi, filterSpt, petaSiap, tik, animasiKe, gambarTersinggah, ikutiSesi, tampilkanJejak])
 
   useEffect(() => {
     for (const garis of garisJejak.current.values()) garis.setStyle({ opacity: tampilkanJejak ? .85 : 0 })
+    for (const garis of garisUjung.current.values()) garis.setStyle({ opacity: tampilkanJejak ? .85 : 0 })
   }, [tampilkanJejak])
 
   useEffect(() => {
