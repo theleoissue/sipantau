@@ -60,7 +60,7 @@ export async function posisiPetaAwal(): Promise<PosisiPeta[]> {
     .from('posisi_terkini')
     .select(`
       sesi_tugas_id, penugasan_id, pengguna_id, unit_id, lat, lng,
-      akurasi_meter, baterai_persen, sumber_lokasi, izin_terputus, direkam_pada,
+      akurasi_meter, baterai_persen, sumber_lokasi, izin_terputus, direkam_pada, aktivitas,
       pengguna:pengguna_id ( nama ),
       penugasan:penugasan_id ( nomor_spt, judul )
     `)
@@ -71,6 +71,7 @@ export async function posisiPetaAwal(): Promise<PosisiPeta[]> {
     const pengguna = b.pengguna as { nama: string } | null
     const penugasan = b.penugasan as { nomor_spt: string | null; judul: string } | null
     return {
+      aktivitas: (b.aktivitas as PosisiPeta['aktivitas']) ?? null,
       sesi_tugas_id: b.sesi_tugas_id as string,
       penugasan_id: b.penugasan_id as string,
       pengguna_id: b.pengguna_id as string,

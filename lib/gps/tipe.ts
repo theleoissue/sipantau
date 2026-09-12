@@ -18,6 +18,29 @@ export const LABEL_SEBAB_PENUTUPAN: Record<SebabPenutupanSesi, string> = {
 
 export type SumberLokasi = 'gps' | 'jaringan' | 'fusi' | 'tidak_diketahui'
 
+/**
+ * Keadaan gerak pada pembacaan terakhir (migrasi 0066).
+ *
+ * null BUKAN 'diam'. Ia berarti tidak diketahui — Titik dari jalur web,
+ * atau perangkat yang tidak melaporkan kecepatan — dan WAJIB
+ * diperlakukan persis seperti sebelum keterangan ini ada: penanda
+ * bergerak seperti biasa. Membekukan penanda karena kita tidak tahu
+ * adalah kebalikan dari maksudnya.
+ */
+export type AktivitasGerak = 'diam' | 'berjalan' | 'berkendara' | 'tidak_diketahui'
+
+export const LABEL_AKTIVITAS: Record<AktivitasGerak, string> = {
+  diam: 'Diam di tempat',
+  berjalan: 'Berjalan',
+  berkendara: 'Berkendara',
+  tidak_diketahui: 'Gerak belum terbaca',
+}
+
+/** Benar hanya bila perangkat SUNGGUH menyatakan diam. */
+export function sedangDiam(a: AktivitasGerak | null | undefined): boolean {
+  return a === 'diam'
+}
+
 /** Sesi Tugas milik pengguna yang sedang masuk, kalau sedang berjalan. */
 export interface SesiAktifSaya {
   id: string
@@ -47,6 +70,8 @@ export interface PosisiPeta {
   akurasi_meter: number | null
   baterai_persen: number | null
   sumber_lokasi: SumberLokasi
+  /** null = tidak diketahui, BUKAN diam. Lihat AktivitasGerak. */
+  aktivitas: AktivitasGerak | null
   izin_terputus: boolean
   direkam_pada: string
   nama: string

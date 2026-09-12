@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
 import type { PosisiPeta } from '@/lib/gps/tipe'
-import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, mutuAkurasi, arahDerajat, haluskanJejak, sederhanakanJejak, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
+import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanJejak, mutuAkurasi, arahDerajat, haluskanJejak, sederhanakanJejak, sedangDiam, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
 
 // Disederhanakan DULU, baru dilengkungkan. Urutannya menentukan:
 // melengkungkan titik yang masih bergerigi hanya menghasilkan
@@ -265,7 +265,27 @@ export function PetaLangsung({
         const titikBaru: [number, number] = [Number(baris.lat), Number(baris.lng)]
         const sudah = jejak.current.get(idSesi) ?? []
         const terakhirDigambar = sudah[sudah.length - 1]
-        if (!terakhirDigambar) {
+
+        // Perangkat menyatakan DIAM: tidak ada ruas baru, titik.
+        //
+        // Inilah sumber jaring garis di peta. Saat orang berdiri diam,
+        // pembacaan GPS tetap datang tiap beberapa detik dan tersebar
+        // puluhan meter — di dalam gedung sering jauh melewati ambang
+        // goyangan 20 m, sehingga dua derau yang berurutan saling
+        // menguatkan dan garis ditarik bolak-balik di antara keduanya.
+        // Menaikkan ambang tidak menyelesaikannya; yang hilang adalah
+        // pengetahuan bahwa orangnya memang tidak ke mana-mana.
+        //
+        // Titiknya TETAP tersimpan seluruhnya sebagai bukti. Yang tidak
+        // dilakukan hanyalah mengarang perjalanan yang tidak terjadi.
+        //
+        // sedangDiam() sengaja hanya benar untuk 'diam' yang eksplisit:
+        // null berarti tidak diketahui, dan ketidaktahuan tidak boleh
+        // membekukan jejak siapa pun.
+        const diam = sedangDiam(baris.aktivitas as PosisiPeta['aktivitas'])
+        if (diam) {
+          calonJejak.current.delete(idSesi)
+        } else if (!terakhirDigambar) {
           jejak.current.set(idSesi, [titikBaru])
         } else if (jarakMeter(terakhirDigambar, titikBaru) < AMBANG_GOYANGAN_METER) {
           calonJejak.current.delete(idSesi) // sudah kembali dekat — calon lama gugur
@@ -301,6 +321,9 @@ export function PetaLangsung({
             sumber_lokasi: baris.sumber_lokasi as PosisiPeta['sumber_lokasi'],
             izin_terputus: baris.izin_terputus as boolean,
             direkam_pada: baris.direkam_pada as string,
+            // Dibaca dari baris yang sama — kalau diambil lewat kueri
+            // terpisah tiap Titik masuk, seluruh guna Realtime hilang.
+            aktivitas: (baris.aktivitas as PosisiPeta['aktivitas']) ?? null,
             // Realtime tidak membawa nama/SPT (tidak digabung tabel
             // lain) — dipertahankan dari potret awal atau pembaruan
             // sebelumnya. Sesi yang BENAR-BENAR baru (belum pernah
@@ -445,7 +468,12 @@ export function PetaLangsung({
           // daripada membiarkannya di posisi terakhir yang meyakinkan.
           // Ikonnya tetap "hidup": statusSinyal dihitung dari direkam_pada,
           // dan terakhir_terlihat pada users tetap maju.
-          if (bergerak && mutuAkurasi(pos.akurasi_meter) !== 'rendah') {
+          // Penanda ditahan pada dua keadaan yang berbeda sebabnya:
+          // akurasi buruk (posisinya belum tentu benar) dan perangkat
+          // menyatakan diam (posisinya benar, orangnya yang tidak
+          // pindah). Keduanya sama-sama membuat perpindahan di layar
+          // menyesatkan.
+          if (bergerak && !sedangDiam(pos.aktivitas) && mutuAkurasi(pos.akurasi_meter) !== 'rendah') {
             animasiKe(pos.sesi_tugas_id, [sekarang.lat, sekarang.lng], tujuan)
           }
         } else {
