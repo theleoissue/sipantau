@@ -13,6 +13,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
 import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.camera.core.*;
 import androidx.camera.lifecycle.ProcessCameraProvider;
@@ -39,6 +40,16 @@ public class DokumenScannerActivity extends ComponentActivity {
   private ImageCapture capture; private Camera kamera; private TextView status, ringkasan; private Button tombolSelesai, tombolFlash; private LinearLayout thumbnail;
   private Bingkai bingkai; private int batas, stabil; private boolean mengambil, menungguHalamanBerikutnya, flashMenyala, opencvSiap;
   private Point[] sudutTerakhir, sudutUntukFoto;
+  // Lapisan pratinjau. Sebelum ini, hasil satu halaman hanya terlihat
+  // sebagai thumbnail 48x64 dp - seukuran kuku, dan mustahil dipakai
+  // memeriksa apakah SPRIN-nya benar-benar terbaca sebelum ditekan
+  // Selesai. Halaman yang buram baru ketahuan sesudah Gemini gagal
+  // membacanya, dan saat itu petugas sudah meninggalkan tempatnya.
+  private FrameLayout lapisanPratinjau; private ImageView gambarPratinjau;
+  private TextView judulPratinjau; private Button tombolPakai, tombolUlangi;
+  private String berkasPratinjau;
+  /** -1 berarti halaman BARU yang belum disetujui; >=0 menunjuk halaman tersimpan. */
+  private int indeksPratinjau = -1;
 
   @Override public void onCreate(Bundle state) { try {
     super.onCreate(state);
@@ -57,6 +68,22 @@ public class DokumenScannerActivity extends ComponentActivity {
     ringkasan=new TextView(this);ringkasan.setTextColor(Color.WHITE);ringkasan.setTextSize(14);ringkasan.setGravity(Gravity.CENTER);ringkasan.setText("0 / "+batas+" halaman");FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(-1,dp(26),Gravity.BOTTOM);rp.setMargins(0,0,0,dp(78));root.addView(ringkasan,rp);
     Button foto=new Button(this);foto.setText("Ambil foto");foto.setOnClickListener(v->ambil());FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);fp.setMargins(0,0,0,30);root.addView(foto,fp);
     tombolSelesai=new Button(this);tombolSelesai.setText("Selesai");tombolSelesai.setEnabled(false);tombolSelesai.setOnClickListener(v->selesai());FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.END);sp.setMargins(0,0,24,30);root.addView(tombolSelesai,sp);
+    root.addView(bangunPratinjau(), new FrameLayout.LayoutParams(-1, -1));
+    // Tombol kembali saat pratinjau terbuka hanya menutup pratinjaunya.
+    // Tanpa ini ia membatalkan SELURUH pemindaian beserta halaman yang
+    // sudah diambil, dan tidak ada jalan mengembalikannya.
+    //
+    // Lewat dispatcher, bukan onBackPressed(): metode itu sudah usang dan
+    // berhenti dipanggil begitu predictive back dinyalakan di manifes -
+    // perubahan satu baris yang tidak ada hubungannya dengan berkas ini,
+    // dan yang kerusakannya tidak akan terlihat sampai ada yang mencoba.
+    getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true){
+      @Override public void handleOnBackPressed(){
+        if(lapisanPratinjau!=null&&lapisanPratinjau.getVisibility()==View.VISIBLE){tutupPratinjau();return;}
+        setEnabled(false);
+        getOnBackPressedDispatcher().onBackPressed();
+      }
+    });
     setContentView(root);mulai(preview);
   }catch(Throwable galat){Log.e("DokumenScanner","Gagal memulai scanner",galat);gagal("SCANNER_GAGAL_"+galat.getClass().getSimpleName());}}
   private void mulai(PreviewView preview){
@@ -88,9 +115,12 @@ public class DokumenScannerActivity extends ComponentActivity {
   private boolean stabil(Point[] a,Point[] b){if(b==null)return false;double d=0;for(int i=0;i<4;i++)d+=Math.hypot(a[i].x-b[i].x,a[i].y-b[i].y);return d<.035;}
   private Point[] salin(Point[] sumber){if(sumber==null)return null;Point[] r=new Point[sumber.length];for(int i=0;i<sumber.length;i++)r[i]=new Point(sumber[i].x,sumber[i].y);return r;}
   private void ambil(){
+    // Pratinjau terbuka berarti petugas sedang memutuskan sesuatu.
+    // Memotret di belakangnya akan menumpuk halaman tanpa ia sadari.
+    if(lapisanPratinjau!=null&&lapisanPratinjau.getVisibility()==View.VISIBLE)return;
     if(mengambil||capture==null||halaman.size()>=batas)return;mengambil=true;stabil=0;status.setText("Memproses halaman…");Point[] sudut=salin(sudutUntukFoto);File mentah=new File(getCacheDir(),"sprin-"+System.nanoTime()+".jpg");
     capture.takePicture(new ImageCapture.OutputFileOptions.Builder(mentah).build(),executor,new ImageCapture.OnImageSavedCallback(){
-      @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults hasil){String bersih=bersihkan(mentah,sudut);runOnUiThread(()->{halaman.add(Uri.fromFile(new File(bersih)).toString());tambahThumbnail(bersih);mengambil=false;menungguHalamanBerikutnya=true;tombolSelesai.setEnabled(true);ringkasan.setText(halaman.size()+" / "+batas+" halaman");status.setText(halaman.size()+" halaman siap. Arahkan ke halaman berikutnya atau tekan Selesai.");if(halaman.size()>=batas)selesai();});}
+      @Override public void onImageSaved(@NonNull ImageCapture.OutputFileResults hasil){String bersih=bersihkan(mentah,sudut);runOnUiThread(()->{mengambil=false;bukaPratinjau(bersih,-1);});}
       @Override public void onError(@NonNull ImageCaptureException e){runOnUiThread(()->{mengambil=false;status.setText("Foto gagal. Coba lagi.");});}
     });
   }
@@ -99,7 +129,100 @@ public class DokumenScannerActivity extends ComponentActivity {
   private Mat cropPerspektif(Mat sumber,Point[] normal){if(normal==null||normal.length!=4)return kecilkan(sumber,1440);Point[] p=new Point[4];for(int i=0;i<4;i++)p[i]=new Point(normal[i].x*sumber.cols(),normal[i].y*sumber.rows());double lebar=Math.max(Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),Math.hypot(p[2].x-p[3].x,p[2].y-p[3].y));double tinggi=Math.max(Math.hypot(p[3].x-p[0].x,p[3].y-p[0].y),Math.hypot(p[2].x-p[1].x,p[2].y-p[1].y));if(lebar<200||tinggi<200)return kecilkan(sumber,1440);MatOfPoint2f asal=new MatOfPoint2f(p),tujuan=new MatOfPoint2f(new Point(0,0),new Point(lebar-1,0),new Point(lebar-1,tinggi-1),new Point(0,tinggi-1));Mat trans=Imgproc.getPerspectiveTransform(asal,tujuan);Mat hasil=new Mat();Imgproc.warpPerspective(sumber,hasil,trans,new Size(lebar,tinggi),Imgproc.INTER_CUBIC,Core.BORDER_REPLICATE,Scalar.all(0));asal.release();tujuan.release();trans.release();Mat ringkas=kecilkan(hasil,1440);hasil.release();return ringkas;}
   private Mat kecilkan(Mat sumber,int maksimum){double f=Math.min(1d,maksimum/(double)Math.max(sumber.cols(),sumber.rows()));if(f==1d)return sumber.clone();Mat hasil=new Mat();Imgproc.resize(sumber,hasil,new Size(sumber.cols()*f,sumber.rows()*f));return hasil;}
   private void putarSesuaiExif(Mat gambar,File berkas){try{int o=new ExifInterface(berkas.getAbsolutePath()).getAttributeInt(ExifInterface.TAG_ORIENTATION,ExifInterface.ORIENTATION_NORMAL);if(o==ExifInterface.ORIENTATION_ROTATE_90)Core.rotate(gambar,gambar,Core.ROTATE_90_CLOCKWISE);else if(o==ExifInterface.ORIENTATION_ROTATE_180)Core.rotate(gambar,gambar,Core.ROTATE_180);else if(o==ExifInterface.ORIENTATION_ROTATE_270)Core.rotate(gambar,gambar,Core.ROTATE_90_COUNTERCLOCKWISE);}catch(IOException ignored){}}
-  private void tambahThumbnail(String lokasi){ImageView gambar=new ImageView(this);gambar.setImageURI(Uri.fromFile(new File(lokasi)));gambar.setScaleType(ImageView.ScaleType.CENTER_CROP);gambar.setBackgroundColor(Color.WHITE);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(48),dp(64));lp.setMargins(0,0,dp(8),0);thumbnail.addView(gambar,lp);}
+  private void tambahThumbnail(String lokasi){
+    ImageView gambar=new ImageView(this);gambar.setImageURI(Uri.fromFile(new File(lokasi)));
+    gambar.setScaleType(ImageView.ScaleType.CENTER_CROP);gambar.setBackgroundColor(Color.WHITE);
+    // Halaman yang sudah tersimpan pun tetap dapat diperiksa ulang: yang
+    // buram sering baru terasa salah sesudah halaman berikutnya diambil.
+    final int indeks=thumbnail.getChildCount();
+    gambar.setOnClickListener(v->bukaPratinjau(lokasi,indeks));
+    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(56),dp(74));lp.setMargins(0,0,dp(8),0);
+    thumbnail.addView(gambar,lp);
+  }
+
+  /** Lapisan pratinjau seukuran layar, dibangun sekali dan dipakai ulang. */
+  private View bangunPratinjau(){
+    lapisanPratinjau=new FrameLayout(this);
+    lapisanPratinjau.setBackgroundColor(Color.rgb(15,28,50));
+    lapisanPratinjau.setVisibility(View.GONE);
+    // Menelan sentuhan supaya tidak tembus ke tombol kamera di bawahnya.
+    lapisanPratinjau.setClickable(true);
+
+    judulPratinjau=new TextView(this);judulPratinjau.setTextColor(Color.WHITE);
+    judulPratinjau.setTextSize(16);judulPratinjau.setGravity(Gravity.CENTER);
+    judulPratinjau.setPadding(dp(16),dp(20),dp(16),dp(10));
+    lapisanPratinjau.addView(judulPratinjau,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+
+    gambarPratinjau=new ImageView(this);
+    // FIT_CENTER, bukan CENTER_CROP: halaman yang terpotong di tepi
+    // justru yang paling perlu terlihat terpotongnya.
+    gambarPratinjau.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    gambarPratinjau.setBackgroundColor(Color.WHITE);
+    FrameLayout.LayoutParams gp=new FrameLayout.LayoutParams(-1,-1);
+    gp.setMargins(dp(12),dp(62),dp(12),dp(92));
+    lapisanPratinjau.addView(gambarPratinjau,gp);
+
+    LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER);
+    bar.setPadding(dp(12),dp(10),dp(12),dp(18));
+    tombolUlangi=new Button(this);tombolUlangi.setText("Ulangi");
+    tombolUlangi.setOnClickListener(v->buangHalamanPratinjau());
+    tombolPakai=new Button(this);tombolPakai.setText("Pakai halaman");
+    tombolPakai.setOnClickListener(v->pakaiHalamanPratinjau());
+    LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(52),1f);
+    bp.setMargins(dp(6),0,dp(6),0);
+    bar.addView(tombolUlangi,bp);bar.addView(tombolPakai,bp);
+    lapisanPratinjau.addView(bar,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));
+    return lapisanPratinjau;
+  }
+
+  private void bukaPratinjau(String berkas,int indeks){
+    berkasPratinjau=berkas;indeksPratinjau=indeks;
+    gambarPratinjau.setImageURI(null);   // paksa muat ulang walau Uri-nya sama
+    gambarPratinjau.setImageURI(Uri.fromFile(new File(berkas)));
+    boolean baru=indeks<0;
+    judulPratinjau.setText(baru
+      ? "Periksa hasil halaman "+(halaman.size()+1)
+      : "Halaman "+(indeks+1)+" dari "+halaman.size());
+    tombolPakai.setText(baru?"Pakai halaman":"Tutup");
+    tombolUlangi.setText(baru?"Ulangi":"Hapus halaman");
+    lapisanPratinjau.setVisibility(View.VISIBLE);
+  }
+
+  private void tutupPratinjau(){
+    lapisanPratinjau.setVisibility(View.GONE);
+    // Dilepas supaya bitmap halaman tidak ditahan di memori sepanjang
+    // pemindaian - delapan halaman penuh cukup untuk membuat HP kelas
+    // menengah kehabisan.
+    gambarPratinjau.setImageURI(null);
+    berkasPratinjau=null;indeksPratinjau=-1;
+  }
+
+  private void pakaiHalamanPratinjau(){
+    if(indeksPratinjau>=0){tutupPratinjau();return;}   // halaman lama: tombolnya cuma "Tutup"
+    halaman.add(Uri.fromFile(new File(berkasPratinjau)).toString());
+    tambahThumbnail(berkasPratinjau);
+    menungguHalamanBerikutnya=true;tombolSelesai.setEnabled(true);
+    ringkasan.setText(halaman.size()+" / "+batas+" halaman");
+    status.setText(halaman.size()+" halaman siap. Arahkan ke halaman berikutnya atau tekan Selesai.");
+    boolean penuh=halaman.size()>=batas;
+    tutupPratinjau();
+    if(penuh)selesai();
+  }
+
+  private void buangHalamanPratinjau(){
+    String berkas=berkasPratinjau;int indeks=indeksPratinjau;
+    if(indeks>=0){
+      halaman.remove(indeks);
+      thumbnail.removeAllViews();
+      for(String u:halaman)tambahThumbnail(Uri.parse(u).getPath());
+      tombolSelesai.setEnabled(!halaman.isEmpty());
+      ringkasan.setText(halaman.size()+" / "+batas+" halaman");
+    }
+    try{if(berkas!=null)new File(berkas).delete();}catch(Throwable diabaikan){}
+    stabil=0;sudutTerakhir=null;menungguHalamanBerikutnya=false;
+    status.setText("Arahkan kamera ke halaman SPRIN");
+    tutupPratinjau();
+  }
   private void ubahFlash(){if(kamera==null||!kamera.getCameraInfo().hasFlashUnit())return;flashMenyala=!flashMenyala;kamera.getCameraControl().enableTorch(flashMenyala);tombolFlash.setText(flashMenyala?"Lampu aktif":"Lampu");}
   private void batal(){Intent data=new Intent();data.putExtra(EXTRA_GALAT,"PEMINDAIAN_DIBATALKAN");setResult(Activity.RESULT_CANCELED,data);finish();}
   private int dp(int nilai){return Math.round(nilai*getResources().getDisplayMetrics().density);}
