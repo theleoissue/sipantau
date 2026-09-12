@@ -8,7 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { BackgroundGeolocation } from '@capgo/background-geolocation'
 import { selesaiTugas, tandaiIzinTerputus, tandaiIzinPulih, mulaiTugasWeb, terbitkanTokenNative } from '@/app/(app)/tugas/aksi'
 import { antrekan, jumlahTertunda, kirimAntrean } from '@/lib/gps/antrean'
-import { hentikanPelacakNative, mulaiPelacakNative, statusPelacakNative } from '@/lib/gps/pelacak-native'
+import { hentikanPelacakNative, mintaIzinGerakNative, mulaiPelacakNative, statusPelacakNative } from '@/lib/gps/pelacak-native'
 import { bateraiPersen } from '@/lib/gps/baterai'
 import { periksaKesehatanPelacak, bukaPengaturanBaterai, bukaPengaturanAutostart, panduanAutostart, abaikanPeringatanBaterai, peringatanBateraiDiabaikan, type KesehatanPelacak } from '@/lib/gps/kesehatan-pelacak'
 import { penandaPerangkatWeb } from '@/lib/gps/penanda-perangkat'
@@ -320,6 +320,15 @@ export function KartuSesiTugas({
           // WebView menampilkan halaman galat bawaan peramban dan sejak
           // itu tidak ada satu baris JavaScript pun yang berjalan —
           // penangkapan berhenti dan antrean tidak bisa dikuras.
+          // SEBELUM layanan dinyalakan, bukan sesudah: PelacakService
+          // memeriksa izin gerak sekali saat mulai, jadi izin yang baru
+          // diberikan setelahnya tidak akan terpakai sepanjang sesi ini.
+          // Pemanggilan ini tidak pernah melempar dan langsung selesai
+          // bila izinnya sudah ada — perekaman tidak pernah tertunda
+          // karenanya.
+          await mintaIzinGerakNative()
+          if (batal) return
+
           const nyala = await mulaiPelacakNative({ token: r.token, sesiId: sesi!.id })
           if (batal) return
           if (nyala?.berjalan) {

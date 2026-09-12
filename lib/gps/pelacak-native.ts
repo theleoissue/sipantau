@@ -26,6 +26,7 @@ interface PluginPelacak {
   mulai(opsi: { url: string; kunci: string | null; token: string; sesi: string }): Promise<StatusPelacak>
   berhenti(): Promise<StatusPelacak>
   status(): Promise<StatusPelacak>
+  mintaIzinGerak(): Promise<StatusPelacak>
 }
 
 const Plugin = registerPlugin<PluginPelacak>('Pelacak')
@@ -65,6 +66,21 @@ export async function mulaiPelacakNative(opsi: {
   } catch {
     return null
   }
+}
+
+/**
+ * Meminta izin pengenalan gerak. Sengaja TIDAK menggagalkan apa pun.
+ *
+ * Sensor gerak menjawab diam/berjalan/berkendara dari akselerometer,
+ * tanpa GPS, sehingga tidak ikut tertipu ketika posisi melompat — itulah
+ * yang membuat jejak berhenti menggambar jaring saat petugas diam. Tapi
+ * ia peningkatan mutu, bukan syarat: ditolak, atau APK lama yang belum
+ * punya metodenya, perekaman tetap berjalan persis seperti sebelumnya
+ * dan basis data kembali menyimpulkan gerak dari kecepatan.
+ */
+export async function mintaIzinGerakNative(): Promise<void> {
+  if (!pelacakNativeTersedia()) return
+  try { await Plugin.mintaIzinGerak() } catch { /* APK lama, atau ditolak */ }
 }
 
 export async function hentikanPelacakNative(): Promise<void> {

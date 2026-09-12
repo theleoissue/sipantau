@@ -1,10 +1,16 @@
 package id.go.jabar.polda.sipantau;
 
+import android.Manifest;
+import android.os.Build;
+
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 /**
  * Jembatan ke PelacakService — tipis dengan sengaja.
@@ -15,7 +21,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * sedang tidak berjalan sama sekali. Menaruh sepotong pun tanggung jawab
  * perekaman di sini akan mengembalikan cacat yang dibereskan A5.
  */
-@CapacitorPlugin(name = "Pelacak")
+@CapacitorPlugin(
+  name = "Pelacak",
+  permissions = {
+    @Permission(alias = "gerak", strings = { Manifest.permission.ACTIVITY_RECOGNITION })
+  }
+)
 public class PelacakPlugin extends Plugin {
 
   @PluginMethod
@@ -40,6 +51,28 @@ public class PelacakPlugin extends Plugin {
       // seolah perekaman berjalan.
       call.reject("GAGAL_MULAI: " + e.getMessage());
     }
+  }
+
+  /**
+   * Izin pengenalan gerak. SENGAJA terpisah dari mulai(): menolaknya
+   * tidak boleh menggagalkan perekaman, dan menggabungkannya akan
+   * membuat satu penolakan izin tambahan menghentikan Sesi Tugas.
+   */
+  @PluginMethod
+  public void mintaIzinGerak(PluginCall call) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        || getPermissionState("gerak") == PermissionState.GRANTED) {
+      call.resolve(keadaan());
+      return;
+    }
+    requestPermissionForAlias("gerak", call, "sesudahIzinGerak");
+  }
+
+  @PermissionCallback
+  private void sesudahIzinGerak(PluginCall call) {
+    // Ditolak pun bukan galat: layanan tetap merekam, hanya keadaan
+    // geraknya yang kembali disimpulkan dari kecepatan.
+    call.resolve(keadaan());
   }
 
   @PluginMethod

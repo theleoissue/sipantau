@@ -1,13 +1,17 @@
 package id.go.jabar.polda.sipantau;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.BatteryManager;
@@ -19,6 +23,9 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
+import com.google.android.gms.location.ActivityRecognition;
+import com.google.android.gms.location.ActivityRecognitionResult;
+import com.google.android.gms.location.DetectedActivity;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -107,7 +114,21 @@ public class PelacakService extends Service {
     "WAKTU_TIDAK_MASUK_AKAL", "BENTUK_TIDAK_SAH", "TERLALU_BANYAK"
   };
 
+  // Pengenalan gerak dibaca dari akselerometer dan giroskop, TIDAK dari
+  // GPS. Itu sebabnya ia tidak ikut tertipu ketika posisi melompat:
+  // badan perangkat memang tidak ke mana-mana. 20 detik sudah cukup —
+  // orang tidak berganti moda tiap tiga detik, dan jeda rapat menguras
+  // baterai tanpa menambah ketepatan.
+  private static final long JEDA_AKTIVITAS_MS = 20_000L;
+  // Di bawah ini jawabannya lebih mirip tebakan daripada pembacaan, dan
+  // tebakan yang disimpan akan MENANG atas kecepatan di titik_aktivitas.
+  // Lebih baik tidak menjawab.
+  private static final int KEYAKINAN_MINIMUM = 50;
+
   private FusedLocationProviderClient penyedia;
+  private PendingIntent tujuanAktivitas;
+  private BroadcastReceiver penerimaAktivitas;
+  private volatile String aktivitasSensor = null;
   private LocationCallback penerima;
   private AntreanTitikDb antrean;
   private HandlerThread utas;
@@ -149,6 +170,7 @@ public class PelacakService extends Service {
 
     mulaiLatarDepan();
     mulaiMerekam();
+    mulaiMengenaliGerak();
     kerja.removeCallbacks(putaranKirim);
     kerja.postDelayed(putaranKirim, 2_000L);
     return START_STICKY;
@@ -222,6 +244,94 @@ public class PelacakService extends Service {
     }
   }
 
+  /**
+   * Pengenalan gerak. Gagal total pun tidak apa-apa: aktivitasSensor
+   * tetap null, Titik tetap terekam dan terkirim, dan basis data jatuh
+   * ke kecepatan seperti sebelum fitur ini ada. Tidak ada satu pun
+   * jalur perekaman yang bergantung padanya.
+   */
+  private void mulaiMengenaliGerak() {
+    if (penerimaAktivitas != null) return;
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        && checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION)
+           != PackageManager.PERMISSION_GRANTED) {
+      Log.i(TAG, "izin pengenalan gerak belum ada; perekaman berjalan tanpa itu");
+      return;
+    }
+
+    final String aksi = getPackageName() + ".AKTIVITAS_GERAK";
+
+    penerimaAktivitas = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context konteks, Intent niat) {
+        if (!ActivityRecognitionResult.hasResult(niat)) return;
+        DetectedActivity d = ActivityRecognitionResult.extractResult(niat)
+          .getMostProbableActivity();
+        aktivitasSensor = d.getConfidence() >= KEYAKINAN_MINIMUM
+          ? terjemahkanGerak(d.getType())
+          : null;
+      }
+    };
+
+    IntentFilter saring = new IntentFilter(aksi);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      registerReceiver(penerimaAktivitas, saring, Context.RECEIVER_NOT_EXPORTED);
+    } else {
+      registerReceiver(penerimaAktivitas, saring);
+    }
+
+    // FLAG_MUTABLE wajib: Play Services menyisipkan hasil deteksinya ke
+    // dalam Intent ini. Dengan FLAG_IMMUTABLE hasilnya tidak pernah
+    // sampai, dan diamnya tidak menimbulkan galat apa pun.
+    Intent niat = new Intent(aksi).setPackage(getPackageName());
+    tujuanAktivitas = PendingIntent.getBroadcast(this, 0, niat,
+      PendingIntent.FLAG_UPDATE_CURRENT
+        | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0));
+
+    try {
+      ActivityRecognition.getClient(this)
+        .requestActivityUpdates(JEDA_AKTIVITAS_MS, tujuanAktivitas);
+    } catch (SecurityException e) {
+      Log.w(TAG, "pengenalan gerak ditolak sistem", e);
+    }
+  }
+
+  private void berhentiMengenaliGerak() {
+    if (penerimaAktivitas != null) {
+      try { unregisterReceiver(penerimaAktivitas); } catch (Exception diabaikan) { }
+      penerimaAktivitas = null;
+    }
+    if (tujuanAktivitas != null) {
+      try {
+        ActivityRecognition.getClient(this).removeActivityUpdates(tujuanAktivitas);
+      } catch (SecurityException diabaikan) { }
+      tujuanAktivitas = null;
+    }
+  }
+
+  /**
+   * Dipetakan ke daftar tertutup yang SUDAH ADA di basis data
+   * (public.jenis_aktivitas_titik). Tidak dibuat kosakata kedua.
+   * TILTING dan UNKNOWN sengaja menjadi null: keduanya berarti sensor
+   * belum tahu, dan itu bukan jawaban.
+   */
+  private static String terjemahkanGerak(int jenis) {
+    switch (jenis) {
+      case DetectedActivity.STILL:
+        return "diam";
+      case DetectedActivity.WALKING:
+      case DetectedActivity.ON_FOOT:
+      case DetectedActivity.RUNNING:
+        return "berjalan";
+      case DetectedActivity.IN_VEHICLE:
+      case DetectedActivity.ON_BICYCLE:
+        return "berkendara";
+      default:
+        return null;
+    }
+  }
+
   private void simpan(Location l) {
     try {
       boolean tiruan = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -239,7 +349,12 @@ public class PelacakService extends Service {
         l.hasBearing() ? (double) l.getBearing() : null,
         bateraiPersen(),
         tiruan,
-        System.currentTimeMillis());
+        System.currentTimeMillis(),
+        // Penyedianya FusedLocationProvider — perpaduan GNSS, Wi-Fi, dan
+        // seluler. Menyebutnya 'gps' membuat kolom sumber_lokasi mengaku
+        // tahu sesuatu yang tidak pernah dinyatakan siapa pun.
+        "fusi",
+        aktivitasSensor);
 
       if (!masuk) Log.w(TAG, "antrean penuh, Titik tidak diterima");
     } catch (Exception e) {
@@ -434,6 +549,7 @@ public class PelacakService extends Service {
   @Override
   public void onDestroy() {
     if (penerima != null) penyedia.removeLocationUpdates(penerima);
+    berhentiMengenaliGerak();
     kerja.removeCallbacks(putaranKirim);
 
     // Percobaan kirim terakhir sebelum benar-benar mati. Kalaupun gagal,

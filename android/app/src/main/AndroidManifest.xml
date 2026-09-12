@@ -81,6 +81,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        Pengenalan gerak (akselerometer/giroskop). Dipakai PelacakService
+        untuk menjawab diam/berjalan/berkendara TANPA GPS, sehingga tidak
+        ikut tertipu ketika posisi melompat. Ditolak pun perekaman tetap
+        berjalan; hanya klasifikasinya yang jatuh ke kecepatan.
+    -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
