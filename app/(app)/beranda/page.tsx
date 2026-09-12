@@ -63,9 +63,10 @@ export default async function Beranda() {
   const daftarTerbatas = penugasanAktif.slice(0, 4)
 
   return (
-    <>
-      <div className="kh">
+    <main className="beranda-dashboard">
+      <div className="kh beranda-hero">
         <div>
+          <span className="beranda-eyebrow">Ringkasan operasional</span>
           <h1>{SAPA[pengguna.peran](pengguna.nama)}</h1>
           <p className="sub">{SUB[pengguna.peran]}</p>
         </div>
@@ -100,20 +101,20 @@ export default async function Beranda() {
         </div>
       </div>
 
-      <div className="k-stat" style={{ marginBottom: 16 }}>
+      <section className="beranda-statistik" aria-label="Ringkasan statistik">
         {stat.map(s => (
-          <div className="stat" key={s.label} style={{ '--aksen': s.warna } as React.CSSProperties}>
+          <div className="stat beranda-stat" key={s.label} style={{ '--aksen': s.warna } as React.CSSProperties}>
             <div className="lb">{s.label}</div>
             <div className="vl">{s.nilai}</div>
             <div className="tr fl"><span className="lalu">{s.keterangan}</span></div>
           </div>
         ))}
-      </div>
+      </section>
 
-      <div className="kisi k-2">
-        <section className="kartu">
+      <div className="kisi k-2 beranda-isi">
+        <section className="kartu beranda-tugas">
           <div className="kartu-h">
-            <h3>{pengguna.peran === 'anggota' ? 'Tugas berjalan' : 'Penugasan aktif'}</h3>
+            <div><span className="beranda-bagian">Prioritas Anda</span><h3>{pengguna.peran === 'anggota' ? 'Tugas berjalan' : 'Penugasan aktif'}</h3></div>
             <Link href="/penugasan" className="btn btn-o btn-sm">Lihat semua</Link>
           </div>
           <div className="kartu-b">
@@ -131,9 +132,9 @@ export default async function Beranda() {
           </div>
         </section>
 
-        <section className="kartu">
+        <section className="kartu beranda-aktivitas">
           <div className="kartu-h">
-            <h3>Aktivitas terbaru</h3>
+            <div><span className="beranda-bagian">Pembaruan</span><h3>Aktivitas terbaru</h3></div>
           </div>
           <div className="kartu-b rata umpan">
             {aktivitas.length > 0 ? aktivitas.map(a => (
@@ -158,6 +159,6 @@ export default async function Beranda() {
           </div>
         </section>
       </div>
-    </>
+    </main>
   )
 }
