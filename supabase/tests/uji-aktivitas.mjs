@@ -223,6 +223,46 @@ await sebagai(ID.kanit1, async () => {
     e !== null && e.includes('BUKAN_PEMEGANG'))
 })
 
+// ---------------------------------------------------------------------
+// 0065 — sensor gerak menang atas kecepatan turunan
+//
+// Inilah kasus yang membuat peta menggambar jaring: petugas berdiri diam
+// di dalam gedung, GPS melompat, kecepatan turunan membacanya kendaraan.
+// Sensor badan HP tidak memakai GPS, jadi tidak ikut tertipu.
+// Ketiganya sengaja memakai kecepatan 12 m/s yang sama — yang membedakan
+// hasilnya HANYA isi aktivitas_sensor.
+// ---------------------------------------------------------------------
+const titikSensor = async (akurasi, sensor, detik) => db.query(
+  `insert into public.location_logs
+     (sesi_tugas_id, penugasan_id, pengguna_id, lat, lng, akurasi_meter,
+      kecepatan_mps, sumber_lokasi, aktivitas_sensor, antrean_id, direkam_pada,
+      penanda_perangkat, penanda_perangkat_asal)
+   select $1, penugasan_id, pengguna_id, -6.9100, 107.6200, $2::numeric, 12, 'fusi', $3::public.jenis_aktivitas_titik,
+          gen_random_uuid(),
+          (select dibuka_pada from public.sesi_tugas where id=$1) + ($4::text || ' seconds')::interval,
+          'android-akt', 'android-akt'
+     from public.sesi_tugas where id=$1`, [idSesi, akurasi, sensor, detik])
+
+await titikSensor(11, 'diam', 300)
+await titikSensor(12, null, 310)
+await titikSensor(13, 'tidak_diketahui', 320)
+
+const aktivitasPada = async akurasi => (await db.query(
+  `select aktivitas, aktivitas_sensor from public.titik_aktivitas
+    where sesi_tugas_id=$1 and akurasi_meter=$2`, [idSesi, akurasi])).rows[0]
+
+{
+  const a = await aktivitasPada(11), b = await aktivitasPada(12), c = await aktivitasPada(13)
+  cek('U-AKT-14', 'Sensor "diam" MENANG atas kecepatan 12 m/s yang membaca berkendara',
+    a.aktivitas === 'diam')
+  cek('U-AKT-15', 'Tanpa sensor, klasifikasi tetap dari kecepatan seperti sebelumnya',
+    b.aktivitas === 'berkendara' && b.aktivitas_sensor === null)
+  cek('U-AKT-16', 'Sensor "tidak_diketahui" BUKAN jawaban — kecepatan yang dipakai',
+    c.aktivitas === 'berkendara')
+  cek('U-AKT-17', 'Jawaban sensor ikut tampil apa adanya, terpisah dari kesimpulannya',
+    a.aktivitas_sensor === 'diam' && c.aktivitas_sensor === 'tidak_diketahui')
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji aktivitas Titik lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)

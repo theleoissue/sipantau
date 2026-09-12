@@ -348,6 +348,50 @@ cek('U-TN-31', 'Penanda perangkat diambil dari token, bukan dari badan permintaa
   await n(`select count(*) n from public.location_logs
             where antrean_id=$1 and penanda_perangkat='android-uji-1'`, [BOR(1)]) === 1)
 
+// ---------------------------------------------------------------------
+// 0065 — sumber lokasi dan keadaan gerak dari sensor
+//
+// Sebelum 0065, sumber_lokasi ditulis 'gps' sebagai NILAI KERAS untuk
+// setiap Titik native, padahal yang memberi posisi adalah penyedia fusi.
+// Kolomnya jadi terlihat berisi keterangan padahal isinya nilai bawaan.
+// Sekarang dibaca dari kiriman — dan APK lama yang tidak mengirimnya
+// harus tetap berperilaku persis seperti sebelumnya, bukan berubah
+// diam-diam hanya karena basis datanya diperbarui.
+// ---------------------------------------------------------------------
+const SNS = id => `bb000000-0000-0000-0000-00000000001${id}`
+
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+  [tokenBaru, JSON.stringify([
+    { antrean_id: SNS(1), lat: -6.9303, lng: 107.6303, akurasi_meter: 9, kecepatan_mps: 0.1,
+      arah_derajat: 47, baterai_persen: 54, lokasi_tiruan: false, usia_ms: 2500,
+      sumber: 'fusi', aktivitas_sensor: 'diam' },
+    { antrean_id: SNS(2), lat: -6.9304, lng: 107.6304, akurasi_meter: 9, kecepatan_mps: 0.1,
+      arah_derajat: 47, baterai_persen: 54, lokasi_tiruan: false, usia_ms: 2000 },
+    { antrean_id: SNS(3), lat: -6.9305, lng: 107.6305, akurasi_meter: 9, kecepatan_mps: 0.1,
+      arah_derajat: 47, baterai_persen: 54, lokasi_tiruan: false, usia_ms: 1500,
+      sumber: 'fusi', aktivitas_sensor: 'tidak_diketahui' },
+  ])]))
+
+cek('U-TN-38', 'Sumber lokasi dibaca dari kiriman, bukan ditulis keras "gps"',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and sumber_lokasi='fusi'`, [SNS(1)]) === 1)
+
+cek('U-TN-39', 'APK lama yang tidak mengirim sumber tetap tercatat "gps" seperti sebelumnya',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and sumber_lokasi='gps'`, [SNS(2)]) === 1)
+
+cek('U-TN-40', 'Keadaan gerak dari sensor perangkat ikut tersimpan',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and aktivitas_sensor='diam'`, [SNS(1)]) === 1)
+
+// 'tidak_diketahui' adalah KETIADAAN jawaban. Menyimpannya membuat
+// pembaca mengira ada keterangan di situ, dan di titik_aktivitas ia akan
+// menang atas kecepatan yang justru tahu.
+cek('U-TN-41', 'Sensor yang menjawab "tidak_diketahui" tidak disimpan sebagai jawaban',
+  await n(`select count(*) n from public.location_logs
+            where antrean_id=$1 and aktivitas_sensor is null`, [SNS(3)]) === 1)
+
 // Kiriman ulang sesudah jaringan putus di tengah — antrean perangkat
 // menahan kelompok yang sama dan mengirimnya lagi apa adanya.
 await sebagaiService(() => db.query(
