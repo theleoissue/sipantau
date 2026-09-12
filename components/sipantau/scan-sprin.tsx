@@ -136,13 +136,17 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
 
   const sibuk = menyiapkan || memindai || antrianKoreksi.length > 0
   return <section className="scan-sprin" aria-busy={menyiapkan || memindai}>
-    <div><strong>Scan SPRIN</strong><p>Tambahkan foto setiap halaman, PDF, atau DOCX. Semua berkas dibaca bersama sebagai satu SPRIN; periksa hasilnya sebelum diterbitkan.</p></div>
+    <div className="scan-sprin-kepala">
+      <span className="scan-sprin-ikon"><Ikon nama="berkas" /></span>
+      <div><strong>Isi otomatis dari SPRIN</strong><p>Pindai seluruh halaman sekaligus. Isian hasil baca tetap dapat diperiksa dan disunting.</p></div>
+    </div>
     <input ref={input} type="file" hidden multiple accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp" onChange={e => {
       const berkas = Array.from(e.target.files ?? [])
       e.target.value = ''
       if (berkas.length) tambah(berkas)
     }} />
-    {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
+    <div className="scan-sprin-aksi">
+    {native && Capacitor.getPlatform() === 'android' && <button type="button" className="btn btn-p scan-sprin-utama" disabled={sibuk} onClick={bukaPemindaiDokumen}><Ikon nama="kamera" />{halaman.length ? 'Tambah halaman' : 'Scan dokumen'}</button>}
     {/* Cadangan di Android: kamera bawaan lalu dirapikan lewat dialog
         OpenCV.js di WebView. Tidak menyentuh plugin native sama sekali,
         jadi tetap tersedia bila pemindai native gagal terbuka. */}
@@ -153,6 +157,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
         : (halaman.length ? 'Tambah foto' : 'Scan kamera')}
     </button>}
     <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah DOCX / PDF / foto</button>
+    </div>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
       <span><b>{halaman.length}</b> berkas siap • {(halaman.reduce((total, file) => total + file.size, 0) / 1024 / 1024).toFixed(1)} / 3,8 MB</span>
       <button type="button" className="btn btn-o btn-sm" disabled={sibuk} onClick={() => { setHalaman([]); setAntrianKoreksi([]); setPesan('') }}><Ikon nama="silang" />Kosongkan</button>

@@ -570,7 +570,8 @@ tbody tr.bisa-klik{cursor:pointer}
 .peta-konfirmasi-tempat>div{display:flex;flex-direction:column;min-width:0}.peta-konfirmasi-tempat strong{font-size:12.5px}.peta-konfirmasi-tempat small{font-size:11px;color:var(--ink-2);margin-top:2px}.peta-konfirmasi-tempat .btn{flex-shrink:0}
 .peta-penyedia{display:block;padding:7px 12px;text-align:right;color:var(--ink-3);font-size:10px;background:var(--card)}
 .peringatan-inline{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #F1C66D;border-radius:10px;background:#FFF8E8}.peringatan-inline>div{display:flex;flex-direction:column;min-width:0}.peringatan-inline strong{font-size:12.5px;color:var(--ink)}.peringatan-inline small{margin-top:2px;font-size:11px;line-height:1.4;color:var(--ink-2)}
-.scan-sprin{display:flex;align-items:center;gap:14px;padding:14px 16px;margin:0 0 16px;border:1px solid #D7E2F0;border-radius:12px;background:linear-gradient(110deg,#F5F9FF,#FFF);flex-wrap:wrap}.scan-sprin>div{flex:1;min-width:190px}.scan-sprin strong{font-size:13px;color:var(--ink)}.scan-sprin p{font-size:11.5px;color:var(--ink-2);line-height:1.55;margin-top:3px}.scan-sprin .bantu{width:100%;margin:0}.scan-sprin .btn{justify-content:center}
+.scan-sprin{display:grid;gap:14px;padding:18px;margin:0 0 18px;border:1px solid #D7E2F0;border-radius:16px;background:linear-gradient(135deg,#F4F8FF 0%,#FFF 72%);box-shadow:0 8px 28px rgba(27,42,74,.06)}
+.scan-sprin-kepala{display:flex;align-items:flex-start;gap:12px;min-width:0}.scan-sprin-kepala>div{min-width:0}.scan-sprin-ikon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--primary);color:#fff;flex:none}.scan-sprin-ikon svg{width:20px;height:20px}.scan-sprin strong{display:block;font-size:14px;color:var(--ink);line-height:1.35}.scan-sprin p{font-size:12px;color:var(--ink-2);line-height:1.55;margin-top:3px}.scan-sprin-aksi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.scan-sprin-aksi .scan-sprin-utama{grid-column:1 / -1}.scan-sprin .bantu{width:100%;margin:0}.scan-sprin .btn{justify-content:center;min-width:0}
 .scan-sprin-ringkasan{width:100%;display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 12px;background:rgba(27,42,74,.05);border:1px solid var(--line);border-radius:9px}.scan-sprin-ringkasan span{flex:1;min-width:160px;font-size:12px;color:var(--ink-2)}.scan-sprin-ringkasan span b{color:var(--primary);font-family:var(--mono)}.scan-sprin-ringkasan .btn:last-child{margin-left:auto}
 .pilihan-terbitkan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:860px}.pilihan-terbitkan-item{display:flex;gap:14px;align-items:flex-start;padding:20px;text-decoration:none;color:inherit;min-height:178px;border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--sh);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.pilihan-terbitkan-item:hover{transform:translateY(-2px);border-color:#B7C8E0;box-shadow:var(--sh-md)}.pilihan-terbitkan-ikon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--blue-bg);color:var(--primary);flex:none}.pilihan-terbitkan-ikon svg{width:22px;height:22px}.pilihan-terbitkan-item h3{margin:4px 0 7px;font-size:16px}.pilihan-terbitkan-item p{color:var(--ink-2);line-height:1.55;font-size:13px;margin:0 0 14px}.pilihan-terbitkan-label{font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--ink-3)}.pilihan-terbitkan-aksi{font-size:12.5px;font-weight:700;color:var(--primary)}
 .mputar{border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:mputar .7s linear infinite}
@@ -686,10 +687,11 @@ tbody tr.bisa-klik{cursor:pointer}
 /* ═══════════════ RINCIAN ═══════════════ */
 /* ═══════════════ WIZARD TERBITKAN PENUGASAN ═══════════════ */
 .rk{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;background:var(--line);border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
-.wiz-steps{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
-.wiz-s{display:flex;align-items:center;gap:8px;padding:8px 15px;border-radius:20px;font-size:12.5px;font-weight:650;border:1px solid var(--line-2);background:var(--card);color:var(--ink-3);cursor:pointer;transition:all var(--t)}
+.terbitkan-kembali{display:inline-flex;align-items:center;gap:7px;margin-bottom:12px;padding:7px 10px 7px 8px;border-radius:9px;color:var(--ink-2);font-size:12.5px;font-weight:650;text-decoration:none;transition:background var(--t),color var(--t)}.terbitkan-kembali:hover{background:var(--line);color:var(--ink)}.terbitkan-kembali svg{width:17px;height:17px}.terbitkan-kepala{margin-bottom:16px}.terbitkan-eyebrow{display:block;margin-bottom:5px;color:var(--primary);font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase}
+.wiz-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-bottom:18px;padding:5px;border:1px solid var(--line);border-radius:13px;background:var(--card);box-shadow:var(--sh)}
+.wiz-s{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;padding:10px 8px;border-radius:9px;font-size:11.5px;font-weight:650;border:0;background:transparent;color:var(--ink-3);cursor:pointer;transition:all var(--t)}
 .wiz-s .no{width:19px;height:19px;border-radius:50%;background:#EEF1F5;color:var(--ink-3);display:grid;place-items:center;font-size:10.5px;flex-shrink:0}
-.wiz-s.on{border-color:var(--primary);background:var(--primary);color:#fff}
+.wiz-s.on{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(27,42,74,.18)}
 .wiz-s.on .no{background:rgba(255,255,255,.25);color:#fff}
 .wiz-s.done{border-color:var(--green);color:var(--green)}
 .wiz-s.done .no{background:var(--green-bg);color:var(--green)}
@@ -1321,6 +1323,30 @@ button.peta-orang{width:100%;text-align:left}
   .scan-sprin { grid-template-columns: 1fr; }
   .scan-sprin .btn { grid-column: 1 / -1; }
   .wiz-steps, .aksi-spt, .rincian-spt-aksi-utama { grid-template-columns: 1fr; }
+}
+
+/* Alur terbitkan dibuat tetap ringkas di APK: pemindai menjadi satu kartu
+   tindakan dan penunjuk langkah tidak berubah menjadi deretan kartu tinggi. */
+@media (max-width: 768px) {
+  .terbitkan-kembali{margin-bottom:8px;padding-left:4px;background:transparent}
+  .terbitkan-kepala{margin-bottom:14px}
+  .terbitkan-kepala h1{font-size:26px;line-height:1.08}
+  .terbitkan-kepala .sub{font-size:13px;line-height:1.5}
+  .scan-sprin{display:grid;grid-template-columns:1fr;gap:12px;padding:14px;border-radius:14px}
+  .scan-sprin>div,.scan-sprin .bantu{grid-column:auto}
+  .scan-sprin-kepala{display:flex}
+  .scan-sprin-aksi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .scan-sprin-aksi .scan-sprin-utama{grid-column:1 / -1}
+  .scan-sprin-aksi .btn{min-height:48px;padding:9px 10px;font-size:12px;line-height:1.25;white-space:normal}
+  .wiz-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding:4px;margin-bottom:14px;overflow:hidden}
+  .wiz-s{min-height:42px;padding:7px 3px;gap:4px;border-radius:8px;font-size:10px;line-height:1.15;text-align:left}
+  .wiz-s .no{width:18px;height:18px;font-size:9.5px}
+}
+@media (max-width: 390px) {
+  .scan-sprin-aksi{grid-template-columns:1fr}
+  .scan-sprin-aksi .scan-sprin-utama{grid-column:auto}
+  .wiz-s{font-size:0;gap:0}
+  .wiz-s .no{font-size:9.5px;width:22px;height:22px}
 }
 
 /* LHP Ringkas: formulir panjang yang tetap nyaman di layar APK. */

@@ -393,16 +393,15 @@ export function WizardTerbitkan({
       </DialogModal>}
       <Link
         href={draf ? `/penugasan/${draf.id}` : '/penugasan'}
-        className="back-link"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
-                 color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
+        className="back-link terbitkan-kembali"
       >
-        <Ikon nama="silang" />
-        {draf ? 'Kembali ke rincian penugasan' : 'Batalkan penerbitan'}
+        <Ikon nama={draf ? 'panah_kiri' : 'silang'} />
+        <span>{draf ? 'Kembali ke rincian' : 'Batalkan'}</span>
       </Link>
 
-      <div className="kh">
+      <div className="kh terbitkan-kepala">
         <div>
+          <span className="terbitkan-eyebrow">Penerbitan SPRIN</span>
           <h1>{sedangRevisi ? 'Revisi penugasan' : draf ? 'Sunting draf penugasan' : 'Terbitkan penugasan'}</h1>
           <p className="sub">
             {sedangRevisi
