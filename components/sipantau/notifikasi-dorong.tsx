@@ -63,7 +63,22 @@ export function NotifikasiDorong() {
       if (akhir.receive !== 'granted') return
 
       pembersih.push(await PushNotifications.addListener('registration', token => {
-        if (hidup) void simpanLanggananDorong({ token: token.value, penandaPerangkat: penandaPerangkat() })
+        if (!hidup) return
+        // Hasilnya DIPERIKSA, bukan dibuang.
+        //
+        // Bentuk sebelumnya membuang balasan simpanLanggananDorong. Kalau
+        // penyimpanan token gagal — sesi sudah berakhir, jaringan putus
+        // tepat saat itu, atau aturan akses baris menolak — barisnya tidak
+        // pernah masuk ke langganan_dorong, sehingga Fungsi Tepi tidak
+        // menemukan satu pun perangkat dan pemberitahuan TIDAK PERNAH
+        // sampai. Tidak ada galat di mana pun, dan gejalanya di lapangan
+        // cuma "kok saya tidak dapat notifikasi" yang mustahil ditelusuri.
+        void simpanLanggananDorong({
+          token: token.value,
+          penandaPerangkat: penandaPerangkat(),
+        }).then(hasil => {
+          if (hasil.galat) console.error('Token pemberitahuan gagal disimpan', hasil.galat)
+        }).catch(galat => console.error('Token pemberitahuan gagal disimpan', galat))
       }))
       pembersih.push(await PushNotifications.addListener('registrationError', galat => {
         console.error('Pendaftaran FCM gagal', galat)
