@@ -230,6 +230,41 @@ cek('U-NTF-15a', 'Pelaksana yang dicabut menerima spt_dicabut',
 cek('U-NTF-15b', 'Pelaksana LAIN yang tidak dicabut tidak ikut menerima spt_dicabut',
   !(await jenisUntuk(ID.anggota1)).includes('spt_dicabut'))
 
+// Ditunjuk KEMBALI sesudah dicabut. Ini jalur ON CONFLICT DO UPDATE di
+// tambah_pelaksana, yang dijalankan PostgreSQL sebagai UPDATE sehingga
+// pemicu after-INSERT tidak pernah berbunyi (diperbaiki migrasi 0064).
+// U-NTF-13 di atas memakai INSERT mentah, jadi jalur ini tidak pernah
+// tersentuh dan bugnya lolos: nol notifikasi, tanpa satu pun galat.
+const hitung = (daftar, jenis) => daftar.filter(j => j === jenis).length
+const sebelumUlang = hitung(await jenisUntuk(ID.anggota2), 'spt_ditugaskan')
+await sebagaiTanpaRollback(ID.kanit1, async () => {
+  await db.query(`select public.tambah_pelaksana($1,$2)`, [SPT.draf, ID.anggota2])
+})
+cek('U-NTF-15c', 'Pelaksana yang ditunjuk KEMBALI sesudah dicabut menerima spt_ditugaskan lagi',
+  hitung(await jenisUntuk(ID.anggota2), 'spt_ditugaskan') === sebelumUlang + 1)
+cek('U-NTF-15d', 'Pencabutannya benar-benar ditarik, barisnya aktif kembali',
+  (await db.query(`select dicabut_pada from public.penugasan_pelaksana
+                    where penugasan_id=$1 and pelaksana_id=$2`,
+    [SPT.draf, ID.anggota2])).rows[0].dicabut_pada === null)
+
+// Menambah orang yang MASIH aktif tidak boleh berbunyi lagi: klausa
+// WHERE pada DO UPDATE membuat barisnya tidak tersentuh sama sekali.
+const sebelumUlangi = hitung(await jenisUntuk(ID.anggota2), 'spt_ditugaskan')
+await sebagaiTanpaRollback(ID.kanit1, async () => {
+  await db.query(`select public.tambah_pelaksana($1,$2)`, [SPT.draf, ID.anggota2])
+})
+cek('U-NTF-15e', 'Menambah pelaksana yang masih aktif tidak menggandakan spt_ditugaskan',
+  hitung(await jenisUntuk(ID.anggota2), 'spt_ditugaskan') === sebelumUlangi)
+
+// Dikembalikan ke keadaan dicabut: U-NTF-16b di bawah menguji BR-69
+// dengan anggota2 sebagai pelaksana yang sudah dicabut.
+await sebagaiTanpaRollback(ID.kanit1, async () => {
+  await db.query(
+    `update public.penugasan_pelaksana set dicabut_pada=now(), dicabut_oleh=$1,
+       alasan_pencabutan='Kembalikan keadaan uji' where penugasan_id=$2 and pelaksana_id=$3`,
+    [ID.kanit1, SPT.draf, ID.anggota2])
+})
+
 // spt_ditutup — pelaksana yang belum dicabut (anggota1, karena anggota2 sudah dicabut)
 await db.query(`update public.penugasan set status='selesai', berkas_surat_path='x.pdf', ditutup_pada=now() where id=$1`, [SPT.draf])
 cek('U-NTF-16a', 'Pelaksana aktif menerima spt_ditutup',
