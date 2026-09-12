@@ -392,6 +392,55 @@ cek('U-TN-41', 'Sensor yang menjawab "tidak_diketahui" tidak disimpan sebagai ja
   await n(`select count(*) n from public.location_logs
             where antrean_id=$1 and aktivitas_sensor is null`, [SNS(3)]) === 1)
 
+// ---------------------------------------------------------------------
+// 0066 — keadaan gerak sampai ke peta langsung
+//
+// Peta menggerakkan penanda dari Realtime pada posisi_terkini, dan tabel
+// itu tidak membawa keterangan gerak sama sekali. Tanpa ini peta tetap
+// menarik garis ke setiap pembacaan baru walau petugasnya berdiri diam —
+// dan pembacaan saat diam adalah sebaran derau, jadi garisnya jadi jaring.
+// ---------------------------------------------------------------------
+// usia_ms 0 dengan sengaja. posisi_terkini menolak ditimpa Titik yang
+// lebih tua daripada yang sudah tercatat — penjaga yang benar, dan yang
+// sempat membuat uji ini gagal ketika Titiknya disusun 1,2 detik di
+// belakang keadaan terakhir.
+const aktivitasPosisi = async () => (await db.query(
+  `select aktivitas from public.posisi_terkini where sesi_tugas_id=$1`,
+  [idSesi])).rows[0]?.aktivitas ?? null
+
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+  [tokenBaru, JSON.stringify([
+    { antrean_id: SNS(4), lat: -6.9306, lng: 107.6306, akurasi_meter: 9,
+      kecepatan_mps: 12, baterai_persen: 54, usia_ms: 0,
+      sumber: 'fusi', aktivitas_sensor: 'diam' },
+  ])]))
+cek('U-TN-42', 'Sensor menang di peta langsung: kecepatan 12 m/s tetap tercatat diam',
+  await aktivitasPosisi() === 'diam')
+
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+  [tokenBaru, JSON.stringify([
+    { antrean_id: SNS(5), lat: -6.9307, lng: 107.6307, akurasi_meter: 9,
+      kecepatan_mps: 12, baterai_persen: 54, usia_ms: 0 },
+  ])]))
+cek('U-TN-43', 'Tanpa sensor, keadaan gerak peta diturunkan dari kecepatan',
+  await aktivitasPosisi() === 'berkendara')
+
+// Antrean yang terkuras setelah lama tanpa sinyal tidak menjamin urutan
+// kirim sama dengan urutan waktu. Yang menentukan harus Titik TERBARU,
+// bukan yang kebetulan terakhir dalam larik.
+await sebagaiService(() => db.query(
+  `select public.kirim_titik_native_borongan($1,$2::jsonb)`,
+  [tokenBaru, JSON.stringify([
+    { antrean_id: SNS(6), lat: -6.9308, lng: 107.6308, akurasi_meter: 9,
+      kecepatan_mps: 0.1, baterai_persen: 54, usia_ms: 0 },
+    { antrean_id: SNS(7), lat: -6.9309, lng: 107.6309, akurasi_meter: 9,
+      kecepatan_mps: 12, baterai_persen: 54, usia_ms: 5000 },
+  ])]))
+cek('U-TN-44', 'Titik yang lebih lama dalam kelompok tidak menimpa keadaan terbaru',
+  await aktivitasPosisi() === 'diam')
+
 // Kiriman ulang sesudah jaringan putus di tengah — antrean perangkat
 // menahan kelompok yang sama dan mengirimnya lagi apa adanya.
 await sebagaiService(() => db.query(
