@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { klienBrowser } from '@/lib/supabase/client'
+import { ambilSemuaHalaman } from '@/lib/supabase/halaman'
 import type { PosisiPeta } from '@/lib/gps/tipe'
 import { statusSinyal, labelTerakhirTerlihat, jarakMeter, bersihkanTitikJejak, mutuAkurasi, arahDerajat, haluskanJejak, sederhanakanJejak, saringKalman, sedangDiam, AMBANG_GOYANGAN_METER } from '@/lib/gps/tipe'
 import type { TitikJejak } from '@/lib/gps/tipe'
@@ -256,13 +257,18 @@ export function PetaLangsung({
     const supabase = klienBrowser()
     Promise.all(
       posisiAwal.map(async p => {
-        const { data } = await supabase
-          .from('location_logs')
-          .select('lat, lng, akurasi_meter, direkam_pada, diragukan_sebab')
-          .eq('sesi_tugas_id', p.sesi_tugas_id)
-          .is('diragukan_sebab', null)
-          .order('direkam_pada', { ascending: true })
-        return [p.sesi_tugas_id, (data ?? []).map(t => ({
+        // Berhalaman: tanpa ini jejak berhenti pada Titik ke-1.000 dan
+        // tidak pernah menyusul posisi petugas sekarang — terlihat
+        // seperti perekaman yang mati di tengah jalan.
+        const data = await ambilSemuaHalaman<Record<string, unknown>>((dari, sampai) =>
+          supabase
+            .from('location_logs')
+            .select('lat, lng, akurasi_meter, direkam_pada, diragukan_sebab')
+            .eq('sesi_tugas_id', p.sesi_tugas_id)
+            .is('diragukan_sebab', null)
+            .order('direkam_pada', { ascending: true })
+            .range(dari, sampai))
+        return [p.sesi_tugas_id, data.map(t => ({
           la: Number(t.lat),
           lo: Number(t.lng),
           akurasi: t.akurasi_meter == null ? null : Number(t.akurasi_meter),

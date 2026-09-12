@@ -10,6 +10,7 @@ import { mutuAkurasi, AKURASI_DIRAGUKAN_METER, haluskanJejak, sederhanakanJejak,
   TOLERANSI_SEDERHANA_METER, AKURASI_TINGGI_METER, jarakMeter, arahDerajat,
   saringKalman, bersihkanTitikJejak } from '../../lib/gps/tipe.ts'
 import { tautanNavigasi } from '../../lib/gps/navigasi.ts'
+import { ambilSemuaHalaman, BATAS_BARIS_POSTGREST } from '../../lib/supabase/halaman.ts'
 import { readFileSync } from 'node:fs'
 
 let lulus = 0, gagal = 0
@@ -378,6 +379,81 @@ cek('U-NAV-04', 'Koordinat negatif dan nol tidak dibuang',
     && typeof dibersihkan[0].t === 'number')
   cek('U-KAL-10', 'Yang dikembalikan benar-benar Titik ASLI, bukan salinan yang dibentuk ulang',
     dibersihkan.every(p => berjalan.includes(p)))
+}
+
+// =====================================================================
+// Menembus batas baris PostgREST
+//
+// max_rows = 1000 pada proyek ini, dan batas itu diterapkan DIAM-DIAM:
+// tanpa galat, tanpa bendera, tanpa jumlah total. Empat dari tujuh belas
+// Sesi Tugas sudah melewatinya, yang terbesar 3.785 Titik — dan karena
+// jejak diurutkan menaik, yang hilang justru bagian TERBARUNYA.
+// =====================================================================
+{
+  const B = BATAS_BARIS_POSTGREST
+  const sumber = total => {
+    const jendela = []
+    return {
+      jendela,
+      ambil: (dari, sampai) => {
+        jendela.push([dari, sampai])
+        const baris = []
+        for (let i = dari; i <= Math.min(sampai, total - 1); i++) baris.push({ i })
+        return Promise.resolve({ data: baris, error: null })
+      },
+    }
+  }
+
+  {
+    const s = sumber(250)
+    const hasil = await ambilSemuaHalaman(s.ambil)
+    cek('U-HAL-01', 'Di bawah batas tetap selesai dalam SATU perjalanan, tidak jadi lebih lambat',
+      hasil.length === 250 && s.jendela.length === 1)
+  }
+
+  {
+    const s = sumber(2500)
+    const hasil = await ambilSemuaHalaman(s.ambil)
+    cek('U-HAL-02', 'Baris melewati batas diambil seluruhnya, bukan seribu pertama',
+      hasil.length === 2500)
+    cek('U-HAL-03', 'Jendelanya berurutan dan tidak tumpang tindih',
+      s.jendela.length === 3
+      && s.jendela[0][0] === 0 && s.jendela[1][0] === B && s.jendela[2][0] === 2 * B)
+    cek('U-HAL-04', 'Urutannya terjaga — jejak tidak boleh teracak antar-halaman',
+      hasil.every((b, i) => b.i === i))
+  }
+
+  {
+    // Kelipatan tepat: halaman terakhir penuh, jadi WAJIB ada satu
+    // permintaan lagi untuk tahu bahwa memang sudah habis. Tanpa itu,
+    // jejak tepat 1.000 Titik akan berhenti tanpa ada yang menyadarinya.
+    const s = sumber(B)
+    const hasil = await ambilSemuaHalaman(s.ambil)
+    cek('U-HAL-05', 'Tepat sebanyak batas: satu permintaan tambahan memastikan memang habis',
+      hasil.length === B && s.jendela.length === 2)
+  }
+
+  {
+    let dilempar = null
+    try {
+      await ambilSemuaHalaman(() => Promise.resolve({ data: null, error: { message: 'jaringan putus' } }))
+    } catch (e) { dilempar = e.message }
+    cek('U-HAL-06', 'Galat dilempar, BUKAN dikembalikan sebagai daftar kosong',
+      dilempar === 'jaringan putus')
+  }
+
+  {
+    // Sumber yang selalu mengembalikan halaman penuh — bug di sisi server,
+    // atau kueri yang tidak menghormati range. Tanpa jaring pengaman,
+    // putarannya tidak pernah berhenti dan tab peramban membeku.
+    let panggilan = 0
+    const hasil = await ambilSemuaHalaman(() => {
+      panggilan++
+      return Promise.resolve({ data: Array.from({ length: B }, (_, i) => ({ i })), error: null })
+    }, 3 * B)
+    cek('U-HAL-07', 'Jaring pengaman menghentikan sumber yang tidak pernah kehabisan',
+      panggilan === 3 && hasil.length === 3 * B)
+  }
 }
 
 console.log(gagal === 0

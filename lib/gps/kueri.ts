@@ -1,4 +1,5 @@
 import { klienServer } from '@/lib/supabase/server'
+import { ambilSemuaHalaman } from '@/lib/supabase/halaman'
 import { penggunaSekarang } from '@/lib/auth/pengguna'
 import type { SesiAktifSaya, PosisiPeta, SesiRute, TitikRute } from './tipe'
 
@@ -192,14 +193,18 @@ export async function ruteSptDenganTitik(
  *  komponen tampilan tidak perlu tahu aturannya). */
 export async function titikSesi(sesiId: string): Promise<TitikRute[]> {
   const supabase = await klienServer()
-  const { data, error } = await supabase
-    .from('location_logs')
-    .select('id, lat, lng, direkam_pada, diragukan_sebab')
-    .eq('sesi_tugas_id', sesiId)
-    .order('direkam_pada', { ascending: true })
+  // Berhalaman: batas 1.000 baris PostgREST memotong sesi panjang tanpa
+  // memberi tanda apa pun, dan karena urutannya menaik yang hilang
+  // justru bagian TERBARU rutenya.
+  const data = await ambilSemuaHalaman<Record<string, unknown>>((dari, sampai) =>
+    supabase
+      .from('location_logs')
+      .select('id, lat, lng, direkam_pada, diragukan_sebab')
+      .eq('sesi_tugas_id', sesiId)
+      .order('direkam_pada', { ascending: true })
+      .range(dari, sampai))
 
-  if (error) throw new Error(`Gagal membaca Titik: ${error.message}`)
-  return (data ?? []).map(t => ({ ...t, lat: Number(t.lat), lng: Number(t.lng) }))
+  return data.map(t => ({ ...t, lat: Number(t.lat), lng: Number(t.lng) })) as TitikRute[]
 }
 
 /** Seluruh sesi milik pengguna sendiri lintas SPT (KP-6.4-46, "Rute
