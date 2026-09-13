@@ -74,8 +74,8 @@ export async function buatAkunAksi(isian: IsianAkunBaru): Promise<HasilKataSandi
 interface IsianSuntingAkun {
   nama: string
   pangkat: string
-  // Jabatan resmi sebagaimana tercetak pada lampiran Surat Perintah
-  // (migrasi 0039). Hanya ada di jalur SUNTING, bukan pembuatan akun:
+  // Jabatan resmi personel (migrasi 0039). Hanya ada di jalur SUNTING,
+  // bukan pembuatan akun:
   // menambahkannya ke pembuatan menuntut ubah admin_buat_akun berikut
   // Fungsi Tepi buat-akun dan deploy ulang, padahal jabatan dapat diisi
   // tepat sesudah akun jadi.

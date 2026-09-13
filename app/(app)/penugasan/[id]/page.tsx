@@ -154,12 +154,6 @@ export default async function RincianPenugasan({
 
           {/* BR-11 di setiap tombol: yang di luar kewenangan tidak
               dirender sama sekali. */}
-          {pengguna.peran === 'kanit' && spt.status !== 'draf' && (
-            <Link href={`/penugasan/${spt.id}/sprin`} className="btn btn-o">
-              <Ikon nama="cetak" />
-              Cetak SPRIN
-            </Link>
-          )}
           {/* KP-6.2-38/43: Kanit masih dapat memperbaiki SPT aktif,
               sedangkan SPT selesai/dibatalkan tetap sepenuhnya terkunci. */}
           {akuKanitPemilik && spt.status === 'draf' && (

@@ -121,8 +121,7 @@ export function FormulirAkun({
                 disabled={proses}
               />
               <p style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 5 }}>
-                Tercetak pada lampiran Surat Perintah. Kosongkan bila belum
-                ditetapkan — lampiran akan memakai kedudukan pada SPT.
+                Jabatan resmi personel. Kosongkan bila belum ditetapkan.
               </p>
             </div>
           )}
