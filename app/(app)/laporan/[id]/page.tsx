@@ -62,12 +62,9 @@ export default async function RincianLaporan({
   const bolehTambahFoto =
     akuPelapor && ['terkirim', 'perlu_diperbaiki'].includes(laporan.status_laporan)
 
-  const fotoBerkoordinat = foto.filter(f => f.lat !== null)
-  const fotoTanpaKoordinat = foto.filter(f => f.lat === null)
-
   return (
-    <>
-      <div className="kh">
+    <main className="laporan-rincian">
+      <div className="kh laporan-rincian-kepala">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
             <span className="spt-id">{laporan.penugasan?.nomor_spt ?? '—'}</span>
@@ -105,9 +102,9 @@ export default async function RincianLaporan({
       )}
 
       <div className="kisi k-2">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="laporan-rincian-utama">
           {/* Kotak lokasi: tiga fakta berdampingan, tidak menyimpulkan. */}
-          <section className="kartu">
+          <section className="kartu laporan-lokasi">
             <div className="kartu-h"><h3>Lokasi</h3></div>
             <div className="kartu-b">
               <div className="rk">
@@ -154,7 +151,7 @@ export default async function RincianLaporan({
             </div>
           </section>
 
-          <section className="kartu">
+          <section className="kartu laporan-uraian">
             <div className="kartu-h"><h3>Uraian kegiatan</h3></div>
             <div className="kartu-b">
               <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
@@ -171,9 +168,9 @@ export default async function RincianLaporan({
             </div>
           </section>
 
-          <section className="kartu">
+          <section className="kartu laporan-foto">
             <div className="kartu-h">
-              <h3>Foto dokumentasi</h3>
+              <div><span className="laporan-bagian">Bukti lapangan</span><h3>Foto dokumentasi</h3></div>
               <span className="isyarat">{foto.length} foto</span>
             </div>
             <div className="kartu-b">
@@ -181,36 +178,23 @@ export default async function RincianLaporan({
                 <UnggahFoto laporanId={laporan.id} penugasanId={laporan.penugasan_id} />
               )}
 
-              {/* next/image mengoptimalkan lewat domain dan URL tetap.
-                  Tautan di sini bermasa berlaku 15 menit dan berbeda
-                  tiap kali halaman dibuka (docs/01-koreksi.md I.9) —
-                  bukan target yang cocok untuk pengoptimalan itu. */}
-              {fotoBerkoordinat.length > 0 && (
-                <div className="gambar-kecil" style={{ marginTop: 14 }}>
-                  {fotoBerkoordinat.map(f => (
-                    <a key={f.id} href={f.url ?? '#'} target="_blank" rel="noreferrer">
+              {foto.length > 0 && <div className="laporan-foto-grid">
+                {foto.map((f, i) => {
+                  const berkoordinat = f.lat !== null && f.lng !== null
+                  return <a key={f.id} className="laporan-foto-item" href={f.url ?? '#'} target="_blank" rel="noreferrer">
+                    <div className="laporan-foto-gambar">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {f.url && <img src={f.url} alt={f.keterangan ?? 'Foto dokumentasi'}
-                                     style={{ width: '100%', borderRadius: 8 }} />}
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {fotoTanpaKoordinat.length > 0 && (
-                <>
-                  <div className="k" style={{ marginTop: 14 }}>Tanpa titik lokasi</div>
-                  <div className="gambar-kecil">
-                    {fotoTanpaKoordinat.map(f => (
-                      <a key={f.id} href={f.url ?? '#'} target="_blank" rel="noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {f.url && <img src={f.url} alt={f.keterangan ?? 'Foto lampiran'}
-                                       style={{ width: '100%', borderRadius: 8 }} />}
-                      </a>
-                    ))}
-                  </div>
-                </>
-              )}
+                      {f.url && <img src={f.url} alt={f.keterangan ?? `Dokumentasi ${i + 1}`} />}
+                      <span className={`laporan-foto-status ${berkoordinat ? 'ada' : ''}`}><Ikon nama="pin" />{berkoordinat ? 'Titik terekam' : 'Tanpa titik'}</span>
+                    </div>
+                    <div className="laporan-foto-meta">
+                      <strong>{f.keterangan || `Dokumentasi ${i + 1}`}</strong>
+                      <span>{f.diambil_pada ? waktu(f.diambil_pada) : f.sumber === 'kamera' ? 'Waktu pengambilan tidak terekam' : 'Lampiran dari galeri'}</span>
+                      {berkoordinat ? <small><Ikon nama="pin" />{f.lat!.toFixed(5)}, {f.lng!.toFixed(5)}</small> : <small>Lokasi foto tidak tersedia</small>}
+                    </div>
+                  </a>
+                })}
+              </div>}
 
               {foto.length === 0 && !bolehTambahFoto && (
                 <div className="kosong" style={{ padding: '18px 0' }}>
@@ -234,11 +218,11 @@ export default async function RincianLaporan({
         </div>
       </div>
 
-      <div style={{ marginTop: 18 }}>
+      <div className="laporan-rincian-kembali">
         <Link href={`/penugasan/${laporan.penugasan_id}`} className="btn btn-o">
           Kembali ke penugasan
         </Link>
       </div>
-    </>
+    </main>
   )
 }
