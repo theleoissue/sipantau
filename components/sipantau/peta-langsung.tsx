@@ -65,7 +65,7 @@ export function PetaLangsung({
   posisiAwal: PosisiPeta[]
   daftarSpt: { id: string; nomor_spt: string | null; judul: string }[]
   titikLokasi?: TitikLokasiPeta[]
-  fokus?: { lat: number; lng: number }
+  fokus?: { lat: number; lng: number; laporanId?: string }
 }) {
   const [posisi, setPosisi] = useState<Map<string, PosisiPeta>>(
     () => new Map(posisiAwal.map(p => [p.sesi_tugas_id, p])),
@@ -463,7 +463,10 @@ export function PetaLangsung({
           radius: 11, color: '#fff', weight: 3, fillColor: '#DC2626', fillOpacity: 1,
         }).addTo(peta.current).bindTooltip('Titik foto dokumentasi', {
           permanent: true, direction: 'top', offset: [0, -11], className: 'peta-titik-foto',
-        }).openTooltip()
+        }).bindPopup(fokus.laporanId
+          ? `<b>Titik foto dokumentasi</b><br><a href="/laporan/${encodeURIComponent(fokus.laporanId)}">Buka rincian laporan</a>`
+          : '<b>Titik foto dokumentasi</b>')
+          .openTooltip()
       }
       lokasiLayer.current = L.layerGroup().addTo(peta.current)
 

@@ -10,7 +10,7 @@ function waktu(iso: string) {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(iso))
 }
 
-export function PratinjauFotoLaporan({ foto }: { foto: Foto[] }) {
+export function PratinjauFotoLaporan({ foto, laporanId }: { foto: Foto[]; laporanId: string }) {
   const [aktif, setAktif] = useState<number | null>(null)
   const [alamat, setAlamat] = useState<string | null>(null)
   const dipilih = aktif === null ? null : foto[aktif]
@@ -52,7 +52,7 @@ export function PratinjauFotoLaporan({ foto }: { foto: Foto[] }) {
           {dipilih.lat !== null && dipilih.lng !== null ? <small><Ikon nama="pin" />{dipilih.lat.toFixed(5)}, {dipilih.lng.toFixed(5)}</small> : <small>Lokasi foto tidak tersedia</small>}
           {alamat && <p className="pratinjau-foto-alamat">{alamat}</p>}
           {dipilih.lat !== null && dipilih.lng !== null && <div className="pratinjau-foto-aksi">
-            <a className="btn btn-o btn-sm" href={`/peta?lat=${dipilih.lat}&lng=${dipilih.lng}`}>Buka Peta Lapangan</a>
+            <a className="btn btn-o btn-sm" href={`/peta?lat=${dipilih.lat}&lng=${dipilih.lng}&laporan=${encodeURIComponent(laporanId)}`}>Buka Peta Lapangan</a>
             <a className="btn btn-p btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${dipilih.lat},${dipilih.lng}`} target="_blank" rel="noreferrer">Buka Maps</a>
           </div>}
         </div>

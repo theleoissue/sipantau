@@ -179,7 +179,7 @@ export default async function RincianLaporan({
                 <UnggahFoto laporanId={laporan.id} penugasanId={laporan.penugasan_id} />
               )}
 
-              {foto.length > 0 && <PratinjauFotoLaporan foto={foto} />}
+              {foto.length > 0 && <PratinjauFotoLaporan foto={foto} laporanId={laporan.id} />}
 
               {foto.length === 0 && !bolehTambahFoto && (
                 <div className="kosong" style={{ padding: '18px 0' }}>
