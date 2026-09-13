@@ -44,10 +44,15 @@ export function PratinjauFotoLaporan({ foto, laporanId }: { foto: Foto[]; lapora
     </div>
     {dipilih && <DialogModal label="Pratinjau foto dokumentasi" onTutup={() => setAktif(null)}>
       <div className="pratinjau-foto-laporan">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {dipilih.url && <img src={dipilih.url} alt={dipilih.keterangan ?? 'Foto dokumentasi'} />}
+        <div className="pratinjau-foto-kepala">
+          <div><span>Dokumentasi lapangan</span><strong>{dipilih.keterangan || `Dokumentasi ${(aktif ?? 0) + 1}`}</strong></div>
+          <button type="button" className="ikon-btn" onClick={() => setAktif(null)} aria-label="Tutup pratinjau"><Ikon nama="silang" /></button>
+        </div>
+        <div className="pratinjau-foto-kanvas">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {dipilih.url && <img src={dipilih.url} alt={dipilih.keterangan ?? 'Foto dokumentasi'} />}
+        </div>
         <div className="pratinjau-foto-info">
-          <strong>{dipilih.keterangan || `Dokumentasi ${(aktif ?? 0) + 1}`}</strong>
           <span>{dipilih.diambil_pada ? waktu(dipilih.diambil_pada) : dipilih.sumber === 'kamera' ? 'Waktu pengambilan tidak terekam' : 'Lampiran dari galeri'}</span>
           {dipilih.lat !== null && dipilih.lng !== null ? <small><Ikon nama="pin" />{dipilih.lat.toFixed(5)}, {dipilih.lng.toFixed(5)}</small> : <small>Lokasi foto tidak tersedia</small>}
           {alamat && <p className="pratinjau-foto-alamat">{alamat}</p>}
