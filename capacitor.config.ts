@@ -12,6 +12,11 @@ const config: CapacitorConfig = {
   appId: 'id.go.jabar.polda.sipantau',
   appName: 'SiPANTAU',
   webDir: 'public',
+  // Warna di balik WebView selama halaman belum tergambar. Tanpa ini
+  // jeda antara splash dan halaman pertama tampil hitam. Sama dengan
+  // --bg di globals.css, supaya kemunculan halaman tidak terlihat
+  // sebagai kedipan warna. Terbawa ke APK hanya lewat `cap sync`.
+  backgroundColor: '#F4F6F9',
   server: {
     // sipantaujabar.my.id (tanpa www) dialihkan Vercel ke www — dipakai
     // di sini alamat www langsung supaya WebView tidak menempuh satu

@@ -13,6 +13,14 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!--
+            Latar jendela yang tampil selama WebView belum menggambar apa pun.
+            Tanpa baris ini tema DayNight memakai latar bawaan sistem — hitam
+            pada HP dengan mode gelap — dan itulah layar hitam sesaat saat APK
+            dibuka. BridgeActivity menyetel tema ini sendiri di onCreate, jadi
+            di sinilah tempatnya, bukan di tema peluncuran.
+        -->
+        <item name="android:windowBackground">@color/latar_sipantau</item>
     </style>
 
 

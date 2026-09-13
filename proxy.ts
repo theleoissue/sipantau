@@ -34,13 +34,33 @@ export async function proxy(permintaan: NextRequest) {
     },
   )
 
-  // getUser() dan bukan getSession(): yang pertama memverifikasi token ke
-  // server Supabase, yang kedua sekadar membaca cookie yang bisa dipalsukan.
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims(), bukan getSession() maupun getUser().
+  //
+  // getSession() sekadar membaca cookie yang bisa dipalsukan. getUser()
+  // aman, tetapi setiap pemanggilannya adalah permintaan jaringan ke
+  // server Auth Supabase — padahal berkas ini berjalan pada SETIAP
+  // navigasi, setiap router.refresh() PenyegarOtomatis, dan setiap
+  // prefetch tautan menu.
+  //
+  // getClaims() memverifikasi tanda tangan token secara lokal dengan kunci
+  // publik proyek (JWKS, ES256 — diperiksa 13 September 2026) dan tetap
+  // menolak token kedaluwarsa, tanpa perjalanan ke server Auth. Token yang
+  // sudah kedaluwarsa diperbarui lebih dulu lewat cookie, persis seperti
+  // sebelumnya.
+  //
+  // Yang tidak diketahuinya: sesi yang dicabut di tempat lain sebelum
+  // tokennya kedaluwarsa. Celah itu tidak menyangkut hak akses di sini —
+  // status aktif akun tetap dibaca dari tabel users di bawah (KP-6.1-24),
+  // dan seluruh data tetap dijaga RLS di basis data, bukan oleh berkas ini.
+  //
+  // Bila proyek kelak kembali ke kunci simetris, getClaims() sendiri jatuh
+  // kembali ke getUser(); tidak ada yang perlu diubah di sini.
+  const { data: klaim } = await supabase.auth.getClaims()
+  const idPengguna = klaim?.claims?.sub
   const jalur = permintaan.nextUrl.pathname
 
   // ---- belum masuk ----
-  if (!user) {
+  if (!idPengguna) {
     if (RUTE_TERBUKA.includes(jalur)) return jawaban
     const ke = permintaan.nextUrl.clone()
     ke.pathname = '/masuk'
@@ -51,7 +71,7 @@ export async function proxy(permintaan: NextRequest) {
   const { data: baris } = await supabase
     .from('users')
     .select('peran, aktif')
-    .eq('id', user.id)
+    .eq('id', idPengguna)
     .maybeSingle()
 
   // Akun dinonaktifkan saat pengguna sedang masuk (KP-6.1-24).

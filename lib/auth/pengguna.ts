@@ -13,23 +13,28 @@ import type { Pengguna } from '@/lib/supabase/types'
  *
  * DIBUNGKUS react.cache(): hampir setiap halaman memanggil ini SENDIRI
  * di atas panggilan yang layout.tsx sudah lakukan — tanpa pembungkus
- * ini, satu navigasi menyisipkan DUA kali auth.getUser() (satu
- * permintaan jaringan ke server Auth Supabase, bukan sekadar baca
- * cookie lokal) plus dua kali kueri tabel users. cache() menjadikan
- * seluruh pemanggilan dengan argumen sama dalam SATU permintaan
- * render memakai hasil yang sama, tanpa perlu mengubah satu pun
- * pemanggilnya.
+ * ini, satu navigasi menjalankan pemeriksaan token dan kueri tabel users
+ * dua kali. cache() menjadikan seluruh pemanggilan dengan argumen sama
+ * dalam SATU permintaan render memakai hasil yang sama, tanpa perlu
+ * mengubah satu pun pemanggilnya.
+ *
+ * getClaims(), bukan getUser() — alasan lengkapnya di proxy.ts. Token
+ * diverifikasi secara lokal dengan kunci publik proyek, sehingga satu
+ * perjalanan ke server Auth Supabase per render hilang. Yang menentukan
+ * peran, unit, dan status aktif tetap baris users di bawah, dibaca dari
+ * basis data — bukan isi token.
  */
 export const penggunaSekarang = cache(async (): Promise<Pengguna | null> => {
   const supabase = await klienServer()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const { data: klaim } = await supabase.auth.getClaims()
+  const idPengguna = klaim?.claims?.sub
+  if (!idPengguna) return null
 
   const { data, error } = await supabase
     .from('users')
     .select('*, unit:unit_id ( nama )')
-    .eq('id', user.id)
+    .eq('id', idPengguna)
     .maybeSingle()
 
   if (error || !data) return null

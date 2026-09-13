@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Warna latar halaman SiPANTAU, sama dengan variabel bg di globals.css.
+        Dipakai sebagai latar jendela aplikasi supaya jeda sebelum WebView
+        selesai menggambar halaman tidak tampil hitam. Tanpa ini tema DayNight
+        mengambil latar bawaan sistem, yang hitam pada HP dengan mode gelap.
+
+        Catatan: komentar XML tidak boleh memuat dua tanda hubung berurutan.
+        Versi pertama berkas ini menulis nama variabel CSS lengkap dengan
+        awalannya, dan aapt2 menolak seluruh berkas karenanya.
+    -->
+    <color name="latar_sipantau">#F4F6F9</color>
+</resources>
