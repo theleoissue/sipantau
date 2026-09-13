@@ -7,6 +7,7 @@ import { PanelCatatan } from '@/components/sipantau/panel-catatan'
 import { FormulirSuntingLaporan } from '@/components/sipantau/formulir-sunting-laporan'
 import { UnggahFoto } from '@/components/sipantau/unggah-foto'
 import { Ikon } from '@/components/sipantau/ikon'
+import { PratinjauFotoLaporan } from '@/components/sipantau/pratinjau-foto-laporan'
 import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'Rincian Laporan — Si PANTAU' }
@@ -168,7 +169,7 @@ export default async function RincianLaporan({
             </div>
           </section>
 
-          <section className="kartu laporan-foto">
+          <section className="kartu laporan-dokumentasi">
             <div className="kartu-h">
               <div><span className="laporan-bagian">Bukti lapangan</span><h3>Foto dokumentasi</h3></div>
               <span className="isyarat">{foto.length} foto</span>
@@ -178,23 +179,7 @@ export default async function RincianLaporan({
                 <UnggahFoto laporanId={laporan.id} penugasanId={laporan.penugasan_id} />
               )}
 
-              {foto.length > 0 && <div className="laporan-foto-grid">
-                {foto.map((f, i) => {
-                  const berkoordinat = f.lat !== null && f.lng !== null
-                  return <a key={f.id} className="laporan-foto-item" href={f.url ?? '#'} target="_blank" rel="noreferrer">
-                    <div className="laporan-foto-gambar">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {f.url && <img src={f.url} alt={f.keterangan ?? `Dokumentasi ${i + 1}`} />}
-                      <span className={`laporan-foto-status ${berkoordinat ? 'ada' : ''}`}><Ikon nama="pin" />{berkoordinat ? 'Titik terekam' : 'Tanpa titik'}</span>
-                    </div>
-                    <div className="laporan-foto-meta">
-                      <strong>{f.keterangan || `Dokumentasi ${i + 1}`}</strong>
-                      <span>{f.diambil_pada ? waktu(f.diambil_pada) : f.sumber === 'kamera' ? 'Waktu pengambilan tidak terekam' : 'Lampiran dari galeri'}</span>
-                      {berkoordinat ? <small><Ikon nama="pin" />{f.lat!.toFixed(5)}, {f.lng!.toFixed(5)}</small> : <small>Lokasi foto tidak tersedia</small>}
-                    </div>
-                  </a>
-                })}
-              </div>}
+              {foto.length > 0 && <PratinjauFotoLaporan foto={foto} />}
 
               {foto.length === 0 && !bolehTambahFoto && (
                 <div className="kosong" style={{ padding: '18px 0' }}>
