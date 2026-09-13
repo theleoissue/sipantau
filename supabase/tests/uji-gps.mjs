@@ -692,6 +692,35 @@ await sebagaiTanpaRollback(ID.anggota1, async () => {
   await db.query(`select public.selesaikan_sesi_tugas($1)`, [idSesiSesudahZombi])
 })
 
+// =====================================================================
+// 0068 — kerja_hangatkan_aplikasi
+//
+// Fungsinya mengirim permintaan keluar lewat pg_net, jadi yang dikejar
+// di sini adalah HAK, bukan isinya: pg_net tidak ada di pglite, dan
+// menjalankan fungsinya memang tidak mungkin di sini. Yang wajib terbukti
+// adalah tidak seorang pun selain penjadwal dapat memanggilnya. Enam
+// fungsi kerja_ yang lebih dulu ada lolos tanpa pencabutan hak dan di
+// produksi masih dapat dieksekusi anon — uji ini ada supaya yang baru
+// tidak mengulanginya diam-diam.
+// =====================================================================
+{
+  const hak = async peran => (await db.query(
+    `select has_function_privilege($1, 'public.kerja_hangatkan_aplikasi()', 'execute') as boleh`,
+    [peran])).rows[0].boleh
+
+  cek('U-GPS-HGT-01', 'Peran anon TIDAK dapat mengeksekusi kerja_hangatkan_aplikasi',
+    (await hak('anon')) === false)
+  cek('U-GPS-HGT-02', 'Peran authenticated TIDAK dapat mengeksekusi kerja_hangatkan_aplikasi',
+    (await hak('authenticated')) === false)
+
+  const f = (await db.query(
+    `select p.prosecdef, p.proconfig::text as konfigurasi
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'kerja_hangatkan_aplikasi'`)).rows[0]
+  cek('U-GPS-HGT-03', 'kerja_hangatkan_aplikasi berupa security definer dengan search_path terkunci (§5.3)',
+    !!f && f.prosecdef === true && /search_path=""|search_path=''|search_path=/.test(f.konfigurasi ?? ''))
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji GPS lulus`
   : `\n== ${lulus} lulus, ${gagal} GAGAL`)
