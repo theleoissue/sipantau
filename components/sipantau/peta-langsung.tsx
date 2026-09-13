@@ -60,10 +60,12 @@ export function PetaLangsung({
   posisiAwal,
   daftarSpt,
   titikLokasi = [],
+  fokus,
 }: {
   posisiAwal: PosisiPeta[]
   daftarSpt: { id: string; nomor_spt: string | null; judul: string }[]
   titikLokasi?: TitikLokasiPeta[]
+  fokus?: { lat: number; lng: number }
 }) {
   const [posisi, setPosisi] = useState<Map<string, PosisiPeta>>(
     () => new Map(posisiAwal.map(p => [p.sesi_tugas_id, p])),
@@ -451,7 +453,7 @@ export function PetaLangsung({
     import('leaflet').then(L => {
       if (batal || !elPeta.current || peta.current) return
       peta.current = L.map(elPeta.current, { zoomControl: false, attributionControl: true })
-        .setView([-6.62, 107.35], 9)
+        .setView(fokus ? [fokus.lat, fokus.lng] : [-6.62, 107.35], fokus ? 17 : 9)
       peta.current.on('dragstart', () => setIkutiSesi(null))
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19, attribution: '&copy; OpenStreetMap',
@@ -464,7 +466,7 @@ export function PetaLangsung({
       // pandangan awal ini — itu berubah tiap Titik masuk, dan
       // memindah pandangan setiap kali akan mengganggu pengawas yang
       // sedang melihat.
-      if (titikLokasi.length > 0) {
+      if (!fokus && titikLokasi.length > 0) {
         const batas = L.latLngBounds(titikLokasi.map(t => [t.lat, t.lng] as [number, number]))
         peta.current.fitBounds(batas, { padding: [40, 40], maxZoom: 13 })
       }

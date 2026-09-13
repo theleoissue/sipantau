@@ -3,6 +3,7 @@ import { klienServer } from '@/lib/supabase/server'
 
 const URL_AUTOCOMPLETE = 'https://places.googleapis.com/v1/places:autocomplete'
 const URL_TEXT_SEARCH = 'https://places.googleapis.com/v1/places:searchText'
+const URL_REVERSE_GEOCODE = 'https://maps.googleapis.com/maps/api/geocode/json'
 const BATAS_JAWA_BARAT = {
   rectangle: {
     low: { latitude: -7.85, longitude: 106.35 },
@@ -11,10 +12,12 @@ const BATAS_JAWA_BARAT = {
 }
 
 interface PermintaanTempat {
-  aksi?: 'autocomplete' | 'detail' | 'cari'
+  aksi?: 'autocomplete' | 'detail' | 'cari' | 'balik'
   kueri?: string
   placeId?: string
   sessionToken?: string
+  lat?: number
+  lng?: number
 }
 
 function respons(data: unknown, status = 200) {
@@ -47,6 +50,20 @@ export async function POST(req: NextRequest) {
   catch { return respons({ galat: 'Permintaan pencarian tidak sah.' }, 400) }
 
   try {
+    if (badan.aksi === 'balik') {
+      const lat = Number(badan.lat)
+      const lng = Number(badan.lng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return respons({ galat: 'Koordinat tidak sah.' }, 400)
+      }
+      const r = await fetch(`${URL_REVERSE_GEOCODE}?${new URLSearchParams({ latlng: `${lat},${lng}`, key })}`, {
+        cache: 'no-store', signal: AbortSignal.timeout(10_000),
+      })
+      const data = await r.json()
+      if (!r.ok || data.status !== 'OK') throw new Error(`Google Reverse Geocoding ${r.status}: ${data.status ?? 'gagal'}`)
+      return respons({ alamat: data.results?.[0]?.formatted_address ?? '' , penyedia: 'google' })
+    }
+
     if (badan.aksi === 'autocomplete') {
       const kueri = badan.kueri?.trim().slice(0, 160) ?? ''
       if (kueri.length < 3) return respons({ hasil: [] })

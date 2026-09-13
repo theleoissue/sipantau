@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DialogModal } from './dialog-modal'
 import { Ikon } from './ikon'
 
@@ -12,7 +12,18 @@ function waktu(iso: string) {
 
 export function PratinjauFotoLaporan({ foto }: { foto: Foto[] }) {
   const [aktif, setAktif] = useState<number | null>(null)
+  const [alamat, setAlamat] = useState<string | null>(null)
   const dipilih = aktif === null ? null : foto[aktif]
+  useEffect(() => {
+    if (!dipilih || dipilih.lat === null || dipilih.lng === null) { setAlamat(null); return }
+    let batal = false
+    setAlamat('Mencari alamat…')
+    fetch('/api/tempat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aksi: 'balik', lat: dipilih.lat, lng: dipilih.lng }) })
+      .then(r => r.json())
+      .then(data => { if (!batal) setAlamat(data.alamat || 'Alamat tidak ditemukan') })
+      .catch(() => { if (!batal) setAlamat('Alamat tidak tersedia') })
+    return () => { batal = true }
+  }, [dipilih])
   return <>
     <div className="laporan-foto-grid">
       {foto.map((f, i) => {
@@ -39,6 +50,11 @@ export function PratinjauFotoLaporan({ foto }: { foto: Foto[] }) {
           <strong>{dipilih.keterangan || `Dokumentasi ${(aktif ?? 0) + 1}`}</strong>
           <span>{dipilih.diambil_pada ? waktu(dipilih.diambil_pada) : dipilih.sumber === 'kamera' ? 'Waktu pengambilan tidak terekam' : 'Lampiran dari galeri'}</span>
           {dipilih.lat !== null && dipilih.lng !== null ? <small><Ikon nama="pin" />{dipilih.lat.toFixed(5)}, {dipilih.lng.toFixed(5)}</small> : <small>Lokasi foto tidak tersedia</small>}
+          {alamat && <p className="pratinjau-foto-alamat">{alamat}</p>}
+          {dipilih.lat !== null && dipilih.lng !== null && <div className="pratinjau-foto-aksi">
+            <a className="btn btn-o btn-sm" href={`/peta?lat=${dipilih.lat}&lng=${dipilih.lng}`}>Buka Peta Lapangan</a>
+            <a className="btn btn-p btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${dipilih.lat},${dipilih.lng}`} target="_blank" rel="noreferrer">Buka Maps</a>
+          </div>}
         </div>
       </div>
     </DialogModal>}
