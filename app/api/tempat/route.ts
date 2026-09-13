@@ -60,8 +60,17 @@ export async function POST(req: NextRequest) {
         cache: 'no-store', signal: AbortSignal.timeout(10_000),
       })
       const data = await r.json()
-      if (!r.ok || data.status !== 'OK') throw new Error(`Google Reverse Geocoding ${r.status}: ${data.status ?? 'gagal'}`)
-      return respons({ alamat: data.results?.[0]?.formatted_address ?? '' , penyedia: 'google' })
+      if (r.ok && data.status === 'OK' && data.results?.[0]?.formatted_address) {
+        return respons({ alamat: data.results[0].formatted_address, penyedia: 'google' })
+      }
+      // Tetap tampilkan alamat saat Geocoding API belum diaktifkan pada
+      // project Google. Ini hanya fallback satu titik saat foto dibuka.
+      const cadangan = await fetch(`https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({ format: 'jsonv2', lat: String(lat), lon: String(lng), zoom: '18' })}`, {
+        headers: { 'User-Agent': 'SiPANTAU/1.0' }, cache: 'no-store', signal: AbortSignal.timeout(10_000),
+      })
+      const dataCadangan = await cadangan.json()
+      if (!cadangan.ok || !dataCadangan.display_name) throw new Error(`Reverse geocoding gagal: ${data.status ?? r.status}`)
+      return respons({ alamat: dataCadangan.display_name, penyedia: 'openstreetmap' })
     }
 
     if (badan.aksi === 'autocomplete') {

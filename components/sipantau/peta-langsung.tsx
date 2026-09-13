@@ -458,6 +458,13 @@ export function PetaLangsung({
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19, attribution: '&copy; OpenStreetMap',
       }).addTo(peta.current)
+      if (fokus) {
+        L.circleMarker([fokus.lat, fokus.lng], {
+          radius: 11, color: '#fff', weight: 3, fillColor: '#DC2626', fillOpacity: 1,
+        }).addTo(peta.current).bindTooltip('Titik foto dokumentasi', {
+          permanent: true, direction: 'top', offset: [0, -11], className: 'peta-titik-foto',
+        }).openTooltip()
+      }
       lokasiLayer.current = L.layerGroup().addTo(peta.current)
 
       // Pandangan awal mengikuti titik lokasi SPT yang sungguh ada,
