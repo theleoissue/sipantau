@@ -331,6 +331,115 @@ cek('U-PS-29', 'Menarik BUKAN menghapus: barisnya tetap ada',
       .rows[0].d === ID.panit1)
 }
 
+// =====================================================================
+// 0067 — usulan yang disetujui naik ke pimpinan; SPRIN yang sudah jadi
+// turun lewat scan dan tertaut ke usulan asalnya
+// =====================================================================
+{
+  const baca = async id => (await db.query(
+    `select status, asal, usulan_id, sprin_turun_id, diajukan_oleh, ditinjau_oleh
+       from public.pengajuan_sprin where id=$1`, [id])).rows[0]
+  const jumlahNotif = async (penerima, judul) => Number((await db.query(
+    `select count(*) n from public.notifikasi where penerima_id=$1 and judul=$2`,
+    [penerima, judul])).rows[0].n)
+  const SPRIN = JSON.stringify({ nomor_spt: 'Sprin/77/IX/2026', judul: 'Penyelidikan limbah' })
+  const tautkan = (uid, usulan) => galat(() => sebagai(uid, () =>
+    db.query(`select public.ajukan_sprin_turun($1,$2::jsonb)`, [usulan, SPRIN])))
+
+  // --- jalur pengusul (Anggota) ---
+  let usulanA, turunA
+  await komit(ID.anggota1, async () => {
+    usulanA = (await db.query(`select public.ajukan_usulan_sprin($1::jsonb) id`,
+      [JSON.stringify({ ...USULAN, judul: 'Usulan jalur anggota' })])).rows[0].id
+  })
+
+  cek('U-PS-35', 'Usulan yang BELUM disetujui Kanit tidak dapat ditautkan SPRIN',
+    (await tautkan(ID.anggota1, usulanA))?.includes('USULAN_BELUM_DISETUJUI'))
+
+  await komit(ID.kanit1, async () => {
+    await db.query(`select public.putuskan_pengajuan_sprin($1,'disetujui')`, [usulanA])
+  })
+
+  cek('U-PS-36', 'Persetujuan usulan memberi tahu pengusul bahwa usulan diteruskan ke pimpinan',
+    Number((await db.query(
+      `select count(*) n from public.notifikasi
+        where penerima_id=$1 and judul='Usulan SPRIN Anda disetujui' and isi like '%pimpinan%'`,
+      [ID.anggota1])).rows[0].n) >= 1)
+
+  await komit(ID.anggota1, async () => {
+    turunA = (await db.query(`select public.ajukan_sprin_turun($1,$2::jsonb) id`,
+      [usulanA, SPRIN])).rows[0].id
+  })
+  {
+    const s = await baca(turunA), u = await baca(usulanA)
+    cek('U-PS-37', 'SPRIN dari pengusul menjadi scan yang menunggu Kanit, tertaut ke usulannya',
+      s.asal === 'scan' && s.status === 'diajukan' && s.usulan_id === usulanA)
+    cek('U-PS-38', 'Usulan menunjuk balik ke SPRIN yang turun', u.sprin_turun_id === turunA)
+  }
+  cek('U-PS-39', 'Kanit diberi tahu bahwa SPRIN hasil usulan sudah turun',
+    await jumlahNotif(ID.kanit1, 'SPRIN hasil usulan sudah turun') >= 1)
+
+  cek('U-PS-40', 'SPRIN tidak dapat ditautkan dua kali selama pindaian pertama masih berlaku',
+    (await tautkan(ID.kanit1, usulanA))?.includes('SPRIN_SUDAH_TURUN'))
+
+  cek('U-PS-41', 'Kanit UNIT LAIN tidak dapat menautkan SPRIN ke usulan unit ini',
+    (await tautkan(ID.kanit2, usulanA))?.includes('USULAN_TIDAK_DITEMUKAN'))
+
+  // Pindaian yang ditarik pengusul membebaskan usulannya lagi.
+  await komit(ID.anggota1, async () => {
+    await db.query(`select public.tarik_pengajuan_sprin($1)`, [turunA])
+  })
+  let turunA2
+  await komit(ID.anggota1, async () => {
+    turunA2 = (await db.query(`select public.ajukan_sprin_turun($1,$2::jsonb) id`,
+      [usulanA, SPRIN])).rows[0].id
+  })
+  cek('U-PS-42', 'Sesudah pindaian pertama ditarik, SPRIN dapat dipindai ulang untuk usulan yang sama',
+    !!turunA2 && (await baca(usulanA)).sprin_turun_id === turunA2)
+
+  // --- jalur Kanit: langsung disetujui, seperti scan Kanit selama ini ---
+  let usulanK, turunK
+  await komit(ID.panit1, async () => {
+    usulanK = (await db.query(`select public.ajukan_usulan_sprin($1::jsonb) id`,
+      [JSON.stringify({ ...USULAN, judul: 'Usulan jalur kanit' })])).rows[0].id
+  })
+  await komit(ID.kanit1, async () => {
+    await db.query(`select public.putuskan_pengajuan_sprin($1,'disetujui')`, [usulanK])
+  })
+
+  cek('U-PS-43', 'Anggota yang BUKAN pengusul tidak dapat menautkan SPRIN ke usulan orang lain',
+    (await tautkan(ID.anggota1, usulanK))?.includes('BUKAN_PENAUT'))
+
+  await komit(ID.kanit1, async () => {
+    turunK = (await db.query(`select public.ajukan_sprin_turun($1,$2::jsonb) id`,
+      [usulanK, SPRIN])).rows[0].id
+  })
+  {
+    const s = await baca(turunK)
+    cek('U-PS-44', 'SPRIN yang dipindai Kanit langsung disetujui dan tertaut ke usulannya',
+      s.status === 'disetujui' && s.ditinjau_oleh === ID.kanit1 && s.usulan_id === usulanK)
+  }
+
+  // Inilah alasan sprin_turun_id disimpan di usulan: baris scan milik
+  // Kanit tidak terbaca pengusul lewat RLS.
+  cek('U-PS-45', 'Pengusul DAPAT melihat SPRIN usulannya sudah turun walau yang memindai Kanit',
+    await sebagai(ID.panit1, async () => (await db.query(
+      `select sprin_turun_id from public.pengajuan_sprin where id=$1`, [usulanK])).rows[0]?.sprin_turun_id === turunK))
+  cek('U-PS-46', 'Pengusul TIDAK dapat membaca baris scan milik Kanit — RLS tetap utuh',
+    await sebagai(ID.panit1, async () => Number((await db.query(
+      `select count(*) n from public.pengajuan_sprin where id=$1`, [turunK])).rows[0].n) === 0))
+  cek('U-PS-47', 'Pengusul diberi tahu bahwa SPRIN untuk usulannya sudah turun',
+    await jumlahNotif(ID.panit1, 'SPRIN untuk usulan Anda sudah turun') >= 1)
+
+  // --- penjaga bentuk ---
+  cek('U-PS-48', 'Scan tidak dapat dipakai sebagai usulan asal',
+    (await tautkan(ID.kanit1, turunK))?.includes('USULAN_TIDAK_DITEMUKAN'))
+  cek('U-PS-49', 'Basis data menolak usulan yang menunjuk usulan lain sebagai asalnya',
+    (await galat(() => db.query(
+      `update public.pengajuan_sprin set usulan_id=$1 where id=$2`, [usulanA, usulanK])))
+      ?.includes('chk_pengajuan_usulan_hanya_scan'))
+}
+
 console.log(gagal === 0
   ? `\n== ${lulus} butir uji pengajuan scan SPRIN lulus`
   : `\n== ${gagal} dari ${lulus + gagal} butir uji pengajuan scan SPRIN GAGAL`)

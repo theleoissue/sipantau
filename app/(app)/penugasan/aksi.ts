@@ -35,6 +35,8 @@ export interface HasilAksi {
   sukses?: string
   id?: string
   belumTerbit?: string
+  /** Tujuan lanjutan yang ditentukan dari keadaan basis data, bukan dari peran pemanggil. */
+  lanjut?: string
 }
 
 export interface HasilScanSprin extends HasilAksi {
@@ -150,7 +152,7 @@ export async function putuskanPengajuanSprin(
   }
   revalidatePath('/penugasan/pengajuan')
   revalidatePath('/penugasan')
-  return { sukses: status === 'disetujui' ? 'Scan disetujui. Lanjutkan menjadi penugasan.' : status === 'perlu_perbaikan' ? 'Permintaan perbaikan dikirim ke pengaju.' : 'Pengajuan ditolak.' }
+  return { sukses: status === 'disetujui' ? 'Ajuan disetujui.' : status === 'perlu_perbaikan' ? 'Permintaan perbaikan dikirim ke pengaju.' : 'Pengajuan ditolak.' }
 }
 
 /** Pengaju mengganti hasil scan setelah Kanit meminta perbaikan. */
@@ -161,6 +163,53 @@ export async function kirimUlangScanSprin(id: string, data: DataScanSprin): Prom
   revalidatePath('/penugasan/scan')
   revalidatePath('/penugasan/pengajuan')
   return { sukses: 'Perbaikan dikirim ulang ke Kanit untuk ditinjau.' }
+}
+
+/**
+ * SPRIN yang sudah ditandatangani pimpinan, dipindai lalu ditautkan ke
+ * usulan asalnya (migrasi 0067).
+ *
+ * Aturannya sama dengan scan biasa, dan yang menentukannya basis data,
+ * bukan aksi ini: pindaian Panit/Anggota menunggu persetujuan Kanit,
+ * pindaian Kanit langsung disetujui. Karena itu aksi ini tidak menebak
+ * dari peran pemanggilnya — ia membaca status baris yang baru terbentuk,
+ * dan hanya mengarahkan ke wizard bila statusnya memang sudah disetujui.
+ */
+export async function ajukanSprinTurun(usulanId: string, data: DataScanSprin): Promise<HasilAksi> {
+  const supabase = await klienServer()
+  const { data: id, error } = await supabase.rpc('ajukan_sprin_turun', {
+    p_usulan_id: usulanId, p_data: data,
+  })
+  if (error) {
+    if (error.message.includes('SPRIN_SUDAH_TURUN')) return { galat: 'SPRIN untuk usulan ini sudah dipindai dan sedang atau sudah diproses.' }
+    if (error.message.includes('USULAN_BELUM_DISETUJUI')) return { galat: 'Usulan ini belum disetujui Kanit, jadi belum dapat ditautkan ke SPRIN.' }
+    if (error.message.includes('BUKAN_PENAUT')) return { galat: 'Hanya pengusul atau Kanit unit ini yang dapat memindai SPRIN untuk usulan ini.' }
+    if (error.message.includes('USULAN_TIDAK_DITEMUKAN')) return { galat: 'Usulan tidak ditemukan pada unit Anda.' }
+    return { galat: `SPRIN belum tersimpan: ${error.message}` }
+  }
+  revalidatePath('/penugasan/usul')
+  revalidatePath('/penugasan/pengajuan')
+  revalidatePath('/penugasan/scan')
+  revalidatePath('/penugasan')
+
+  const idBaru = id as string
+  // Galat pembacaan TIDAK ditelan menjadi "menunggu Kanit". Barisnya
+  // sudah tersimpan; yang tidak diketahui hanya ke mana melanjutkannya,
+  // dan itu yang dikatakan apa adanya.
+  const { data: baris, error: galatBaca } = await supabase
+    .from('pengajuan_sprin').select('status').eq('id', idBaru)
+    .maybeSingle<{ status: string }>()
+  if (galatBaca || !baris) {
+    return { sukses: 'SPRIN tersimpan dan tertaut ke usulan. Buka Persetujuan Scan untuk melanjutkan.', id: idBaru }
+  }
+  if (baris.status === 'disetujui') {
+    return {
+      sukses: 'SPRIN tertaut ke usulan. Lanjutkan menjadi penugasan.',
+      id: idBaru,
+      lanjut: `/penugasan/terbitkan/buat?pengajuan=${idBaru}`,
+    }
+  }
+  return { sukses: 'SPRIN sudah dikirim ke Kanit untuk ditinjau, tertaut ke usulan Anda.', id: idBaru }
 }
 
 /** Membaca SPRIN menjadi draf saja; Kanit tetap memeriksa seluruh hasil. */

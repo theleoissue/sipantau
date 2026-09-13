@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { ajukanUsulanSprin, tarikPengajuanSprin, type DataUsulanSprin } from '@/app/(app)/penugasan/aksi'
 import { Ikon } from './ikon'
 
@@ -11,6 +12,10 @@ import { Ikon } from './ikon'
  * bukan hasil pembacaan dokumen melainkan permintaan agar dokumennya
  * diterbitkan — maka medan yang diminta jauh lebih sedikit, dan yang
  * terpenting justru medan yang tidak punya padanan pada scan: alasan.
+ *
+ * Alurnya sejak 0067: usulan yang disetujui Kanit naik ke pimpinan untuk
+ * ditandatangani, lalu SPRIN yang sudah jadi dipindai dan ditautkan ke
+ * usulan ini. Yang dijadikan penugasan adalah SPRIN itu, bukan usulannya.
  *
  * Nomor SPT sengaja TIDAK ADA di formulir ini. Nomor berasal dari buku
  * agenda Bagian Administrasi di luar SiPANTAU dan tidak pernah
@@ -24,6 +29,10 @@ export interface AjuanSaya {
   status: string
   catatan_kanit: string | null
   dibuat_pada: string
+  /** Pada scan: usulan yang dipenuhi SPRIN ini (0067). */
+  usulan_id: string | null
+  /** Pada usulan: SPRIN yang sudah turun untuknya (0067). */
+  sprin_turun_id: string | null
   judul: string
   alasan: string
 }
@@ -34,6 +43,34 @@ const LABEL_STATUS: Record<string, string> = {
   disetujui: 'Disetujui',
   ditolak: 'Ditolak',
   ditarik: 'Ditarik',
+}
+
+/** Sama dengan penjaga SPRIN_SUDAH_TURUN di ajukan_sprin_turun. */
+const TURUN_BERLAKU = ['diajukan', 'perlu_perbaikan', 'disetujui']
+
+function labelAjuan(a: AjuanSaya) {
+  if (a.asal === 'usulan' && a.status === 'disetujui') return 'Disetujui · diteruskan ke pimpinan'
+  return LABEL_STATUS[a.status] ?? a.status
+}
+
+/** Keadaan SPRIN untuk usulan yang sudah disetujui Kanit. */
+function KeadaanSprinTurun({ ajuan, semua }: { ajuan: AjuanSaya; semua: AjuanSaya[] }) {
+  const turun = ajuan.sprin_turun_id ? semua.find(x => x.id === ajuan.sprin_turun_id) : undefined
+
+  // Dipindai Kanit: baris scan itu milik Kanit dan tidak terbaca di sini,
+  // tetapi sprin_turun_id pada usulan Anda tetap menunjukkannya.
+  if (ajuan.sprin_turun_id && !turun) {
+    return <p className="usul-catatan"><b>SPRIN sudah turun</b> dan diterima Kanit.</p>
+  }
+  if (turun && TURUN_BERLAKU.includes(turun.status)) {
+    return <p className="usul-catatan"><b>SPRIN sudah turun</b> — {LABEL_STATUS[turun.status] ?? turun.status}.</p>
+  }
+  return <div className="usul-catatan">
+    <p><b>Menunggu SPRIN dari pimpinan.</b> Setelah ditandatangani, pindai SPRIN-nya supaya tertaut ke usulan ini.</p>
+    <Link href={`/penugasan/scan?usulan=${ajuan.id}`} className="btn btn-o btn-sm">
+      <Ikon nama="kamera" /> Pindai SPRIN yang sudah turun
+    </Link>
+  </div>
 }
 
 const KOSONG: DataUsulanSprin = {
@@ -99,8 +136,9 @@ export function AjukanUsulanSprin({ ajuanSaya }: { ajuanSaya: AjuanSaya[] }) {
       <div className="kartu-h"><h3>Usulkan penerbitan SPRIN</h3></div>
       <div className="kartu-b">
         <p className="bantu" style={{ marginBottom: 14 }}>
-          Untuk keadaan yang suratnya <b>belum ada</b>. Kanit yang memutuskan dan
-          menerbitkan; nomor surat diisi Kanit dari buku agenda, bukan di sini.
+          Untuk keadaan yang suratnya <b>belum ada</b>. Kanit memutuskan dan meneruskannya ke
+          pimpinan untuk ditandatangani; SPRIN yang sudah jadi nanti dipindai untuk dijadikan
+          penugasan. Nomor surat bukan diisi di sini.
         </p>
 
         <div className="fg">
@@ -193,12 +231,16 @@ export function AjukanUsulanSprin({ ajuanSaya }: { ajuanSaya: AjuanSaya[] }) {
               {ajuanSaya.map(a => (
                 <article className="usul-item" key={a.id}>
                   <div className="usul-item-kepala">
-                    <span className={`lencana ${a.status}`}>{LABEL_STATUS[a.status] ?? a.status}</span>
+                    <span className={`lencana ${a.status}`}>{labelAjuan(a)}</span>
                     <span className="usul-asal">{a.asal === 'usulan' ? 'Usulan' : 'Scan'}</span>
                   </div>
                   <strong>{a.judul || 'Tanpa judul'}</strong>
+                  {a.asal === 'scan' && a.usulan_id && (
+                    <p className="usul-catatan">SPRIN untuk usulan <b>{ajuanSaya.find(x => x.id === a.usulan_id)?.judul || 'yang sudah disetujui'}</b></p>
+                  )}
                   {a.alasan && <p className="usul-alasan">{a.alasan}</p>}
                   {a.catatan_kanit && <p className="usul-catatan"><b>Catatan Kanit:</b> {a.catatan_kanit}</p>}
+                  {a.asal === 'usulan' && a.status === 'disetujui' && <KeadaanSprinTurun ajuan={a} semua={ajuanSaya} />}
                   {/* Menarik hanya selama Kanit belum memutuskan. Tombolnya
                       TIDAK ditampilkan dalam keadaan nonaktif pada keadaan
                       lain — BR-11: yang di luar kewenangan tidak dirender. */}

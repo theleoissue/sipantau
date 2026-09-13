@@ -11,10 +11,14 @@ export default async function HalamanBuatPenugasan({ searchParams }: { searchPar
   const pengguna = await wajibkanSudahSiap()
   const supabase = await klienServer()
   const { pengajuan } = await searchParams
+  // asal = 'scan' dengan sengaja (0067). Usulan yang disetujui naik ke
+  // pimpinan; yang boleh mengisi wizard hanyalah SPRIN yang sudah turun
+  // dan dipindai. Isi usulan belum pernah disahkan siapa pun, jadi
+  // membiarkannya mengisi wizard berarti menerbitkan SPT dari rancangan.
   const [personel, { data: unit }, { data: scanDisetujui }] = await Promise.all([
     personelDapatDipilih(),
     supabase.from('unit').select('nama, kode_klasifikasi').eq('id', pengguna.unit_id!).maybeSingle<{ nama: string; kode_klasifikasi: string | null }>(),
-    pengajuan ? supabase.from('pengajuan_sprin').select('data_scan').eq('id', pengajuan).eq('status', 'disetujui').maybeSingle<{ data_scan: DataScanSprin }>() : Promise.resolve({ data: null }),
+    pengajuan ? supabase.from('pengajuan_sprin').select('data_scan').eq('id', pengajuan).eq('asal', 'scan').eq('status', 'disetujui').maybeSingle<{ data_scan: DataScanSprin }>() : Promise.resolve({ data: null }),
   ])
   return <WizardTerbitkan personel={personel} kodeKlasifikasi={unit?.kode_klasifikasi ?? null} namaUnit={unit?.nama ?? 'unit Anda'} scanAwal={scanDisetujui?.data_scan} pemilikDraf={{ id: pengguna.id, unitId: pengguna.unit_id!, konteks: pengajuan ? `pengajuan:${pengajuan}` : 'baru' }} />
 }
