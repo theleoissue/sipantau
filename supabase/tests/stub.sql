@@ -139,3 +139,53 @@ returns text[] language sql immutable as $$
 $$;
 
 alter table storage.objects enable row level security;
+
+-- =====================================================================
+-- Tiruan pg_net dan Supabase Vault minimal (migrasi 0070).
+--
+-- net.http_post sungguhan hanya mengantrekan permintaan untuk dikirim
+-- pekerja latar belakang; tiruan ini berhenti di antrean itu, sehingga
+-- uji dapat membaca persis url, header, dan badan yang AKAN dikirim.
+-- vault.decrypted_secrets sungguhan adalah tampilan yang mendekripsi
+-- vault.secrets; di sini cukup tabel biasa bernama sama.
+--
+-- Satu rahasia tiruan diisikan supaya prasyarat 0070 terpenuhi pada
+-- setiap berkas uji. uji-dorong-notifikasi.mjs menghapus dan
+-- menggantinya untuk menguji kedua cabang.
+-- =====================================================================
+create schema if not exists net;
+
+create table if not exists net.http_request_queue (
+  id                   bigserial primary key,
+  method               text,
+  url                  text,
+  headers              jsonb,
+  body                 bytea,
+  timeout_milliseconds integer
+);
+
+create or replace function net.http_post(
+  url                  text,
+  body                 jsonb   default '{}'::jsonb,
+  params               jsonb   default '{}'::jsonb,
+  headers              jsonb   default '{"Content-Type": "application/json"}'::jsonb,
+  timeout_milliseconds integer default 5000
+)
+returns bigint language sql as $$
+  insert into net.http_request_queue (method, url, headers, body, timeout_milliseconds)
+  values ('POST', url, headers, convert_to(body::text, 'UTF8'), timeout_milliseconds)
+  returning id
+$$;
+
+create schema if not exists vault;
+
+create table if not exists vault.decrypted_secrets (
+  id               uuid primary key default gen_random_uuid(),
+  name             text unique,
+  decrypted_secret text,
+  created_at       timestamptz not null default now()
+);
+
+insert into vault.decrypted_secrets (name, decrypted_secret)
+values ('sipantau_push_webhook_secret', 'rahasia-tiruan-stub')
+on conflict (name) do nothing;

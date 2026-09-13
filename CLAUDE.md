@@ -273,6 +273,18 @@ penerimanya oleh `fn_buat_notifikasi`; ia tidak memutuskan hak, isi, maupun
 penerima. Pemanggilan dibatasi Database Webhook dengan rahasia khusus, dan
 kredensial Firebase disimpan sebagai rahasia Fungsi Tepi.
 
+### Revisi tercatat — pemanggil `kirim-notifikasi-dorong`, 13 September 2026
+
+Kalimat "Pemanggilan dibatasi Database Webhook" di atas **digantikan** atas persetujuan eksplisit pemilik produk. Database Webhook Dashboard menyimpan seluruh header-nya sebagai argumen pemicu, yaitu teks biasa di katalog. Di produksi header itu memuat kunci `service_role` legacy dan rahasia webhook, dan keduanya terbaca bahkan oleh peran baca-saja `supabase_read_only_user`.
+
+Sejak migrasi 0070, pemanggilnya adalah `trg_dorong_notifikasi` → `fn_dorong_notifikasi`, tertulis di repo. Fungsi itu membaca rahasia dari Supabase Vault (`sipantau_push_webhook_secret`) saat berjalan dan tidak mengirim `Authorization`, karena Fungsi Tepi terpasang dengan `verify_jwt = false`. Fungsi Tepi hanya memakai `record.id` dan membaca ulang barisnya dari basis data, sehingga rahasia yang bocor tidak dapat dipakai mengirim teks karangan.
+
+Yang mengikat sesudah revisi ini:
+
+- **Jangan membuat Database Webhook lewat Dashboard**, dan jangan menaruh kunci atau rahasia di argumen pemicu mana pun. Penjaga di akhir 0070 menolak berjalan bila ada.
+- Skema `net` dan `supabase_functions` **tidak boleh** masuk `db_schema` PostgREST, dan pg_graphql tidak diaktifkan. anon dan authenticated memegang hak penuh atas antrean `net` lewat PUBLIC, dan `postgres` tidak dapat mencabutnya (tidak memegang grant option). Satu-satunya pelindungnya adalah skema itu tidak terjangkau API.
+- Klausa `when (new.mendesak)` di pemicu dan pemeriksaan `mendesak` di Fungsi Tepi diubah bersamaan, atau tidak sama sekali.
+
 ---
 
 ## 9. Uji keamanan — wajib, bukan pilihan

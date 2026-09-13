@@ -1,6 +1,13 @@
 // Pengantar FCM untuk baris notifikasi yang ditandai mendesak.
-// Dipanggil Database Webhook INSERT public.notifikasi. Kunci layanan
-// Firebase hanya berada pada rahasia Edge Function, tidak pernah di APK.
+// Dipanggil pemicu trg_dorong_notifikasi (migrasi 0070) lewat pg_net. Kunci
+// layanan Firebase hanya berada pada rahasia Edge Function, tidak pernah di
+// APK.
+//
+// Dari badan permintaan hanya record.id yang dipakai. Judul, isi, penerima,
+// dan penanda mendesak dibaca ulang dari public.notifikasi, sehingga
+// pemegang rahasia webhook yang bocor paling jauh hanya dapat mengirim ulang
+// pemberitahuan asli yang masih baru dan belum dibaca — bukan teks
+// karangannya sendiri kepada siapa pun.
 
 import { GoogleAuth } from 'npm:google-auth-library@9.15.1'
 import { klienService } from '../_shared/klien.ts'
@@ -14,7 +21,15 @@ interface BarisNotifikasi {
   tujuan_jenis: string | null
   tujuan_id: string | null
   mendesak: boolean
+  dibaca_pada: string | null
+  dibuat_pada: string
 }
+
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// pg_net mengantar dalam hitungan detik. Baris yang lebih tua dari ini
+// bukan kiriman pemicu, melainkan kiriman ulang.
+const BATAS_UMUR_MS = 10 * 60 * 1000
 
 function rute(n: BarisNotifikasi): string {
   if (!n.tujuan_id) return '/pemberitahuan'
@@ -32,12 +47,26 @@ Deno.serve(async req => {
     return jsonRespons({ galat: 'TIDAK_BERWENANG' }, 401)
   }
 
-  const badan = await req.json().catch(() => null) as { type?: string; record?: BarisNotifikasi } | null
-  const n = badan?.record
-  if (badan?.type !== 'INSERT' || !n?.id) return jsonRespons({ galat: 'BENTUK_TIDAK_SAH' }, 400)
-  if (!n.mendesak) return jsonRespons({ berhasil: true, dilewati: 'tidak_mendesak' })
+  const badan = await req.json().catch(() => null) as { type?: string; record?: { id?: unknown } } | null
+  const id = badan?.record?.id
+  if (badan?.type !== 'INSERT' || typeof id !== 'string' || !POLA_UUID.test(id)) {
+    return jsonRespons({ galat: 'BENTUK_TIDAK_SAH' }, 400)
+  }
 
   const svc = klienService()
+  const { data, error: galatNotif } = await svc.from('notifikasi')
+    .select('id,penerima_id,judul,isi,tujuan_jenis,tujuan_id,mendesak,dibaca_pada,dibuat_pada')
+    .eq('id', id)
+    .maybeSingle()
+  if (galatNotif) return jsonRespons({ galat: 'GAGAL_MEMBACA_NOTIFIKASI' }, 500)
+  const n = data as BarisNotifikasi | null
+  if (!n) return jsonRespons({ galat: 'NOTIFIKASI_TIDAK_DITEMUKAN' }, 404)
+  if (!n.mendesak) return jsonRespons({ berhasil: true, dilewati: 'tidak_mendesak' })
+  if (n.dibaca_pada) return jsonRespons({ berhasil: true, dilewati: 'sudah_dibaca' })
+  if (Date.now() - Date.parse(n.dibuat_pada) > BATAS_UMUR_MS) {
+    return jsonRespons({ berhasil: true, dilewati: 'kedaluwarsa' })
+  }
+
   const { data: perangkat, error } = await svc.from('langganan_dorong')
     .select('id,penanda_dorong')
     .eq('pengguna_id', n.penerima_id)

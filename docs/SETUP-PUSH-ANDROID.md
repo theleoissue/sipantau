@@ -11,11 +11,31 @@ dikomit.
 3. Buat service account yang boleh mengirim Firebase Cloud Messaging. Simpan
    seluruh JSON-nya sebagai Supabase Edge Function secret
    `FIREBASE_SERVICE_ACCOUNT_JSON`.
-4. Buat nilai acak panjang dan simpan sebagai Edge Function secret
-   `PUSH_WEBHOOK_SECRET`.
-5. Pasang fungsi `kirim-notifikasi-dorong` **tanpa verifikasi JWT**, karena
-   pemanggilnya adalah Database Webhook yang tidak membawa sesi pengguna —
-   kewenangannya diperiksa lewat header rahasia, bukan JWT.
+4. Buat nilai acak panjang (misalnya `openssl rand -hex 32`). Simpan nilai
+   yang **sama** di dua tempat:
+
+   - Edge Function secret `PUSH_WEBHOOK_SECRET`
+   - Supabase Vault, lewat SQL Editor:
+
+     ```sql
+     select vault.create_secret(
+       '<nilai>',
+       'sipantau_push_webhook_secret',
+       'Header x-sipantau-webhook-secret untuk kirim-notifikasi-dorong');
+     ```
+
+     Bila rahasianya sudah ada dan hendak dirotasi:
+
+     ```sql
+     select vault.update_secret(
+       (select id from vault.secrets where name = 'sipantau_push_webhook_secret'),
+       '<nilai baru>');
+     ```
+
+5. Pasang fungsi `kirim-notifikasi-dorong` **tanpa verifikasi JWT**. Pemicunya
+   (langkah 6) sengaja tidak mengirim header `Authorization`, jadi dengan
+   verifikasi JWT menyala setiap dorongan ditolak gerbang. Kewenangan
+   diperiksa lewat header rahasia, bukan JWT.
 
    Lewat CLI: `supabase functions deploy kirim-notifikasi-dorong --no-verify-jwt`
 
@@ -26,19 +46,21 @@ dikomit.
    "Requested function was not found", persis seperti belum pernah dipasang.
    Karena itu untuk jalur Dashboard wajib ditempel **versi satu berkas** yang
    isi `_shared`-nya sudah ditanam, lalu saklar "Verify JWT" dimatikan di
-   setelan fungsinya. Bila saklar itu tidak tersedia, biarkan menyala dan
-   pertahankan header `Authorization: Bearer <anon key>` yang diisikan
-   Dashboard sendiri pada langkah 6 — gerbangnya puas dengan itu, sementara
-   kewenangan sebenarnya tetap ditentukan `x-sipantau-webhook-secret`.
+   setelan fungsinya.
 
-   Pastikan sungguh tayang, jangan ditebak:
-   `curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/functions/v1/kirim-notifikasi-dorong" -d '{}'`
-   → `404` berarti tidak ada, `401` berarti hidup.
+   Pastikan sungguh tayang dan verifikasi JWT sungguh mati, jangan ditebak:
+   `curl -s -X POST "$URL/functions/v1/kirim-notifikasi-dorong" -d '{}'`
+   → `{"galat":"TIDAK_BERWENANG"}` berarti hidup dan jawabannya datang dari
+   kode fungsi. Pesan lain soal JWT/authorization berarti gerbang masih
+   memeriksa JWT. `404` berarti tidak ada.
 
-6. Di Supabase Dashboard, buat Database Webhook untuk `INSERT` pada tabel
-   `public.notifikasi`. Tujuannya adalah Edge Function
-   `kirim-notifikasi-dorong`. Tambahkan header
-   `x-sipantau-webhook-secret` dengan nilai yang sama seperti langkah 4.
+6. **Jangan membuat Database Webhook di Dashboard.** Pemicunya,
+   `trg_dorong_notifikasi`, dipasang migrasi
+   `0070_dorong_notifikasi_lewat_vault.sql`, yang menolak berjalan bila
+   rahasia Vault pada langkah 4 belum ada. Database Webhook Dashboard
+   menyimpan header — termasuk kunci yang diisikan tombol "Add auth header
+   with service key" — sebagai teks biasa di definisi pemicu, yang terbaca
+   siapa pun yang dapat menjalankan SQL.
 7. Jalankan workflow **Bangun APK Android**, pasang APK baru, masuk, dan
    izinkan pemberitahuan ketika dialog Android muncul.
 
@@ -46,3 +68,35 @@ Channel `Pemberitahuan penting` memakai prioritas tinggi, suara bawaan, dan
 getar. Notifikasi foreground ditampilkan lewat Local Notifications; ketika
 aplikasi berada di latar belakang, FCM menampilkannya langsung. Mengetuk
 notifikasi membuka halaman tujuan di SiPANTAU.
+
+## Peralihan dari Database Webhook lama (sekali jalan, 13 September 2026)
+
+Produksi sebelumnya memakai Database Webhook `dorong_notifikasi` yang
+membawa kunci `service_role` legacy dan rahasia webhook di definisinya.
+Rahasia lama itu **tidak boleh dipakai ulang**. Urutannya:
+
+1. Pasang Fungsi Tepi versi baru (versi satu berkas). Ia tetap menerima
+   kiriman webhook lama karena hanya membutuhkan `record.id`.
+2. Buat nilai rahasia **baru**, lalu jalankan `vault.create_secret`
+   (langkah 4 di atas).
+3. Setel `PUSH_WEBHOOK_SECRET` ke nilai baru. Sejak saat ini webhook lama
+   ditolak 401, jadi langsung lanjut ke butir 4.
+4. Jalankan `0070_dorong_notifikasi_lewat_vault.sql` di SQL Editor.
+5. Periksa:
+
+   ```sql
+   -- wajib nol
+   select count(*) from pg_trigger
+    where not tgisinternal
+      and pg_get_triggerdef(oid) ~* '(eyJ|authorization|bearer|secret|apikey)';
+   -- wajib satu baris, tgenabled = 'O'
+   select tgname, tgenabled from pg_trigger
+    where tgrelid = 'public.notifikasi'::regclass and tgname = 'trg_dorong_notifikasi';
+   ```
+
+   Lalu picu satu pemberitahuan mendesak dan pastikan dorongannya sampai,
+   atau lihat `status_code` terbaru di `net._http_response`.
+
+Kunci `service_role` legacy yang sempat tertulis **masih berlaku** sesudah
+peralihan ini. Kunci itu dimatikan lewat tugas terpisah: aplikasi dipindah ke
+kunci `sb_publishable` dan `sb_secret`, lalu kunci legacy dinonaktifkan.
