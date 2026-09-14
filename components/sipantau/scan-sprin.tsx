@@ -10,7 +10,11 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 
 const MAKS_HALAMAN = 8
 const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const MIME_DOC_LAMA = 'application/msword'
 const adalahDocx = (berkas: File) => berkas.type === MIME_DOCX || berkas.name.toLowerCase().endsWith('.docx')
+// .docx tidak pernah cocok di sini: "file.docx".endsWith('.doc') salah karena huruf x tersisa.
+const adalahDocLama = (berkas: File) => berkas.type === MIME_DOC_LAMA || berkas.name.toLowerCase().endsWith('.doc')
+const adalahDokumenWord = (berkas: File) => adalahDocx(berkas) || adalahDocLama(berkas)
 
 type HasilPemindaiDokumen = { pages: string[] }
 const DokumenScanner = registerPlugin<{ scan(options: { pageLimit: number }): Promise<HasilPemindaiDokumen> }>('DokumenScanner')
@@ -59,8 +63,8 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
     const dipakai = tambahan.slice(0, tersisa)
     // Foto (kamera atau JPG/PNG/WebP) dirapikan dulu lewat dialog koreksi;
     // PDF sudah berupa dokumen jadi, langsung ditambahkan apa adanya.
-    const foto = perluKoreksi ? dipakai.filter(b => b.type !== 'application/pdf' && !adalahDocx(b)) : []
-    const dokumen = dipakai.filter(b => b.type === 'application/pdf' || adalahDocx(b))
+    const foto = perluKoreksi ? dipakai.filter(b => b.type !== 'application/pdf' && !adalahDokumenWord(b)) : []
+    const dokumen = dipakai.filter(b => b.type === 'application/pdf' || adalahDokumenWord(b))
     if (foto.length) setAntrianKoreksi(sebelum => [...sebelum, ...foto])
     // JPEG dari pemindai native sudah diperbaiki perspektif, rotasi, bayangan dan
     // noda secara native. Jangan buka crop kedua di WebView.
@@ -140,7 +144,17 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
       <span className="scan-sprin-ikon"><Ikon nama="berkas" /></span>
       <div><strong>Isi otomatis dari SPRIN</strong><p>Pindai seluruh halaman sekaligus. Isian hasil baca tetap dapat diperiksa dan disunting.</p></div>
     </div>
-    <input ref={input} type="file" hidden multiple accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp" onChange={e => {
+    {/*
+      application/octet-stream ikut di daftar terima: banyak pengelola
+      berkas Android (WhatsApp, Bluetooth, sebagian bawaan OEM) melaporkan
+      MIME .doc/.docx sebagai jenis generik ini, bukan MIME Word yang
+      benar — tanpa baris ini berkasnya tidak muncul sama sekali di
+      pemilih pada HP tertentu, bukan gagal dibaca. Validasi sungguhan
+      tetap di adalahDokumenWord() (server & tambah()) yang mengecek
+      akhiran nama berkas, jadi melonggarkan filter tampilan ini tidak
+      melonggarkan jenis berkas yang sungguh diterima.
+    */}
+    <input ref={input} type="file" hidden multiple accept="application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,image/jpeg,image/png,image/webp" onChange={e => {
       const berkas = Array.from(e.target.files ?? [])
       e.target.value = ''
       if (berkas.length) tambah(berkas)
@@ -156,7 +170,7 @@ export function ScanSprin({ onHasil, pesanSukses = 'Hasil scan sudah dimasukkan 
         ? (halaman.length ? 'Tambah foto biasa' : 'Kamera biasa')
         : (halaman.length ? 'Tambah foto' : 'Scan kamera')}
     </button>}
-    <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah DOCX / PDF / foto</button>
+    <button type="button" className="btn btn-o" disabled={sibuk} onClick={() => input.current?.click()}><Ikon nama="berkas" />Unggah DOC / PDF / foto</button>
     </div>
     {halaman.length > 0 && <div className="scan-sprin-ringkasan">
       <span><b>{halaman.length}</b> berkas siap • {(halaman.reduce((total, file) => total + file.size, 0) / 1024 / 1024).toFixed(1)} / 3,8 MB</span>
