@@ -432,23 +432,32 @@ export function FormulirLapor({ daftarSpt, penggunaId, penggunaPeran, penugasanT
             </div>
           </div>
 
-          {spt && (
-            <div className="kartu" style={{ marginBottom: 16, background: 'var(--bg-2, #f7f8fa)' }}>
-              <div className="kartu-b" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
-                <div className="k" style={{ marginBottom: 4 }}>Dasar &amp; Tugas (otomatis dari penugasan)</div>
-                {spt.penugasan_dasar.length > 0 && (
-                  <ol style={{ margin: '0 0 6px 18px', padding: 0, color: 'var(--ink-2)' }}>
-                    {[...spt.penugasan_dasar].sort((a, b) => a.urutan - b.urutan).map(d => (
-                      <li key={d.urutan}>
-                        {LABEL_DASAR[d.jenis] ?? 'Dasar'}: {d.nomor ?? '—'}{d.tanggal ? `, ${d.tanggal}` : ''}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                {spt.uraian_tugas && <p style={{ margin: 0, color: 'var(--ink-2)' }}>{spt.uraian_tugas}</p>}
+          {spt && (() => {
+            const dasarTerurut = [...spt.penugasan_dasar].sort((a, b) => a.urutan - b.urutan)
+            return <section className="lapor-konteks">
+              <div className="lapor-konteks-kepala">
+                <div>
+                  <span>Dasar penugasan</span>
+                  <strong>{dasarTerurut.length} dasar tercatat</strong>
+                </div>
+                <em>Otomatis</em>
               </div>
-            </div>
-          )}
+              {dasarTerurut.length > 0 ? (
+                <ol className="lapor-dasar-daftar">
+                  {dasarTerurut.map((d, i) => (
+                    <li key={d.urutan}>
+                      <span className="lapor-dasar-nomor">{i + 1}</span>
+                      <div>
+                        <strong>{LABEL_DASAR[d.jenis] ?? 'Dasar penugasan'}</strong>
+                        <span>{d.nomor ?? 'Nomor belum tercatat'}{d.tanggal ? ` · ${d.tanggal}` : ''}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="lapor-dasar-kosong">Belum ada dasar penugasan yang tercatat.</p>}
+              {spt.uraian_tugas && <div className="lapor-ringkasan-tugas"><span>Ringkasan tugas</span><p>{spt.uraian_tugas}</p></div>}
+            </section>
+          })()}
 
           <div className="f2">
             <div className="fg">
