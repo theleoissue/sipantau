@@ -580,7 +580,7 @@ tbody tr.bisa-klik{cursor:pointer}
 .peta-hasil-teks{display:flex;flex:1;flex-direction:column;align-items:flex-start;min-width:0;color:inherit;font-size:inherit}
 .peta-hasil-teks strong{font-size:12.5px;color:var(--ink);line-height:1.35}.peta-hasil-teks small{margin-top:2px;color:var(--ink-3);font-size:11px;line-height:1.4}
 .peta-konfirmasi-tempat{padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--blue-bg);border-top:1px solid var(--line)}
-.peta-konfirmasi-tempat>div{display:flex;flex-direction:column;min-width:0}.peta-konfirmasi-tempat strong{font-size:12.5px}.peta-konfirmasi-tempat small{font-size:11px;color:var(--ink-2);margin-top:2px}.peta-konfirmasi-tempat .btn{flex-shrink:0}
+.peta-konfirmasi-tempat>div{display:flex;flex:1;flex-direction:column;min-width:0}.peta-konfirmasi-tempat strong{font-size:12.5px;overflow-wrap:anywhere}.peta-konfirmasi-tempat small{font-size:11px;color:var(--ink-2);margin-top:2px;overflow-wrap:anywhere}.peta-konfirmasi-tempat .btn{flex-shrink:0}
 .peta-penyedia{display:block;padding:7px 12px;text-align:right;color:var(--ink-3);font-size:10px;background:var(--card)}
 .peringatan-inline{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #F1C66D;border-radius:10px;background:#FFF8E8}.peringatan-inline>div{display:flex;flex-direction:column;min-width:0}.peringatan-inline strong{font-size:12.5px;color:var(--ink)}.peringatan-inline small{margin-top:2px;font-size:11px;line-height:1.4;color:var(--ink-2)}
 .scan-sprin{display:grid;gap:14px;padding:18px;margin:0 0 18px;border:1px solid #D7E2F0;border-radius:16px;background:linear-gradient(135deg,#F4F8FF 0%,#FFF 72%);box-shadow:0 8px 28px rgba(27,42,74,.06)}
