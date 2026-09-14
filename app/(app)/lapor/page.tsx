@@ -1,12 +1,17 @@
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { sptUntukLapor } from '@/lib/laporan/kueri'
+import { idValid } from '@/lib/utils'
 import { FormulirLapor } from './formulir-lapor'
 
 export const metadata = { title: 'Kirim Laporan — Si PANTAU' }
 
-export default async function HalamanLapor() {
+export default async function HalamanLapor({ searchParams }: { searchParams: Promise<{ penugasan?: string }> }) {
   const pengguna = await wajibkanSudahSiap()
   const daftarSpt = await sptUntukLapor(pengguna.id)
+  const cari = await searchParams
+  const penugasanTerkunci = cari.penugasan && idValid(cari.penugasan) && daftarSpt.some(s => s.id === cari.penugasan)
+    ? cari.penugasan
+    : undefined
 
   return (
     <>
@@ -19,7 +24,7 @@ export default async function HalamanLapor() {
         </div>
       </div>
 
-      <FormulirLapor key={pengguna.id} penggunaId={pengguna.id} daftarSpt={daftarSpt} />
+      <FormulirLapor key={`${pengguna.id}:${penugasanTerkunci ?? 'bebas'}`} penggunaId={pengguna.id} daftarSpt={daftarSpt} penugasanTerkunci={penugasanTerkunci} />
     </>
   )
 }

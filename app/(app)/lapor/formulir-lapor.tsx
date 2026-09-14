@@ -67,10 +67,10 @@ type DrafLaporan = {
   lokasiId: string; keteranganLokasi: string; alasan: AlasanLokasi; alasanLainnya: string
 }
 
-export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLapor[]; penggunaId: string }) {
-  const KUNCI_DRAF = `sipantau:draf-laporan:v2:${penggunaId}`
+export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { daftarSpt: SptUntukLapor[]; penggunaId: string; penugasanTerkunci?: string }) {
+  const KUNCI_DRAF = `sipantau:draf-laporan:v3:${penggunaId}:${penugasanTerkunci ?? 'bebas'}`
   const router = useRouter()
-  const [sptId, setSptId] = useState(daftarSpt[0]?.id ?? '')
+  const [sptId, setSptId] = useState(penugasanTerkunci ?? daftarSpt[0]?.id ?? '')
   const [jenis, setJenis] = useState('perkembangan')
   const [statusKegiatan, setStatusKegiatan] = useState('berjalan')
   const [uraian, setUraian] = useState('')
@@ -182,7 +182,7 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
           sudahPulih.current = true
           return
         }
-        setSptId(draf.sptId)
+        setSptId(penugasanTerkunci ?? draf.sptId)
         setJenis(draf.jenis || 'perkembangan')
         setStatusKegiatan(draf.statusKegiatan || 'berjalan')
         setUraian(draf.uraian || '')
@@ -197,7 +197,7 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
     sudahPulih.current = true
     }, 0)
     return () => window.clearTimeout(pulihkan)
-  }, [daftarSpt, KUNCI_DRAF])
+  }, [daftarSpt, KUNCI_DRAF, penugasanTerkunci])
 
   useEffect(() => {
     if (!sudahPulih.current) return
@@ -270,18 +270,23 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
     if (!sptId) { setGalat('Pilih penugasan terlebih dahulu.'); return }
 
     mulai(async () => {
+      const posisiLaporan = await bacaKoordinatFoto() ?? koordinat
+      if (posisiLaporan) {
+        setKoordinat(posisiLaporan)
+        setStatusGeo('berhasil')
+      }
       const hasil = laporanTersimpanId ? { id: laporanTersimpanId } : await kirimLaporan({
         penugasan_id: sptId,
         jenis,
         status_kegiatan: statusKegiatan,
         uraian,
         kendala,
-        lokasi_id: lokasiId || null,
-        lokasi_lat: statusGeo === 'berhasil' ? koordinat!.lat : null,
-        lokasi_lng: statusGeo === 'berhasil' ? koordinat!.lng : null,
-        akurasi_meter: statusGeo === 'berhasil' ? koordinat!.akurasi : null,
-        alasan_lokasi: statusGeo !== 'berhasil' ? alasan : null,
-        alasan_lokasi_lainnya: alasan === 'lainnya' ? alasanLainnya : '',
+        lokasi_id: null,
+        lokasi_lat: posisiLaporan?.lat ?? null,
+        lokasi_lng: posisiLaporan?.lng ?? null,
+        akurasi_meter: posisiLaporan?.akurasi ?? null,
+        alasan_lokasi: posisiLaporan ? null : alasan,
+        alasan_lokasi_lainnya: posisiLaporan || alasan !== 'lainnya' ? '' : alasanLainnya,
         keterangan_lokasi: keteranganLokasi,
         penanda_perangkat: ambilPenandaPerangkat(),
       })
@@ -363,27 +368,22 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
 
           <div className="fg">
             <label>Penugasan <span className="wajib">*</span></label>
-            <select value={sptId} onChange={e => { setSptId(e.target.value); setLokasiId('') }}>
-              {daftarSpt.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.nomor_spt ?? '(belum bernomor)'} — {s.judul}
-                </option>
-              ))}
-            </select>
-            <div className="bantu">Hanya penugasan yang masih berjalan dapat dipilih.</div>
-          </div>
-
-          {spt && spt.penugasan_lokasi.length > 0 && (
-            <div className="fg">
-              <label>Titik lokasi tugas</label>
-              <select value={lokasiId} onChange={e => setLokasiId(e.target.value)}>
-                <option value="">Tidak pada titik mana pun</option>
-                {[...spt.penugasan_lokasi].sort((a, b) => a.urutan - b.urutan).map(l => (
-                  <option key={l.id} value={l.id}>Titik {l.urutan} — {l.nama}</option>
+            {penugasanTerkunci && spt ? (
+              <div className="lapor-penugasan-terkunci">
+                <strong>{spt.nomor_spt ?? '(belum bernomor)'}</strong>
+                <span>{spt.judul}</span>
+              </div>
+            ) : (
+              <select value={sptId} onChange={e => setSptId(e.target.value)}>
+                {daftarSpt.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.nomor_spt ?? '(belum bernomor)'} — {s.judul}
+                  </option>
                 ))}
               </select>
-            </div>
-          )}
+            )}
+            <div className="bantu">{penugasanTerkunci ? 'Penugasan dipilih dari halaman rincian tugas.' : 'Pilih penugasan yang masih berjalan.'}</div>
+          </div>
 
           <div className="f2">
             <div className="fg">
@@ -407,7 +407,7 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
           {/* Kotak lokasi: tiga fakta berdampingan, tidak pernah
               menyimpulkan (Aturan Modul 6.3.4 #2). */}
           <div className="fg">
-            <label>Lokasi</label>
+            <label>Lokasi laporan</label>
             {statusGeo === 'mencari' && (
               <div className="kartu" style={{ padding: 14 }}>
                 <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>Mencari sinyal GPS…</div>
@@ -424,7 +424,7 @@ export function FormulirLapor({ daftarSpt, penggunaId }: { daftarSpt: SptUntukLa
                   {koordinat.lat.toFixed(5)}, {koordinat.lng.toFixed(5)} · ketelitian ±{Math.round(koordinat.akurasi)}m
                 </div>
                 <div className="bantu">
-                  Status lokasi (terverifikasi / di luar titik) dihitung server setelah dikirim.
+                  Titik tugas terdekat dan status lokasi dihitung otomatis oleh server saat laporan dikirim.
                 </div>
               </div>
             )}

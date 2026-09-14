@@ -169,7 +169,7 @@ export default async function RincianPenugasan({
             </Link>
           )}
           {akuPelaksana && ['baru', 'berjalan', 'bermasalah'].includes(spt.status) && (
-            <Link href="/lapor" className="btn btn-g">
+            <Link href={`/lapor?penugasan=${encodeURIComponent(spt.id)}`} className="btn btn-g">
               <Ikon nama="lapor" />
               Kirim laporan
             </Link>

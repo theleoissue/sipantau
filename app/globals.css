@@ -579,6 +579,7 @@ tbody tr.bisa-klik{cursor:pointer}
 .peta-hasil-cari button.on>span:first-child{background:var(--primary);color:#fff}.peta-pilih-lokasi-bantu{font-size:12px;color:var(--ink-3);margin-top:8px;line-height:1.6}
 .peta-hasil-teks{display:flex;flex:1;flex-direction:column;align-items:flex-start;min-width:0;color:inherit;font-size:inherit}
 .peta-hasil-teks strong{font-size:12.5px;color:var(--ink);line-height:1.35}.peta-hasil-teks small{margin-top:2px;color:var(--ink-3);font-size:11px;line-height:1.4}
+.lapor-penugasan-terkunci{display:flex;flex-direction:column;gap:4px;padding:12px 13px;border:1px solid #BFDBFE;border-radius:var(--r-sm);background:#F8FBFF}.lapor-penugasan-terkunci strong{font-family:var(--mono);font-size:12px;color:var(--primary)}.lapor-penugasan-terkunci span{font-size:13px;font-weight:600;line-height:1.45;color:var(--ink)}
 .peta-konfirmasi-tempat{padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--blue-bg);border-top:1px solid var(--line)}
 .peta-konfirmasi-tempat>div{display:flex;flex:1;flex-direction:column;min-width:0}.peta-konfirmasi-tempat strong{font-size:12.5px;overflow-wrap:anywhere}.peta-konfirmasi-tempat small{font-size:11px;color:var(--ink-2);margin-top:2px;overflow-wrap:anywhere}.peta-konfirmasi-tempat .btn{flex-shrink:0}
 .peta-penyedia{display:block;padding:7px 12px;text-align:right;color:var(--ink-3);font-size:10px;background:var(--card)}
