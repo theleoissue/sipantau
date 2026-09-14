@@ -34,7 +34,17 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    // PALING AWAL, sebelum super.onCreate — syarat SplashScreen.
+    // installSplashScreen() PALING AWAL, sebelum super.onCreate — syarat
+    // SplashScreen. Tapi setKeepOnScreenCondition() TIDAK BOLEH ikut di
+    // sini: di Android 12 ke atas (SplashScreen.Impl31) pemanggilan itu
+    // mengakses decor Activity lewat AppCompatActivity.findViewById, dan
+    // saat ini dipanggil tema yang berlaku masih tema peluncur
+    // (Theme.SplashScreen) — BridgeActivity baru menggantinya ke tema
+    // AppCompat DI DALAM super.onCreate(). Dipanggil di sini, sebelum
+    // super.onCreate(), APK mental seketika saat dibuka dengan
+    // "IllegalStateException: You need to use a Theme.AppCompat theme
+    // (or descendant) with this activity" — terbukti dari crash log di
+    // HP fisik (Realme, Android 12+), tidak muncul di emulator API lama.
     //
     // Sebelumnya splash sistem hilang begitu aktivitas menggambar frame
     // pertamanya, yaitu WebView yang masih kosong. Selama halaman dari
@@ -42,7 +52,6 @@ public class MainActivity extends BridgeActivity {
     // satu sampai dua detik saat APK dibuka. Sekarang splash bertahan
     // sampai halaman pertama sungguh terlihat.
     SplashScreen splash = SplashScreen.installSplashScreen(this);
-    splash.setKeepOnScreenCondition(() -> !halamanTampil);
 
     // WAJIB sebelum super.onCreate: BridgeActivity.onCreate memanggil
     // load(), dan di situlah Bridge dibuat dari daftar plugin yang ADA
@@ -60,6 +69,10 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(KesehatanPelacakPlugin.class);
     registerPlugin(PelacakPlugin.class);
     super.onCreate(savedInstanceState);
+
+    // Baru sekarang: tema AppCompat sudah terpasang oleh super.onCreate().
+    splash.setKeepOnScreenCondition(() -> !halamanTampil);
+
     lepasSplashSaatHalamanTampil();
     mintaIzinKameraAwal();
   }
