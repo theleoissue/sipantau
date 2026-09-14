@@ -12,16 +12,15 @@ function waktu(iso: string) {
 
 export function PratinjauFotoLaporan({ foto, laporanId }: { foto: Foto[]; laporanId: string }) {
   const [aktif, setAktif] = useState<number | null>(null)
-  const [alamat, setAlamat] = useState<string | null>(null)
+  const [alamat, setAlamat] = useState<{ id: string; teks: string } | null>(null)
   const dipilih = aktif === null ? null : foto[aktif]
   useEffect(() => {
-    if (!dipilih || dipilih.lat === null || dipilih.lng === null) { setAlamat(null); return }
+    if (!dipilih || dipilih.lat === null || dipilih.lng === null) return
     let batal = false
-    setAlamat('Mencari alamat…')
     fetch('/api/tempat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aksi: 'balik', lat: dipilih.lat, lng: dipilih.lng }) })
       .then(r => r.json())
-      .then(data => { if (!batal) setAlamat(data.alamat || 'Alamat tidak ditemukan') })
-      .catch(() => { if (!batal) setAlamat('Alamat tidak tersedia') })
+      .then(data => { if (!batal) setAlamat({ id: dipilih.id, teks: data.alamat || 'Alamat tidak ditemukan' }) })
+      .catch(() => { if (!batal) setAlamat({ id: dipilih.id, teks: 'Alamat tidak tersedia' }) })
     return () => { batal = true }
   }, [dipilih])
   return <>
@@ -55,7 +54,7 @@ export function PratinjauFotoLaporan({ foto, laporanId }: { foto: Foto[]; lapora
         <div className="pratinjau-foto-info">
           <span>{dipilih.diambil_pada ? waktu(dipilih.diambil_pada) : dipilih.sumber === 'kamera' ? 'Waktu pengambilan tidak terekam' : 'Lampiran dari galeri'}</span>
           {dipilih.lat !== null && dipilih.lng !== null ? <small><Ikon nama="pin" />{dipilih.lat.toFixed(5)}, {dipilih.lng.toFixed(5)}</small> : <small>Lokasi foto tidak tersedia</small>}
-          {alamat && <p className="pratinjau-foto-alamat">{alamat}</p>}
+          {alamat?.id === dipilih.id && <p className="pratinjau-foto-alamat">{alamat.teks}</p>}
           {dipilih.lat !== null && dipilih.lng !== null && <div className="pratinjau-foto-aksi">
             <a className="btn btn-o btn-sm" href={`/peta?lat=${dipilih.lat}&lng=${dipilih.lng}&laporan=${encodeURIComponent(laporanId)}`}>Buka Peta Lapangan</a>
             <a className="btn btn-p btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${dipilih.lat},${dipilih.lng}`} target="_blank" rel="noreferrer">Buka Maps</a>

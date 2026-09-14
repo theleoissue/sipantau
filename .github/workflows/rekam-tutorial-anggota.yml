@@ -1,0 +1,48 @@
+name: Rekam Tutorial Anggota
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: URL aplikasi yang direkam
+        required: false
+        default: https://www.sipantaujabar.my.id
+        type: string
+
+jobs:
+  rekam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Ambil kode
+        uses: actions/checkout@v4
+
+      - name: Pasang Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Pasang dependensi
+        run: npm ci
+
+      - name: Pasang Chromium untuk perekaman
+        run: npx playwright install --with-deps chromium
+
+      - name: Rekam alur Anggota
+        env:
+          TUTORIAL_BASE_URL: ${{ inputs.base_url }}
+          TUTORIAL_ANGGOTA_NRP: ${{ secrets.TUTORIAL_ANGGOTA_NRP }}
+          TUTORIAL_ANGGOTA_PASSWORD: ${{ secrets.TUTORIAL_ANGGOTA_PASSWORD }}
+        run: node scripts/rekam-tutorial-anggota.mjs
+
+      - name: Ubah video menjadi MP4
+        run: ffmpeg -y -i artefak/tutorial-anggota/tutorial-anggota.webm -c:v libx264 -pix_fmt yuv420p artefak/tutorial-anggota/tutorial-anggota.mp4
+
+      - name: Unggah video tutorial
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutorial-anggota
+          path: artefak/tutorial-anggota/tutorial-anggota.mp4
+          if-no-files-found: error
+          retention-days: 14

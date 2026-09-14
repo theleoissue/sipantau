@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "rekam:tutorial-anggota": "node scripts/rekam-tutorial-anggota.mjs",
     "uji:ui": "node scripts/uji-redesign.cjs",
     "uji": "node supabase/tests/jalankan.mjs && node supabase/tests/uji-rls.mjs && node supabase/tests/uji-penugasan.mjs && node supabase/tests/uji-laporan.mjs && node supabase/tests/uji-rute.mjs && node supabase/tests/uji-gps.mjs && node supabase/tests/uji-notifikasi.mjs && node supabase/tests/uji-siklus-spt.mjs && node supabase/tests/uji-lhp.mjs && node supabase/tests/uji-akun.mjs && node supabase/tests/uji-manajemen-akun.mjs && node supabase/tests/uji-titik-native.mjs && node supabase/tests/uji-lintas-unit-kanit.mjs && node supabase/tests/uji-kunci-spt-terbit.mjs && node supabase/tests/uji-berkas-surat-spt.mjs && node supabase/tests/uji-pengajuan-sprin.mjs && node supabase/tests/uji-antrean.mjs && node supabase/tests/uji-aktivitas.mjs && node supabase/tests/uji-hak-fungsi.mjs && node supabase/tests/uji-dorong-notifikasi.mjs"
   },
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.10",
+    "@playwright/test": "1.51.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/leaflet": "^1.9.20",
     "@types/node": "^22.15.0",
