@@ -36,13 +36,10 @@ jobs:
           TUTORIAL_ANGGOTA_PASSWORD: ${{ secrets.TUTORIAL_ANGGOTA_PASSWORD }}
         run: node scripts/rekam-tutorial-anggota.mjs
 
-      - name: Ubah video menjadi MP4
-        run: ffmpeg -y -i artefak/tutorial-anggota/tutorial-anggota.webm -c:v libx264 -pix_fmt yuv420p artefak/tutorial-anggota/tutorial-anggota.mp4
-
       - name: Unggah video tutorial
         uses: actions/upload-artifact@v4
         with:
           name: tutorial-anggota
-          path: artefak/tutorial-anggota/tutorial-anggota.mp4
+          path: artefak/tutorial-anggota/tutorial-anggota.webm
           if-no-files-found: error
           retention-days: 14
