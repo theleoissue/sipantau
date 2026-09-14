@@ -42,6 +42,17 @@ export interface FotoLhp {
   foto_dokumentasi: { berkas_path: string; keterangan: string | null } | null
 }
 
+export type JenisDasarPenugasan =
+  | 'laporan_informasi' | 'laporan_polisi' | 'laporan_pengaduan'
+  | 'surat_perintah_terdahulu' | 'disposisi_pimpinan' | 'lainnya'
+
+export interface DasarPenugasan {
+  jenis: JenisDasarPenugasan
+  nomor: string | null
+  tanggal: string | null
+  urutan: number
+}
+
 export interface LhpLengkap {
   id: string
   penugasan_id: string
@@ -59,7 +70,15 @@ export interface LhpLengkap {
   status: StatusLhp
   dibuat_pada: string
   diubah_pada: string
-  penugasan: { nomor_spt: string | null; judul: string; unit_id: string } | null
+  penugasan: {
+    nomor_spt: string | null
+    judul: string
+    unit_id: string
+    uraian_tugas: string | null
+    diterbitkan_pada: string | null
+    unit: { nama: string } | null
+    penugasan_dasar: DasarPenugasan[]
+  } | null
   penyusun: { nama: string; pangkat: string | null; nrp: string } | null
   lhp_petugas: PetugasLhp[]
   lhp_pihak: PihakLhp[]

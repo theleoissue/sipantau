@@ -15,7 +15,11 @@ export * from './tipe'
 
 const KOLOM_LENGKAP = `
   *,
-  penugasan:penugasan_id ( nomor_spt, judul, unit_id ),
+  penugasan:penugasan_id (
+    nomor_spt, judul, unit_id, uraian_tugas, diterbitkan_pada,
+    unit:unit_id ( nama ),
+    penugasan_dasar ( jenis, nomor, tanggal, urutan )
+  ),
   penyusun:disusun_oleh ( nama, pangkat, nrp ),
   lhp_petugas ( id, petugas_id, urutan, users:petugas_id ( nama, pangkat, nrp ) ),
   lhp_pihak ( id, peran, nama, nomor_pengenal, keterangan, urutan ),

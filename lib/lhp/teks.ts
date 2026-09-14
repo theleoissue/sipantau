@@ -1,82 +1,127 @@
-import type { LhpLengkap } from './tipe'
+import type { LhpLengkap, JenisDasarPenugasan } from './tipe'
 
 // =====================================================================
 // Menyusun LHP Ringkas menjadi teks siap-bagi bergaya "Laporan
-// Perkembangan" (format WA) — bagian romawi mengikuti persis contoh
-// yang diberikan pemilik produk. Fungsi murni, aman dipakai Client
-// Component (tidak menyentuh apa pun yang bersentuhan server).
+// Sementara" yang benar-benar dipakai unit ini — kop Kepada/Dari,
+// salam pembuka-penutup, dan delapan bagian romawi (DASAR, TUGAS,
+// PETUGAS, WAKTU DAN TEMPAT, HASIL YANG DICAPAI, KESIMPULAN, RENCANA
+// TINDAK LANJUT, PENUTUP). Bentuk sebelumnya (14 bagian tanpa kop)
+// tidak dipakai siapa pun di lapangan — diganti total, bukan ditambah
+// cabang baru, atas permintaan pemilik produk, dicontohkan dari surat
+// asli yang ia kirim 14 September 2026.
 //
-// TIDAK menyertakan baris KEPADA/DARI/salam ke nama pejabat tertentu —
-// data itu tidak ada di skema lhp (fondasi.md hanya menyebut "kepala
-// surat dari templat institusi", bukan nama penerima per laporan).
-// Ini LHP RINGKAS, bukan surat resmi lengkap (BR-10) — bagian
-// pembuka/penutup dibuat netral, isi romawi yang jadi substansinya.
+// "Kepada Yth" dan "SUBDIT IV" adalah konstanta institusi (aplikasi ini
+// memang hanya melayani Subdit IV — lihat CLAUDE.md §1), bukan data per
+// LHP. "Dari" diturunkan dari nama unit penugasan ("Unit I" -> "KANIT I
+// SUBDIT IV"), bukan nama pribadi penyusun — LHP selalu disusun Anggota
+// (docs/00-fondasi.md §7 baris 341), tetapi secara institusional
+// dilaporkan atas nama Kanit unitnya.
+//
+// Fungsi murni, aman dipakai Client Component (tidak menyentuh apa pun
+// yang bersentuhan server).
 // =====================================================================
 
-function baris(label: string, isi: string | null): string {
-  return isi && isi.trim() ? isi.trim() : '—'
+const LABEL_DASAR: Record<JenisDasarPenugasan, string> = {
+  laporan_informasi: 'Laporan Informasi',
+  laporan_polisi: 'Laporan Polisi',
+  laporan_pengaduan: 'Laporan Pengaduan',
+  surat_perintah_terdahulu: 'Surat Perintah Terdahulu',
+  disposisi_pimpinan: 'Disposisi Pimpinan',
+  lainnya: 'Dasar Lainnya',
+}
+
+function tanggalIndo(iso: string | null): string {
+  if (!iso) return ''
+  const tanggal = new Date(iso)
+  if (Number.isNaN(tanggal.getTime())) return ''
+  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(tanggal)
+}
+
+function isiAtauStrip(isi: string | null): string {
+  return isi && isi.trim() ? isi.trim() : '(belum diisi)'
+}
+
+/** "Unit I" -> "I". Tidak mengasumsikan angka romawi tunggal — dipotong
+ *  dari kata pertama saja, supaya nama unit lain tetap aman diproses. */
+function romawiUnit(namaUnit: string | undefined | null): string {
+  return (namaUnit ?? '').replace(/^unit\s*/i, '').trim() || '—'
 }
 
 export function susunTeksWa(lhp: LhpLengkap): string {
+  const penugasan = lhp.penugasan
+  const unit = romawiUnit(penugasan?.unit?.nama)
+
+  // I. DASAR — dasar tertulis penugasan (biasanya Laporan Informasi),
+  // lalu Surat Perintah Penyelidikan penugasan itu sendiri sebagai
+  // butir terakhir. Sprin bukan baris penugasan_dasar tersendiri (lihat
+  // catatan migrasi historis 13-14 Sept 2026): ia melekat langsung di
+  // kolom nomor_spt/diterbitkan_pada milik penugasan.
+  const dasarList: string[] = []
+  const dasarTerurut = [...(penugasan?.penugasan_dasar ?? [])].sort((a, b) => a.urutan - b.urutan)
+  for (const d of dasarTerurut) {
+    const label = LABEL_DASAR[d.jenis] ?? 'Dasar'
+    dasarList.push(`Nomor : ${d.nomor ?? '—'}${d.tanggal ? `, tanggal ${tanggalIndo(d.tanggal)}` : ''} (${label})`)
+  }
+  if (penugasan?.nomor_spt) {
+    dasarList.push(`Surat Perintah Penyelidikan Nomor : ${penugasan.nomor_spt}${penugasan.diterbitkan_pada ? `, tanggal ${tanggalIndo(penugasan.diterbitkan_pada)}` : ''}.`)
+  }
+  const dasarTeks = dasarList.length
+    ? dasarList.map((d, i) => `${i + 1}. ${d}`).join('\n')
+    : isiAtauStrip(lhp.dasar)
+
+  // III. PETUGAS — personel kepolisian, lalu pihak dinas/instansi lain
+  // yang hadir (lhp_saksi: PPLH/PPNS, Petugas Pengambil Contoh Uji, dst)
+  // sebagai sub-daftar terpisah, persis susunan surat asli.
   const petugas = [...lhp.lhp_petugas].sort((a, b) => a.urutan - b.urutan)
-  const pelapor = lhp.lhp_pihak.filter(p => p.peran === 'pelapor')
-  const terlapor = lhp.lhp_pihak.filter(p => p.peran === 'terlapor')
+  const petugasTeks = petugas.length === 0
+    ? '(belum ada petugas ditunjuk)'
+    : petugas.map((p, i) => `${i + 1}. ${p.users?.pangkat ? `${p.users.pangkat} ` : ''}${p.users?.nama ?? '—'}${p.users?.nrp ? ` (NRP ${p.users.nrp})` : ''}`).join('\n')
 
-  const baganOrang = (daftar: typeof pelapor) =>
-    daftar.length === 0
-      ? '—'
-      : daftar.map((p, i) => `${i + 1}. ${p.nama}${p.nomor_pengenal ? ` (${p.nomor_pengenal})` : ''}`).join('\n')
+  const saksiTerurut = [...lhp.lhp_saksi].sort((a, b) => a.urutan - b.urutan)
+  const saksiTeks = saksiTerurut.length
+    ? '\n\nPihak Dinas/Instansi Terkait :\n'
+      + saksiTerurut.map((s, i) => `${i + 1}. Sdr. ${s.nama}${s.kedudukan ? ` (${s.kedudukan})` : ''}`).join('\n')
+    : ''
 
-  return `LAPORAN PERKEMBANGAN PENYELIDIKAN
-${lhp.penugasan?.nomor_spt ?? '—'}
+  // IV. WAKTU DAN TEMPAT digabung satu paragraf, sesuai contoh asli.
+  const waktuTempat = `${isiAtauStrip(lhp.waktu_kegiatan)} yang terjadi di ${isiAtauStrip(lhp.tempat_kegiatan)}.`
 
-Mohon ijin melaporkan perkembangan penanganan ${lhp.penugasan?.judul ?? 'perkara'}.
+  return `Kepada Yth :
+KASUBDIT IV/TIPIDTER DIT RESKRIMSUS POLDA JABAR
+
+Dari :
+KANIT ${unit} SUBDIT IV
+
+Assalamu'alaikum Wr. Wb.
+
+Mohon ijin Komandan melaporkan pelaksanaan Tugas yang dilaksanakan oleh Penyelidik Unit ${unit} Subdit IV Ditreskrimsus Polda Jabar terkait perkara dugaan tindak pidana ${isiAtauStrip(lhp.perkara ?? penugasan?.judul ?? null)} sbb :
 
 I. DASAR
-${baris('Dasar', lhp.dasar)}
 
-II. WAKTU
-${baris('Waktu', lhp.waktu_kegiatan)}
+${dasarTeks}
 
-III. TEMPAT/TKP
-${baris('Tempat', lhp.tempat_kegiatan)}
+II. TUGAS
+${isiAtauStrip(penugasan?.uraian_tugas ?? null)}
 
-IV. PERKARA
-${baris('Perkara', lhp.perkara)}
+III. PETUGAS
+${petugasTeks}${saksiTeks}
 
-V. PETUGAS
-${petugas.length === 0 ? '—' : petugas.map((p, i) =>
-  `${i + 1}. ${p.users?.nama ?? '—'}${p.users?.pangkat ? `, ${p.users.pangkat}` : ''}${p.users?.nrp ? ` (NRP ${p.users.nrp})` : ''}`
-).join('\n')}
+IV. WAKTU DAN TEMPAT
+${waktuTempat}
 
-VI. PASAL/UNDANG-UNDANG
-${baris('Pasal', lhp.dasar_hukum)}
+V. HASIL YANG DICAPAI
+${isiAtauStrip(lhp.kronologis)}
 
-VII. PELAPOR
-${baganOrang(pelapor)}
+VI. KESIMPULAN
+${isiAtauStrip(lhp.kesimpulan)}
 
-VIII. TERLAPOR
-${baganOrang(terlapor)}
+VII. RENCANA TINDAK LANJUT
+${isiAtauStrip(lhp.rencana_tindak_lanjut)}
 
-IX. KRONOLOGIS SINGKAT/HASIL KEGIATAN/FAKTA-FAKTA DI LAPANGAN
-${baris('Kronologis', lhp.kronologis)}
+VIII. PENUTUP
+Demikian Laporan sementara hasil kegiatan ${isiAtauStrip(lhp.perkara ?? penugasan?.judul ?? null)} yang disampaikan.
 
-X. BARANG BUKTI
-${lhp.lhp_barang_bukti.length === 0 ? '—' : lhp.lhp_barang_bukti.map(b => `- ${b.uraian}`).join('\n')}
+Dum, mohon jukrah.
 
-XI. LANGKAH-LANGKAH YANG DILAKUKAN
-${baris('Langkah', lhp.langkah)}
-
-XII. RENCANA TINDAK LANJUT
-${baris('Rencana', lhp.rencana_tindak_lanjut)}
-
-XIII. KESIMPULAN
-${baris('Kesimpulan', lhp.kesimpulan)}
-
-XIV. CATATAN
-${baris('Catatan', lhp.catatan)}
-
-Demikian LHP Ringkas ini disusun untuk menjadi bahan laporan lebih lanjut.
-
-${lhp.penyusun?.nama ?? '—'}${lhp.penyusun?.pangkat ? `, ${lhp.penyusun.pangkat}` : ''}${lhp.penyusun?.nrp ? `\nNRP ${lhp.penyusun.nrp}` : ''}`
+Wassalamualaikum. Wr. Wb.`
 }
