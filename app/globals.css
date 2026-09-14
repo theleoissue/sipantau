@@ -575,9 +575,9 @@ tbody tr.bisa-klik{cursor:pointer}
 .peta-hasil-cari p{padding:10px 12px;background:var(--bg);border-bottom:1px solid var(--line);font-size:11.5px;color:var(--ink-2);line-height:1.5}
 .peta-hasil-cari button{display:flex;width:100%;align-items:flex-start;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:12px;line-height:1.45;color:var(--ink-2)}
 .peta-hasil-cari button:last-child{border-bottom:0}.peta-hasil-cari button:hover,.peta-hasil-cari button.on{background:var(--blue-bg);color:var(--ink)}
-.peta-hasil-cari button span{display:grid;place-items:center;min-width:20px;height:20px;border-radius:50%;background:var(--line);font-size:10px;font-weight:700;color:var(--ink-2)}
-.peta-hasil-cari button.on span{background:var(--primary);color:#fff}.peta-pilih-lokasi-bantu{font-size:12px;color:var(--ink-3);margin-top:8px;line-height:1.6}
-.peta-hasil-teks{display:flex!important;flex-direction:column;align-items:flex-start!important;min-width:0;height:auto!important;border-radius:0!important;background:transparent!important;color:inherit!important;font-size:inherit!important}
+.peta-hasil-cari button>span:first-child{display:grid;place-items:center;min-width:20px;height:20px;border-radius:50%;background:var(--line);font-size:10px;font-weight:700;color:var(--ink-2)}
+.peta-hasil-cari button.on>span:first-child{background:var(--primary);color:#fff}.peta-pilih-lokasi-bantu{font-size:12px;color:var(--ink-3);margin-top:8px;line-height:1.6}
+.peta-hasil-teks{display:flex;flex:1;flex-direction:column;align-items:flex-start;min-width:0;color:inherit;font-size:inherit}
 .peta-hasil-teks strong{font-size:12.5px;color:var(--ink);line-height:1.35}.peta-hasil-teks small{margin-top:2px;color:var(--ink-3);font-size:11px;line-height:1.4}
 .peta-konfirmasi-tempat{padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--blue-bg);border-top:1px solid var(--line)}
 .peta-konfirmasi-tempat>div{display:flex;flex-direction:column;min-width:0}.peta-konfirmasi-tempat strong{font-size:12.5px}.peta-konfirmasi-tempat small{font-size:11px;color:var(--ink-2);margin-top:2px}.peta-konfirmasi-tempat .btn{flex-shrink:0}
