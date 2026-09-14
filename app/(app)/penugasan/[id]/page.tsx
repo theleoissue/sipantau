@@ -13,7 +13,6 @@ import { RuteSpt } from '@/components/sipantau/rute-spt'
 import { AksiSpt } from '@/components/sipantau/aksi-spt'
 import { KelolaTim } from '@/components/sipantau/kelola-tim'
 import { UnggahSuratSpt } from '@/components/sipantau/unggah-surat-spt'
-import { TombolSusunLhp } from '@/components/sipantau/tombol-susun-lhp'
 import { daftarPersonel } from '@/lib/personel/kueri'
 import { inisial, idValid } from '@/lib/utils'
 
@@ -106,28 +105,6 @@ export default async function RincianPenugasan({
     daftarLaporan({ penugasanId: id }),
   ])
   const bolehUbahTim = akuKanitPemilik && !['selesai', 'dibatalkan'].includes(spt.status)
-
-  // Auto-isi LHP Ringkas (docs/00-fondasi.md §6.8 "Pembagian pengisian")
-  // — dihitung di sini dari data yang sudah ada, dikirim ke tombol
-  // klien apa adanya. Sesi Tugas milik pengguna sendiri dipakai untuk
-  // waktu_kegiatan; boleh kosong bila belum pernah dibuka (§8.7).
-  const sesiSaya = [...rute.sesi]
-    .filter(s => s.pengguna_id === pengguna.id)
-    .sort((a, b) => new Date(b.dibuka_pada).getTime() - new Date(a.dibuka_pada).getTime())[0]
-  const waktuKegiatanOtomatis = sesiSaya
-    ? `Pada hari ${new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date(sesiSaya.dibuka_pada))}, sekira pukul ${new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(sesiSaya.dibuka_pada))} s.d. ${sesiSaya.ditutup_pada ? new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(sesiSaya.ditutup_pada)) : 'selesai'} WIB.`
-    : ''
-  const tempatKegiatanOtomatis = lokasi.map(l => l.nama).join(', ')
-  const dasarOtomatis = spt.nomor_spt ? `Surat Perintah Tugas Nomor: ${spt.nomor_spt}` : ''
-
-  // Laporan Harian sebagai "bahan utama" LHP (docs/30-modul-6.3-pelaporan.md
-  // baris 442) — draf awal Kronologis, bukan versi final. Hanya laporan
-  // pada SPT INI, milik pengguna sendiri, diurutkan waktu kirim.
-  const kronologisOtomatis = laporanSaya
-    .filter(l => l.penugasan_id === id && l.pelapor_id === pengguna.id)
-    .sort((a, b) => new Date(a.dikirim_pada).getTime() - new Date(b.dikirim_pada).getTime())
-    .map(l => `${new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(l.dikirim_pada))} WIB — ${l.uraian}`)
-    .join('\n\n')
 
   return (
     <>
@@ -310,33 +287,21 @@ export default async function RincianPenugasan({
             </div>
           </section>
 
-          {/* LHP Ringkas — Modul 6.8. Menyusun HANYA Anggota pelaksana
-              aktif (BR-11); Kanit/Panit/Kasubdit di sini murni melihat. */}
+          {/* Riwayat LHP — baca-saja (0071 menyatukan penyusunan laporan
+              ke Kirim Laporan/laporan_harian; LHP Ringkas tidak lagi
+              punya jalur menyusun baru, hanya riwayat berkas lama). */}
           <section className="kartu">
             <div className="kartu-h">
-              <h3>LHP Ringkas</h3>
+              <h3>Riwayat LHP</h3>
               <span className="isyarat">{lhpSpt.length} berkas</span>
             </div>
             <div className="kartu-b">
-              {akuPelaksana && (
-                <div style={{ marginBottom: lhpSpt.length > 0 ? 14 : 0 }}>
-                  <TombolSusunLhp
-                    penugasanId={spt.id}
-                    dasar={dasarOtomatis}
-                    waktuKegiatan={waktuKegiatanOtomatis}
-                    tempatKegiatan={tempatKegiatanOtomatis}
-                    kronologisAwal={kronologisOtomatis}
-                  />
-                </div>
-              )}
               {lhpSpt.length === 0 ? (
-                !akuPelaksana && (
-                  <div className="kosong" style={{ padding: '20px 0' }}>
-                    <Ikon nama="berkas" />
-                    <h3>Belum ada LHP Ringkas</h3>
-                    <p>LHP Ringkas yang disusun Anggota pelaksana akan tampil di sini.</p>
-                  </div>
-                )
+                <div className="kosong" style={{ padding: '20px 0' }}>
+                  <Ikon nama="berkas" />
+                  <h3>Belum ada LHP</h3>
+                  <p>Berkas LHP lama pada penugasan ini akan tampil di sini.</p>
+                </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {lhpSpt.map(l => (

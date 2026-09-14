@@ -55,11 +55,7 @@ export default async function HalamanDaftarLhp() {
             <div className="kosong" style={{ padding: '24px 0' }}>
               <Ikon nama="berkas" />
               <h3>Belum ada LHP Ringkas</h3>
-              <p>
-                {pengguna.peran === 'anggota'
-                  ? 'Susun LHP Ringkas dari halaman rincian penugasan tempat Anda bertugas.'
-                  : 'LHP Ringkas yang disusun Anggota akan tampil di sini.'}
-              </p>
+              <p>Berkas LHP lama akan tampil di sini. Laporan baru dikirim lewat menu Kirim Laporan/Riwayat Laporan.</p>
             </div>
           ) : (
             <>

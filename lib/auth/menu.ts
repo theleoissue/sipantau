@@ -34,7 +34,7 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Semua Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
       { id: 'personel',  rute: '/personel',  ikon: 'grafik',      label: 'Status Personel' },
-      { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
+      { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat',     label: 'Riwayat Laporan' },
       { kelompok: 'Administrasi' },
       { id: 'rekap',     rute: '/rekap',     ikon: 'unduh',       label: 'Rekap Lintas Unit' },
     ],
@@ -57,7 +57,7 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Semua Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
       { id: 'personel',  rute: '/personel',  ikon: 'grafik',      label: 'Status Personel' },
-      { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
+      { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat',     label: 'Riwayat Laporan' },
       { kelompok: 'Administrasi' },
       { id: 'akun',      rute: '/akun',      ikon: 'orang',       label: 'Manajemen Akun' },
     ],
@@ -78,9 +78,12 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Tinjau Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Lapangan' },
       { id: 'personel',  rute: '/personel',  ikon: 'orang',       label: 'Personel Unit' },
-      { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Tugas Saya' },
       { id: 'tugas',     rute: '/tugas',     ikon: 'satelit',     label: 'Sesi Tugas' },
+      // 0071: Kanit juga boleh mengirim laporan (bukan cuma Anggota
+      // pelaksana) — Kirim Laporan/Riwayat Laporan ikut ditambahkan.
+      { id: 'lapor',     rute: '/lapor',     ikon: 'lapor',       label: 'Kirim Laporan' },
+      { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat',     label: 'Riwayat Laporan' },
     ],
     bilahBawah: ['beranda', 'penugasan', 'tugas', 'peta', 'laporan'],
     beranda: '/beranda',
@@ -94,9 +97,10 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { id: 'penugasan', rute: '/penugasan', ikon: 'spt',         label: 'Penugasan Saya' },
       { id: 'laporan',   rute: '/laporan',   ikon: 'masuk_kotak', label: 'Tinjau Laporan' },
       { id: 'peta',      rute: '/peta',      ikon: 'peta',        label: 'Peta Tim' },
-      { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',      label: 'LHP Ringkas' },
       { kelompok: 'Tugas Saya' },
       { id: 'tugas',     rute: '/tugas',     ikon: 'satelit',     label: 'Sesi Tugas' },
+      // 0071: Panit juga boleh mengirim laporan penugasan yang diawasinya.
+      { id: 'lapor',     rute: '/lapor',     ikon: 'lapor',       label: 'Kirim Laporan' },
       { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat',     label: 'Riwayat Laporan' },
     ],
     bilahBawah: ['beranda', 'penugasan', 'tugas', 'peta', 'laporan'],
@@ -121,7 +125,6 @@ export const PROFIL: Record<Peran, ProfilPeran> = {
       { kelompok: 'Pelaporan' },
       { id: 'lapor',     rute: '/lapor',     ikon: 'lapor',   label: 'Kirim Laporan' },
       { id: 'riwayat',   rute: '/riwayat',   ikon: 'riwayat', label: 'Riwayat Laporan' },
-      { id: 'lhp',       rute: '/lhp',       ikon: 'berkas',  label: 'LHP Ringkas' },
     ],
     bilahBawah: ['beranda', 'penugasan', 'tugas', 'peta', 'lapor'],
     beranda: '/beranda',
@@ -191,7 +194,14 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   // membuka Sesi Tugas maupun menyusun laporan (KP-6.1-43).
   { pola: /^\/tugas(\/.*)?$/,                         peran: ['anggota', 'panit', 'kanit'] },
   { pola: /^\/lapor(\/.*)?$/,                         peran: ['anggota', 'panit', 'kanit'] },
-  { pola: /^\/riwayat(\/.*)?$/,                       peran: ['anggota', 'panit', 'kanit'] },
+
+  // Riwayat Laporan: dulu hanya milik sendiri (Anggota/Panit/Kanit
+  // pengirim laporan). 0071 menggantikan LHP Ringkas sebagai riwayat
+  // baca-saja lintas peran — Kasubdit/Admin ikut ditambahkan supaya
+  // pengawasan yang sebelumnya lewat LHP Ringkas tidak hilang. Lingkup
+  // tiap peran ditegakkan RLS (laporan_baca_sesuai_lingkup), bukan
+  // penjaga rute ini.
+  { pola: /^\/riwayat(\/.*)?$/,                       peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 
   // Daftar peninjauan: bukan urusan Anggota (matriks §2.3). Rincian
   // SATU laporan (/laporan/<id>) terbuka bagi keempat peran — Anggota
@@ -211,10 +221,12 @@ export const RUTE_KHUSUS_PERAN: AturanRute[] = [
   // "bukan bagian dari alur kerja") — halamannya pun bukan untuknya.
   { pola: /^\/pemberitahuan(\/.*)?$/,                 peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 
-  // LHP Ringkas: peran organisasi boleh membuka (melihat dalam
-  // lingkupnya, hanya Anggota yang benar-benar dapat menyusun/menyunting
-  // — ditegakkan RLS 0028, bukan penjaga rute ini). Akun Pemeliharaan
-  // tidak pernah ikut serta (docs/00-fondasi.md §7 tidak menyebutnya).
+  // LHP Ringkas: 0071 menghapus jalur menyusun/menyunting sama sekali
+  // (disatukan ke Kirim Laporan/Riwayat Laporan) — halaman ini sekarang
+  // murni riwayat baca-saja untuk berkas lama, tidak lagi di menu mana
+  // pun, tapi tautan langsung ke berkas lama tetap terbuka. Akun
+  // Pemeliharaan tidak pernah ikut serta (docs/00-fondasi.md §7 tidak
+  // menyebutnya).
   { pola: /^\/lhp(\/.*)?$/,                           peran: ['kasubdit', 'admin', 'kanit', 'panit', 'anggota'] },
 
   // Peta dan penugasan terbuka bagi peran organisasi, tetapi ISInya

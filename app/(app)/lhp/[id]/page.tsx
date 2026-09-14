@@ -17,8 +17,10 @@ export default async function RincianLhp({
   const { id } = await params
   if (!idValid(id)) notFound()
 
-  // Kandidat petugas disaring fungsi database menurut LHP dan SPRIN ini.
-  const [pengguna, lhp, personelUnit] = await Promise.all([
+  // wajibkanSudahSiap() dipanggil untuk penjaga sesi (mengalihkan bila
+  // belum masuk) — nilainya sendiri tidak dipakai lagi di sini sejak
+  // halaman ini jadi baca-saja penuh (0071).
+  const [, lhp, personelUnit] = await Promise.all([
     wajibkanSudahSiap(),
     satuLhp(id),
     personelLhpDapatDipilih(id),
@@ -26,10 +28,10 @@ export default async function RincianLhp({
 
   if (!lhp) notFound()
 
-  // BR-11: hanya Anggota penyusunnya sendiri, dan hanya selagi masih
-  // draf — ditegakkan RLS/pemicu 0028/0029, ini murni menentukan
-  // tampilan (input vs teks baca).
-  const bolehSunting = pengguna.id === lhp.disusun_oleh && lhp.status === 'draf'
+  // 0071: LHP Ringkas tidak lagi punya jalur menyusun/menyunting —
+  // pelaporan disatukan ke Kirim Laporan (laporan_harian). Halaman ini
+  // sekarang murni riwayat baca-saja untuk berkas LHP lama.
+  const bolehSunting = false
 
   return (
     <>
