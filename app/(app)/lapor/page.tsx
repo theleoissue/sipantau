@@ -24,7 +24,7 @@ export default async function HalamanLapor({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      <FormulirLapor key={`${pengguna.id}:${penugasanTerkunci ?? 'bebas'}`} penggunaId={pengguna.id} daftarSpt={daftarSpt} penugasanTerkunci={penugasanTerkunci} />
+      <FormulirLapor key={`${pengguna.id}:${penugasanTerkunci ?? 'bebas'}`} penggunaId={pengguna.id} penggunaPeran={pengguna.peran} daftarSpt={daftarSpt} penugasanTerkunci={penugasanTerkunci} />
     </>
   )
 }

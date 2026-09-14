@@ -79,6 +79,10 @@ export async function suntingLaporan(
   uraian: string,
   kendala: string,
   statusKegiatan: string,
+  kesimpulan: string,
+  rencanaTindakLanjut: string,
+  posisiPengirim: string,
+  tujuanSurat: string,
 ): Promise<HasilTindakan> {
   if (!uraian.trim()) return { galat: 'Uraian kegiatan wajib diisi.' }
 
@@ -89,6 +93,10 @@ export async function suntingLaporan(
       uraian: uraian.trim(),
       kendala: kendala.trim() || null,
       status_kegiatan: statusKegiatan,
+      kesimpulan: kesimpulan.trim() || null,
+      rencana_tindak_lanjut: rencanaTindakLanjut.trim() || null,
+      posisi_pengirim: posisiPengirim,
+      tujuan_surat: tujuanSurat,
     })
     .eq('id', laporanId)
 

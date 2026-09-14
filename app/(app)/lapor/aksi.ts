@@ -13,6 +13,10 @@ interface IsianLaporan {
   status_kegiatan: string
   uraian: string
   kendala: string
+  kesimpulan: string
+  rencana_tindak_lanjut: string
+  posisi_pengirim: string
+  tujuan_surat: string
   lokasi_id: string | null
   // Koordinat browser. null berarti gagal terekam — alasan wajib.
   lokasi_lat: number | null
@@ -58,6 +62,10 @@ export async function kirimLaporan(isian: IsianLaporan): Promise<HasilKirim> {
       status_kegiatan: isian.status_kegiatan,
       uraian: isian.uraian.trim(),
       kendala: isian.kendala.trim() || null,
+      kesimpulan: isian.kesimpulan.trim() || null,
+      rencana_tindak_lanjut: isian.rencana_tindak_lanjut.trim() || null,
+      posisi_pengirim: isian.posisi_pengirim,
+      tujuan_surat: isian.tujuan_surat,
       lokasi_lat: isian.lokasi_lat,
       lokasi_lng: isian.lokasi_lng,
       akurasi_meter: isian.akurasi_meter,
@@ -75,7 +83,7 @@ export async function kirimLaporan(isian: IsianLaporan): Promise<HasilKirim> {
       return { galat: 'Penugasan ini sudah tidak menerima laporan.' }
     }
     if (error.message.includes('BUKAN_PELAKSANA')) {
-      return { galat: 'Anda bukan pelaksana aktif pada penugasan ini.' }
+      return { galat: 'Anda bukan pelaksana, Panit, atau Kanit unit pada penugasan ini.' }
     }
     return { galat: `Gagal mengirim laporan: ${error.message}` }
   }

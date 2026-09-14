@@ -8,6 +8,7 @@ import { FormulirSuntingLaporan } from '@/components/sipantau/formulir-sunting-l
 import { UnggahFoto } from '@/components/sipantau/unggah-foto'
 import { Ikon } from '@/components/sipantau/ikon'
 import { PratinjauFotoLaporan } from '@/components/sipantau/pratinjau-foto-laporan'
+import { TombolBagikanWaLaporan } from '@/components/sipantau/tombol-bagikan-wa-laporan'
 import { idValid } from '@/lib/utils'
 
 export const metadata = { title: 'Rincian Laporan — Si PANTAU' }
@@ -83,12 +84,17 @@ export default async function RincianLaporan({
         </div>
 
         <div className="kh-aksi">
+          <TombolBagikanWaLaporan laporan={laporan} />
           {bolehSunting && (
             <FormulirSuntingLaporan
               laporanId={laporan.id}
               uraianAwal={laporan.uraian}
               kendalaAwal={laporan.kendala ?? ''}
               statusAwal={laporan.status_kegiatan}
+              kesimpulanAwal={laporan.kesimpulan ?? ''}
+              rencanaTindakLanjutAwal={laporan.rencana_tindak_lanjut ?? ''}
+              posisiPengirimAwal={laporan.posisi_pengirim}
+              tujuanSuratAwal={laporan.tujuan_surat}
             />
           )}
         </div>
@@ -153,7 +159,7 @@ export default async function RincianLaporan({
           </section>
 
           <section className="kartu laporan-uraian">
-            <div className="kartu-h"><h3>Uraian kegiatan</h3></div>
+            <div className="kartu-h"><h3>Hasil yang Dicapai</h3></div>
             <div className="kartu-b">
               <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
                 {laporan.uraian}
@@ -163,6 +169,22 @@ export default async function RincianLaporan({
                   <div className="k" style={{ marginTop: 14 }}>Kendala</div>
                   <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--ink-2)', marginTop: 4 }}>
                     {laporan.kendala}
+                  </p>
+                </>
+              )}
+              {laporan.kesimpulan && (
+                <>
+                  <div className="k" style={{ marginTop: 14 }}>Kesimpulan</div>
+                  <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--ink-2)', marginTop: 4, whiteSpace: 'pre-wrap' }}>
+                    {laporan.kesimpulan}
+                  </p>
+                </>
+              )}
+              {laporan.rencana_tindak_lanjut && (
+                <>
+                  <div className="k" style={{ marginTop: 14 }}>Rencana Tindak Lanjut</div>
+                  <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--ink-2)', marginTop: 4, whiteSpace: 'pre-wrap' }}>
+                    {laporan.rencana_tindak_lanjut}
                   </p>
                 </>
               )}

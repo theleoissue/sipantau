@@ -10,6 +10,8 @@ export type AlasanLokasi =
   | 'gps_tidak_tertangkap' | 'daya_habis' | 'izin_lokasi_mati'
   | 'area_terbatas' | 'disusun_setelah_pulang' | 'perangkat_rusak' | 'lainnya'
 export type StatusLaporan = 'terkirim' | 'perlu_diperbaiki' | 'disetujui' | 'ditarik'
+export type PosisiPengirim = 'kanit' | 'panit' | 'kasubdit'
+export type TujuanLaporan = 'kasubdit_subdit_iv' | 'direktur_reskrimsus'
 
 export const LABEL_ALASAN_LOKASI: Record<AlasanLokasi, string> = {
   gps_tidak_tertangkap: 'Sinyal GPS tidak tertangkap di dalam gedung',
@@ -25,6 +27,17 @@ export const LABEL_JENIS_LAPORAN: Record<JenisLaporan, string> = {
   pulbaket_awal: 'Pulbaket Awal',
   perkembangan: 'Perkembangan',
   akhir: 'Akhir',
+}
+
+export const LABEL_POSISI_PENGIRIM: Record<PosisiPengirim, string> = {
+  kanit: 'Kanit',
+  panit: 'Panit',
+  kasubdit: 'Kasubdit',
+}
+
+export const LABEL_TUJUAN_LAPORAN: Record<TujuanLaporan, string> = {
+  kasubdit_subdit_iv: 'Kasubdit IV/Tipidter',
+  direktur_reskrimsus: 'Direktur Reskrimsus',
 }
 
 export interface CatatanLaporan {
@@ -54,6 +67,10 @@ export interface LaporanLengkap {
   jenis: JenisLaporan
   uraian: string
   kendala: string | null
+  kesimpulan: string | null
+  rencana_tindak_lanjut: string | null
+  posisi_pengirim: PosisiPengirim
+  tujuan_surat: TujuanLaporan
   status_kegiatan: StatusKegiatan
   lokasi_lat: number | null
   lokasi_lng: number | null
@@ -69,7 +86,17 @@ export interface LaporanLengkap {
   disunting_pada: string | null
   jumlah_suntingan: number
   dikirim_pada: string
-  penugasan: { nomor_spt: string | null; judul: string; unit_id: string } | null
+  penugasan: {
+    nomor_spt: string | null
+    judul: string
+    unit_id: string
+    uraian_tugas: string | null
+    diterbitkan_pada: string | null
+    unit: { nama: string } | null
+    penugasan_dasar: { jenis: string; nomor: string | null; tanggal: string | null; urutan: number }[]
+    penugasan_pelaksana: { pelaksana_id: string; dicabut_pada: string | null; users: { nama: string; pangkat: string | null; nrp: string } | null }[]
+    penugasan_panit: { panit_id: string; dicabut_pada: string | null; users: { nama: string; pangkat: string | null; nrp: string } | null }[]
+  } | null
   pelapor: { nama: string; pangkat: string | null } | null
   lokasi_pilihan: { nama: string } | null
   lokasi_terdekat: { nama: string } | null
@@ -83,5 +110,7 @@ export interface SptUntukLapor {
   judul: string
   status: string
   tanggal_batas: string | null
+  uraian_tugas: string | null
+  penugasan_dasar: { jenis: string; nomor: string | null; tanggal: string | null; urutan: number }[]
   penugasan_lokasi: { id: string; urutan: number; nama: string }[]
 }

@@ -266,5 +266,48 @@ await sebagai(ID.kanit1, async () => {
     await n(`select count(*) n from public.v_belum_lapor`) >= 0)
 })
 
+// =====================================================================
+// 0071 — Panit dan Kanit juga boleh mengirim laporan (bukan cuma
+// Anggota pelaksana), plus kolom Kesimpulan/RTL/Dari/Kepada
+// =====================================================================
+
+await sebagaiTanpaRollback(ID.panit1, async () => {
+  const r = await db.query(`
+    insert into public.laporan_harian
+      (penugasan_id, pelapor_id, jenis, uraian, kesimpulan, rencana_tindak_lanjut,
+       posisi_pengirim, tujuan_surat, alasan_lokasi, penanda_perangkat)
+    values ($1,$2,'akhir','Uji Panit mengirim laporan','Kesimpulan uji','RTL uji',
+            'panit','kasubdit_subdit_iv','disusun_setelah_pulang','uji-panit')
+    returning id, kesimpulan, posisi_pengirim`,
+    [SPT.a, ID.panit1])
+  cek('U-LAP-20', 'Panit penugasan itu DAPAT mengirim laporan',
+    r.rows[0].kesimpulan === 'Kesimpulan uji' && r.rows[0].posisi_pengirim === 'panit')
+})
+
+await sebagaiTanpaRollback(ID.kanit1, async () => {
+  const r = await db.query(`
+    insert into public.laporan_harian
+      (penugasan_id, pelapor_id, jenis, uraian, posisi_pengirim, tujuan_surat,
+       alasan_lokasi, penanda_perangkat)
+    values ($1,$2,'akhir','Uji Kanit mengirim laporan','kasubdit','direktur_reskrimsus',
+            'disusun_setelah_pulang','uji-kanit')
+    returning id, tujuan_surat`,
+    [SPT.a, ID.kanit1])
+  cek('U-LAP-21', 'Kanit unit pemilik penugasan DAPAT mengirim laporan, Dari/Kepada bebas dipilih',
+    r.rows[0].tujuan_surat === 'direktur_reskrimsus')
+})
+
+await sebagai(ID.kanit2, async () => {
+  let ditolak = false
+  try {
+    await db.query(`
+      insert into public.laporan_harian
+        (penugasan_id, pelapor_id, jenis, uraian, alasan_lokasi, penanda_perangkat)
+      values ($1,$2,'akhir','Uji Kanit unit lain','disusun_setelah_pulang','uji-kanit-lain')`,
+      [SPT.a, ID.kanit2])
+  } catch { ditolak = true }
+  cek('U-LAP-22', 'Kanit UNIT LAIN tetap TIDAK dapat mengirim laporan penugasan ini', ditolak)
+})
+
 console.log(`\n== ${lulus} lulus, ${gagal} gagal`)
 process.exit(gagal === 0 ? 0 : 1)

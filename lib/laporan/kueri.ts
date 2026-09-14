@@ -18,7 +18,13 @@ export * from './tipe'
 
 const KOLOM_LENGKAP = `
   *,
-  penugasan:penugasan_id ( nomor_spt, judul, unit_id ),
+  penugasan:penugasan_id (
+    nomor_spt, judul, unit_id, uraian_tugas, diterbitkan_pada,
+    unit:unit_id ( nama ),
+    penugasan_dasar ( jenis, nomor, tanggal, urutan ),
+    penugasan_pelaksana ( pelaksana_id, dicabut_pada, users:pelaksana_id ( nama, pangkat, nrp ) ),
+    penugasan_panit ( panit_id, dicabut_pada, users:panit_id ( nama, pangkat, nrp ) )
+  ),
   pelapor:pelapor_id ( nama, pangkat ),
   lokasi_pilihan:lokasi_id ( nama ),
   lokasi_terdekat:lokasi_id_terdekat ( nama ),
@@ -72,22 +78,52 @@ export async function riwayatLaporanSaya(userId: string): Promise<LaporanLengkap
   return (data ?? []) as unknown as LaporanLengkap[]
 }
 
-/** SPT yang dapat dipilih di formulir Kirim Laporan: hanya tempat
- *  pengguna tercantum sebagai pelaksana AKTIF dan berstatus menerima
- *  laporan (KP-6.3-01, KP-6.3-04). */
+/** SPT yang dapat dipilih di formulir Kirim Laporan (0071 memperluas
+ *  siapa boleh mengirim, bukan cuma Anggota pelaksana — lihat
+ *  fn_periksa_pelapor_aktif): pelaksana aktif, Panit penugasan itu,
+ *  atau Kanit unit pemilik penugasan itu, selama masih menerima
+ *  laporan (KP-6.3-01, KP-6.3-04). Tiga jalur digabung di sini, bukan
+ *  satu kueri OR lintas tabel — PostgREST tidak menyatakan gabungan
+ *  begitu secara langsung. */
 export async function sptUntukLapor(userId: string): Promise<SptUntukLapor[]> {
   const supabase = await klienServer()
-  const { data, error } = await supabase
-    .from('penugasan')
-    .select(`
-      id, nomor_spt, judul, status, tanggal_batas,
-      penugasan_lokasi ( id, urutan, nama ),
-      penugasan_pelaksana!inner ( pelaksana_id, dicabut_pada )
-    `)
-    .in('status', ['baru', 'berjalan', 'bermasalah'])
-    .eq('penugasan_pelaksana.pelaksana_id', userId)
-    .is('penugasan_pelaksana.dicabut_pada', null)
+  const KOLOM = `
+    id, nomor_spt, judul, status, tanggal_batas, uraian_tugas,
+    penugasan_dasar ( jenis, nomor, tanggal, urutan ),
+    penugasan_lokasi ( id, urutan, nama )
+  `
 
-  if (error) throw new Error(`Gagal membaca penugasan: ${error.message}`)
-  return (data ?? []) as unknown as SptUntukLapor[]
+  const [{ data: pengguna }, sebagaiPelaksana, sebagaiPanit] = await Promise.all([
+    supabase.from('users').select('peran, unit_id').eq('id', userId).maybeSingle(),
+    supabase.from('penugasan')
+      .select(`${KOLOM}, penugasan_pelaksana!inner ( pelaksana_id, dicabut_pada )`)
+      .in('status', ['baru', 'berjalan', 'bermasalah'])
+      .eq('penugasan_pelaksana.pelaksana_id', userId)
+      .is('penugasan_pelaksana.dicabut_pada', null),
+    supabase.from('penugasan')
+      .select(`${KOLOM}, penugasan_panit!inner ( panit_id, dicabut_pada )`)
+      .in('status', ['baru', 'berjalan', 'bermasalah'])
+      .eq('penugasan_panit.panit_id', userId)
+      .is('penugasan_panit.dicabut_pada', null),
+  ])
+
+  if (sebagaiPelaksana.error) throw new Error(`Gagal membaca penugasan: ${sebagaiPelaksana.error.message}`)
+  if (sebagaiPanit.error) throw new Error(`Gagal membaca penugasan: ${sebagaiPanit.error.message}`)
+
+  let sebagaiKanit: unknown[] = []
+  if (pengguna?.peran === 'kanit' && pengguna.unit_id) {
+    const r = await supabase.from('penugasan')
+      .select(KOLOM)
+      .in('status', ['baru', 'berjalan', 'bermasalah'])
+      .eq('unit_id', pengguna.unit_id)
+    if (r.error) throw new Error(`Gagal membaca penugasan: ${r.error.message}`)
+    sebagaiKanit = r.data
+  }
+
+  const gabungan = new Map<string, SptUntukLapor>()
+  for (const baris of [...(sebagaiPelaksana.data ?? []), ...(sebagaiPanit.data ?? []), ...(sebagaiKanit ?? [])]) {
+    const b = baris as unknown as SptUntukLapor
+    gabungan.set(b.id, b)
+  }
+  return [...gabungan.values()]
 }

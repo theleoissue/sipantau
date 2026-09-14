@@ -5,8 +5,26 @@ import { useRouter } from 'next/navigation'
 import { kirimLaporan } from './aksi'
 import { catatFoto } from '@/app/(app)/laporan/aksi'
 import { klienBrowser } from '@/lib/supabase/client'
-import { LABEL_ALASAN_LOKASI, type SptUntukLapor, type AlasanLokasi } from '@/lib/laporan/tipe'
+import {
+  LABEL_ALASAN_LOKASI, LABEL_POSISI_PENGIRIM, LABEL_TUJUAN_LAPORAN,
+  type SptUntukLapor, type AlasanLokasi, type PosisiPengirim, type TujuanLaporan,
+} from '@/lib/laporan/tipe'
+import type { Peran } from '@/lib/supabase/types'
 import { Ikon } from '@/components/sipantau/ikon'
+
+const LABEL_DASAR: Record<string, string> = {
+  laporan_informasi: 'Laporan Informasi', laporan_polisi: 'Laporan Polisi',
+  laporan_pengaduan: 'Laporan Pengaduan', surat_perintah_terdahulu: 'Surat Perintah Terdahulu',
+  disposisi_pimpinan: 'Disposisi Pimpinan', lainnya: 'Dasar Lainnya',
+}
+
+/** Anggota tidak punya slot "Dari" sendiri (laporan formal dilaporkan
+ *  atas nama Kanit walau ditulis Anggota, sesuai konvensi surat unit
+ *  ini) — default ke 'kanit'. Panit/Kanit login default ke posisinya
+ *  sendiri. Tetap bisa diubah manual lewat dropdown, siapa pun yang login. */
+function posisiAwal(peran: Peran): PosisiPengirim {
+  return peran === 'panit' || peran === 'kanit' ? peran : 'kanit'
+}
 
 const ALASAN: AlasanLokasi[] = [
   'gps_tidak_tertangkap', 'daya_habis', 'izin_lokasi_mati',
@@ -64,10 +82,11 @@ function bacaKoordinatFoto(): Promise<KoordinatFoto | null> {
 
 type DrafLaporan = {
   sptId: string; jenis: string; statusKegiatan: string; uraian: string; kendala: string
+  kesimpulan: string; rencanaTindakLanjut: string; posisiPengirim: PosisiPengirim; tujuanSurat: TujuanLaporan
   lokasiId: string; keteranganLokasi: string; alasan: AlasanLokasi; alasanLainnya: string
 }
 
-export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { daftarSpt: SptUntukLapor[]; penggunaId: string; penugasanTerkunci?: string }) {
+export function FormulirLapor({ daftarSpt, penggunaId, penggunaPeran, penugasanTerkunci }: { daftarSpt: SptUntukLapor[]; penggunaId: string; penggunaPeran: Peran; penugasanTerkunci?: string }) {
   const KUNCI_DRAF = `sipantau:draf-laporan:v3:${penggunaId}:${penugasanTerkunci ?? 'bebas'}`
   const router = useRouter()
   const [sptId, setSptId] = useState(penugasanTerkunci ?? daftarSpt[0]?.id ?? '')
@@ -75,6 +94,10 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
   const [statusKegiatan, setStatusKegiatan] = useState('berjalan')
   const [uraian, setUraian] = useState('')
   const [kendala, setKendala] = useState('')
+  const [kesimpulan, setKesimpulan] = useState('')
+  const [rencanaTindakLanjut, setRencanaTindakLanjut] = useState('')
+  const [posisiPengirim, setPosisiPengirim] = useState<PosisiPengirim>(posisiAwal(penggunaPeran))
+  const [tujuanSurat, setTujuanSurat] = useState<TujuanLaporan>('kasubdit_subdit_iv')
   const [lokasiId, setLokasiId] = useState('')
   const [keteranganLokasi, setKeteranganLokasi] = useState('')
   const [alasan, setAlasan] = useState<AlasanLokasi>('gps_tidak_tertangkap')
@@ -152,13 +175,13 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
   }, [])
 
   function isiDraf(): DrafLaporan {
-    return { sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya }
+    return { sptId, jenis, statusKegiatan, uraian, kendala, kesimpulan, rencanaTindakLanjut, posisiPengirim, tujuanSurat, lokasiId, keteranganLokasi, alasan, alasanLainnya }
   }
 
   function simpanDrafLokal(otomatis = false) {
     try {
     const draf = isiDraf()
-    const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
+    const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.kesimpulan.trim() || draf.rencanaTindakLanjut.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
     if (!adaIsian) {
       localStorage.removeItem(KUNCI_DRAF)
       if (!otomatis) setStatusDraf('Tidak ada isian untuk disimpan.')
@@ -176,7 +199,7 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
       const tersimpan = localStorage.getItem(KUNCI_DRAF)
       if (tersimpan) {
         const draf = JSON.parse(tersimpan) as DrafLaporan
-        if (!draf || !['sptId', 'jenis', 'statusKegiatan', 'uraian', 'kendala', 'lokasiId', 'keteranganLokasi', 'alasan', 'alasanLainnya'].every(k => typeof draf[k as keyof DrafLaporan] === 'string')) throw new Error('Draf tidak valid')
+        if (!draf || !['sptId', 'jenis', 'statusKegiatan', 'uraian', 'kendala', 'kesimpulan', 'rencanaTindakLanjut', 'posisiPengirim', 'tujuanSurat', 'lokasiId', 'keteranganLokasi', 'alasan', 'alasanLainnya'].every(k => typeof draf[k as keyof DrafLaporan] === 'string')) throw new Error('Draf tidak valid')
         if (!daftarSpt.some(s => s.id === draf.sptId)) {
           localStorage.removeItem(KUNCI_DRAF)
           sudahPulih.current = true
@@ -187,6 +210,10 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
         setStatusKegiatan(draf.statusKegiatan || 'berjalan')
         setUraian(draf.uraian || '')
         setKendala(draf.kendala || '')
+        setKesimpulan(draf.kesimpulan || '')
+        setRencanaTindakLanjut(draf.rencanaTindakLanjut || '')
+        setPosisiPengirim(draf.posisiPengirim || posisiAwal(penggunaPeran))
+        setTujuanSurat(draf.tujuanSurat || 'kasubdit_subdit_iv')
         setLokasiId(draf.lokasiId || '')
         setKeteranganLokasi(draf.keteranganLokasi || '')
         setAlasan(draf.alasan || 'gps_tidak_tertangkap')
@@ -197,15 +224,15 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
     sudahPulih.current = true
     }, 0)
     return () => window.clearTimeout(pulihkan)
-  }, [daftarSpt, KUNCI_DRAF, penugasanTerkunci])
+  }, [daftarSpt, KUNCI_DRAF, penugasanTerkunci, penggunaPeran])
 
   useEffect(() => {
     if (!sudahPulih.current) return
     const simpan = () => {
       if (sudahTerkirim.current) return
       try {
-      const draf: DrafLaporan = { sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya }
-      const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
+      const draf: DrafLaporan = { sptId, jenis, statusKegiatan, uraian, kendala, kesimpulan, rencanaTindakLanjut, posisiPengirim, tujuanSurat, lokasiId, keteranganLokasi, alasan, alasanLainnya }
+      const adaIsian = Boolean(draf.uraian.trim() || draf.kendala.trim() || draf.kesimpulan.trim() || draf.rencanaTindakLanjut.trim() || draf.keteranganLokasi.trim() || draf.alasanLainnya.trim())
       if (!adaIsian) { localStorage.removeItem(KUNCI_DRAF); return }
       localStorage.setItem(KUNCI_DRAF, JSON.stringify(draf))
       setStatusDraf('Draf tersimpan otomatis di perangkat.')
@@ -216,7 +243,7 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
     window.addEventListener('pagehide', simpan)
     document.addEventListener('visibilitychange', saatTersembunyi)
     return () => { window.clearTimeout(timer); window.removeEventListener('pagehide', simpan); document.removeEventListener('visibilitychange', saatTersembunyi); simpan() }
-  }, [KUNCI_DRAF, sptId, jenis, statusKegiatan, uraian, kendala, lokasiId, keteranganLokasi, alasan, alasanLainnya])
+  }, [KUNCI_DRAF, sptId, jenis, statusKegiatan, uraian, kendala, kesimpulan, rencanaTindakLanjut, posisiPengirim, tujuanSurat, lokasiId, keteranganLokasi, alasan, alasanLainnya])
 
   const spt = daftarSpt.find(s => s.id === sptId)
   const lewatBatas = spt?.tanggal_batas ? spt.tanggal_batas < new Date().toISOString().slice(0, 10) : false
@@ -281,6 +308,10 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
         status_kegiatan: statusKegiatan,
         uraian,
         kendala,
+        kesimpulan,
+        rencana_tindak_lanjut: rencanaTindakLanjut,
+        posisi_pengirim: posisiPengirim,
+        tujuan_surat: tujuanSurat,
         lokasi_id: null,
         lokasi_lat: posisiLaporan?.lat ?? null,
         lokasi_lng: posisiLaporan?.lng ?? null,
@@ -385,6 +416,24 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
             <div className="bantu">{penugasanTerkunci ? 'Penugasan dipilih dari halaman rincian tugas.' : 'Pilih penugasan yang masih berjalan.'}</div>
           </div>
 
+          {spt && (
+            <div className="kartu" style={{ marginBottom: 16, background: 'var(--bg-2, #f7f8fa)' }}>
+              <div className="kartu-b" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
+                <div className="k" style={{ marginBottom: 4 }}>Dasar &amp; Tugas (otomatis dari penugasan)</div>
+                {spt.penugasan_dasar.length > 0 && (
+                  <ol style={{ margin: '0 0 6px 18px', padding: 0, color: 'var(--ink-2)' }}>
+                    {[...spt.penugasan_dasar].sort((a, b) => a.urutan - b.urutan).map(d => (
+                      <li key={d.urutan}>
+                        {LABEL_DASAR[d.jenis] ?? 'Dasar'}: {d.nomor ?? '—'}{d.tanggal ? `, ${d.tanggal}` : ''}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {spt.uraian_tugas && <p style={{ margin: 0, color: 'var(--ink-2)' }}>{spt.uraian_tugas}</p>}
+              </div>
+            </div>
+          )}
+
           <div className="f2">
             <div className="fg">
               <label>Jenis laporan <span className="wajib">*</span></label>
@@ -449,7 +498,7 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
           </div>
 
           <div className="fg">
-            <label>Uraian kegiatan <span className="wajib">*</span></label>
+            <label>Hasil yang Dicapai <span className="wajib">*</span></label>
             <textarea value={uraian} onChange={e => setUraian(e.target.value)}
                       placeholder="Jelaskan kegiatan yang dilaksanakan, temuan di lapangan, dan pihak yang ditemui." />
           </div>
@@ -458,6 +507,34 @@ export function FormulirLapor({ daftarSpt, penggunaId, penugasanTerkunci }: { da
             <label>Kendala di lapangan</label>
             <textarea value={kendala} onChange={e => setKendala(e.target.value)}
                       style={{ minHeight: 76 }} placeholder="Kosongkan bila tidak ada kendala." />
+          </div>
+
+          <div className="fg">
+            <label>Kesimpulan</label>
+            <textarea value={kesimpulan} onChange={e => setKesimpulan(e.target.value)}
+                      style={{ minHeight: 76 }} placeholder="Boleh kosong bila laporan ini masih perkembangan, belum ada kesimpulan." />
+          </div>
+
+          <div className="fg">
+            <label>Rencana Tindak Lanjut</label>
+            <textarea value={rencanaTindakLanjut} onChange={e => setRencanaTindakLanjut(e.target.value)}
+                      style={{ minHeight: 76 }} placeholder="Boleh kosong." />
+          </div>
+
+          <div className="f2">
+            <div className="fg">
+              <label>Dari</label>
+              <select value={posisiPengirim} onChange={e => setPosisiPengirim(e.target.value as PosisiPengirim)}>
+                {Object.entries(LABEL_POSISI_PENGIRIM).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <div className="bantu">Dilaporkan atas nama posisi ini, terlepas dari siapa yang mengetik.</div>
+            </div>
+            <div className="fg">
+              <label>Kepada</label>
+              <select value={tujuanSurat} onChange={e => setTujuanSurat(e.target.value as TujuanLaporan)}>
+                {Object.entries(LABEL_TUJUAN_LAPORAN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="fg">
