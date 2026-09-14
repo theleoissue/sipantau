@@ -416,6 +416,22 @@ export function FormulirLapor({ daftarSpt, penggunaId, penggunaPeran, penugasanT
             <div className="bantu">{penugasanTerkunci ? 'Penugasan dipilih dari halaman rincian tugas.' : 'Pilih penugasan yang masih berjalan.'}</div>
           </div>
 
+          <div className="f2">
+            <div className="fg">
+              <label>Dari</label>
+              <select value={posisiPengirim} onChange={e => setPosisiPengirim(e.target.value as PosisiPengirim)}>
+                {Object.entries(LABEL_POSISI_PENGIRIM).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <div className="bantu">Dilaporkan atas nama posisi ini, terlepas dari siapa yang mengetik.</div>
+            </div>
+            <div className="fg">
+              <label>Kepada</label>
+              <select value={tujuanSurat} onChange={e => setTujuanSurat(e.target.value as TujuanLaporan)}>
+                {Object.entries(LABEL_TUJUAN_LAPORAN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+
           {spt && (
             <div className="kartu" style={{ marginBottom: 16, background: 'var(--bg-2, #f7f8fa)' }}>
               <div className="kartu-b" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
@@ -498,6 +514,12 @@ export function FormulirLapor({ daftarSpt, penggunaId, penggunaPeran, penugasanT
           </div>
 
           <div className="fg">
+            <label>Keterangan lokasi</label>
+            <input value={keteranganLokasi} onChange={e => setKeteranganLokasi(e.target.value)}
+                   placeholder="Boleh kosong. Contoh: sedang di luar titik karena mengikuti target." />
+          </div>
+
+          <div className="fg">
             <label>Hasil yang Dicapai <span className="wajib">*</span></label>
             <textarea value={uraian} onChange={e => setUraian(e.target.value)}
                       placeholder="Jelaskan kegiatan yang dilaksanakan, temuan di lapangan, dan pihak yang ditemui." />
@@ -519,28 +541,6 @@ export function FormulirLapor({ daftarSpt, penggunaId, penggunaPeran, penugasanT
             <label>Rencana Tindak Lanjut</label>
             <textarea value={rencanaTindakLanjut} onChange={e => setRencanaTindakLanjut(e.target.value)}
                       style={{ minHeight: 76 }} placeholder="Boleh kosong." />
-          </div>
-
-          <div className="f2">
-            <div className="fg">
-              <label>Dari</label>
-              <select value={posisiPengirim} onChange={e => setPosisiPengirim(e.target.value as PosisiPengirim)}>
-                {Object.entries(LABEL_POSISI_PENGIRIM).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-              <div className="bantu">Dilaporkan atas nama posisi ini, terlepas dari siapa yang mengetik.</div>
-            </div>
-            <div className="fg">
-              <label>Kepada</label>
-              <select value={tujuanSurat} onChange={e => setTujuanSurat(e.target.value as TujuanLaporan)}>
-                {Object.entries(LABEL_TUJUAN_LAPORAN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="fg">
-            <label>Keterangan lokasi</label>
-            <input value={keteranganLokasi} onChange={e => setKeteranganLokasi(e.target.value)}
-                   placeholder="Boleh kosong. Contoh: sedang di luar titik karena mengikuti target." />
           </div>
 
           <div className="fg lapor-dok">
