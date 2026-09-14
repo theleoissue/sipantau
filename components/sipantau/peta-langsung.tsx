@@ -686,11 +686,28 @@ export function PetaLangsung({
     else if (semua.length > 1) p.fitBounds(L.latLngBounds(semua), { padding: [48, 48], maxZoom: 16, animate: true })
   }, [filterSpt, posisi, titikLokasi])
 
+  const fokusPenugasan = useCallback(async (penugasanId: string) => {
+    const p = peta.current
+    if (!p) return
+    setIkutiSesi(null)
+    const L = await import('leaflet')
+    const tujuan = titikLokasi
+      .filter(t => t.penugasan_id === penugasanId)
+      .map(t => [t.lat, t.lng] as [number, number])
+    if (tujuan.length === 1) p.setView(tujuan[0], 17, { animate: true })
+    else if (tujuan.length > 1) p.fitBounds(L.latLngBounds(tujuan), { padding: [48, 48], maxZoom: 16, animate: true })
+  }, [titikLokasi])
+
   return (
     <>
       <div className="peta-filter-bar">
         <label htmlFor="filter-spt">Penugasan</label>
-        <select id="filter-spt" value={filterSpt} onChange={e => setFilterSpt(e.target.value)}>
+        <select id="filter-spt" value={filterSpt} onChange={e => {
+          const penugasanId = e.target.value
+          setFilterSpt(penugasanId)
+          if (penugasanId === 'semua') void lihatSemua()
+          else void fokusPenugasan(penugasanId)
+        }}>
           <option value="semua">Semua penugasan ({daftarSpt.length})</option>
           {daftarSpt.map(s => (
             <option key={s.id} value={s.id}>
