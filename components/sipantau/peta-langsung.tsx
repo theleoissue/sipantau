@@ -61,11 +61,14 @@ export function PetaLangsung({
   daftarSpt,
   titikLokasi = [],
   fokus,
+  contohDemo,
 }: {
   posisiAwal: PosisiPeta[]
   daftarSpt: { id: string; nomor_spt: string | null; judul: string }[]
   titikLokasi?: TitikLokasiPeta[]
   fokus?: { lat: number; lng: number; laporanId?: string }
+  /** Pin contoh untuk demo/presentasi — bukan data GPS sungguhan (lihat page.tsx). */
+  contohDemo?: { lat: number; lng: number; nama: string }
 }) {
   const [posisi, setPosisi] = useState<Map<string, PosisiPeta>>(
     () => new Map(posisiAwal.map(p => [p.sesi_tugas_id, p])),
@@ -89,6 +92,7 @@ export function PetaLangsung({
   const peta = useRef<import('leaflet').Map | null>(null)
   const penanda = useRef<Map<string, import('leaflet').Marker>>(new Map())
   const lokasiLayer = useRef<import('leaflet').LayerGroup | null>(null)
+  const pinContoh = useRef<import('leaflet').Marker | null>(null)
 
   // Jejak yang tumbuh hidup selagi Sesi Tugas berjalan — beda dari
   // Rute (riwayat) di rincian SPT, yang cuma termuat sekali saat
@@ -662,6 +666,29 @@ export function PetaLangsung({
       }
     })
   }, [titikLokasi, filterSpt, petaSiap])
+
+  // Pin contoh untuk demo/presentasi — SENGAJA terpisah dari `posisi`
+  // (bukan Sesi Tugas sungguhan): tidak ikut dihitung di panel "Sedang
+  // bertugas", tidak lewat Realtime, dan bergaya beda (cincin putus-putus
+  // + keterangan tegas di balonnya) supaya tidak pernah terbaca sebagai
+  // posisi GPS sungguhan. contohDemo hanya terisi lewat ?contoh=1 (lihat
+  // page.tsx) — kosong di pemakaian sehari-hari.
+  useEffect(() => {
+    if (!petaSiap || !peta.current) return
+    import('leaflet').then(L => {
+      const p = peta.current
+      if (!p) return
+      pinContoh.current?.remove()
+      pinContoh.current = null
+      if (!contohDemo) return
+      const ikonHtml = `<div class="penanda-wadah"><div class="penanda" style="background:#94A3B8;border:2px dashed #fff;opacity:.9"><span>${inisial(contohDemo.nama)}</span></div></div>`
+      pinContoh.current = L.marker([contohDemo.lat, contohDemo.lng], {
+        icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }),
+      }).addTo(p).bindPopup(
+        `<b>${contohDemo.nama}</b><br><small style="color:#DC2626">Contoh tampilan untuk demonstrasi — bukan posisi GPS sungguhan.</small>`,
+      )
+    })
+  }, [contohDemo, petaSiap])
 
   const daftarTampil = [...posisi.values()].filter(x => filterSpt === 'semua' || x.penugasan_id === filterSpt)
 
