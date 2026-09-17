@@ -26,6 +26,7 @@ import type { TitikJejak } from '@/lib/gps/tipe'
 // yang sungguh direkam perangkat, dan ini murni lapisan tampilan.
 const jejakGambar = (t: TitikJejak[]) => haluskanJejak(sederhanakanJejak(saringKalman(t)))
 import { inisial } from '@/lib/utils'
+import { LABEL_JENIS_LAPORAN } from '@/lib/laporan/tipe'
 import { Ikon } from './ikon'
 
 const PALET_SPT = ['#2563EB', '#DC2626', '#059669', '#D97706', '#7C3AED', '#DB2777', '#0891B2', '#65A30D']
@@ -56,16 +57,32 @@ interface TitikLokasiPeta {
   radius_meter: number | null
 }
 
+interface TitikLaporanPeta {
+  id: string
+  penugasan_id: string
+  nomor_spt: string | null
+  judul: string
+  jenis: string
+  uraian: string
+  pelapor: string
+  dikirim_pada: string
+  lat: number
+  lng: number
+}
+
 export function PetaLangsung({
   posisiAwal,
   daftarSpt,
   titikLokasi = [],
+  titikLaporan = [],
   fokus,
   contohDemo,
 }: {
   posisiAwal: PosisiPeta[]
   daftarSpt: { id: string; nomor_spt: string | null; judul: string }[]
   titikLokasi?: TitikLokasiPeta[]
+  /** Titik tempat laporan pernah dikirim — layer terpisah, mati (nonaktif) baku. */
+  titikLaporan?: TitikLaporanPeta[]
   fokus?: { lat: number; lng: number; laporanId?: string }
   /** Pin contoh untuk demo/presentasi — bukan data GPS sungguhan (lihat page.tsx). */
   contohDemo?: { lat: number; lng: number; nama: string }[]
@@ -79,6 +96,7 @@ export function PetaLangsung({
   const [tik, paksaRenderUlang] = useState(0)
   const [ikutiSesi, setIkutiSesi] = useState<string | null>(null)
   const [tampilkanJejak, setTampilkanJejak] = useState(true)
+  const [tampilkanLaporan, setTampilkanLaporan] = useState(false)
   const [petaMaksimal, setPetaMaksimal] = useState(false)
   // Menandai peta+lokasiLayer sudah selesai dibangun. WAJIB ada: import
   // 'leaflet' pada efek pembangunan peta dan efek penanda/lokasi
@@ -92,6 +110,7 @@ export function PetaLangsung({
   const peta = useRef<import('leaflet').Map | null>(null)
   const penanda = useRef<Map<string, import('leaflet').Marker>>(new Map())
   const lokasiLayer = useRef<import('leaflet').LayerGroup | null>(null)
+  const laporanLayer = useRef<import('leaflet').LayerGroup | null>(null)
   const pinContoh = useRef<import('leaflet').Marker[]>([])
 
   // Jejak yang tumbuh hidup selagi Sesi Tugas berjalan — beda dari
@@ -473,6 +492,9 @@ export function PetaLangsung({
           .openTooltip()
       }
       lokasiLayer.current = L.layerGroup().addTo(peta.current)
+      // TIDAK addTo() di sini — baku nonaktif (tampilkanLaporan mulai
+      // false), ditambahkan/dilepas lewat efek togglenya sendiri.
+      laporanLayer.current = L.layerGroup()
 
       // Pandangan awal mengikuti titik lokasi SPT yang sungguh ada,
       // bukan sekadar tengah Jawa Barat yang tidak berarti apa-apa bagi
@@ -667,6 +689,47 @@ export function PetaLangsung({
     })
   }, [titikLokasi, filterSpt, petaSiap])
 
+  // Titik laporan — layer terpisah dari posisi personel maupun lokasi
+  // tugas: tempat laporan harian PERNAH dikirim, bukan sedang terjadi.
+  // Baku nonaktif (tampilkanLaporan mulai false) supaya peta tidak
+  // penuh sesak begitu dibuka — pengawas menyalakannya sendiri lewat
+  // tombol di peta-kontrol. Isinya disiapkan terlepas dari status
+  // tombol supaya sudah siap begitu dinyalakan, layer-nya sendiri yang
+  // ditambah/dilepas dari peta lewat efek berikutnya.
+  useEffect(() => {
+    if (!peta.current || !laporanLayer.current) return
+    import('leaflet').then(L => {
+      const grup = laporanLayer.current
+      if (!grup) return
+      grup.clearLayers()
+
+      const daftar = titikLaporan.filter(t => filterSpt === 'semua' || t.penugasan_id === filterSpt)
+      for (const t of daftar) {
+        const label = LABEL_JENIS_LAPORAN[t.jenis as keyof typeof LABEL_JENIS_LAPORAN] ?? t.jenis
+        const cuplikan = t.uraian.length > 120 ? `${t.uraian.slice(0, 120)}…` : t.uraian
+        const waktu = new Intl.DateTimeFormat('id-ID', {
+          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+        }).format(new Date(t.dikirim_pada))
+        L.circleMarker([t.lat, t.lng], {
+          radius: 7, color: '#fff', weight: 2, fillColor: '#7C3AED', fillOpacity: 0.9,
+        }).addTo(grup).bindPopup(
+          `<b>${label}</b> — ${t.nomor_spt ?? t.penugasan_id}<br>`
+          + `<small>${t.pelapor} · ${waktu}</small>`
+          + `<p style="margin:6px 0 8px;max-width:220px">${cuplikan}</p>`
+          + `<a href="/laporan/${encodeURIComponent(t.id)}">Buka laporan</a>`,
+        )
+      }
+    })
+  }, [titikLaporan, filterSpt, petaSiap])
+
+  // Tombol di peta-kontrol cuma mengganti tampil/lepasnya layer yang
+  // isinya sudah disiapkan efek di atas — tidak membangun ulang penanda.
+  useEffect(() => {
+    if (!peta.current || !laporanLayer.current) return
+    if (tampilkanLaporan) laporanLayer.current.addTo(peta.current)
+    else laporanLayer.current.remove()
+  }, [tampilkanLaporan, petaSiap])
+
   // Pin contoh untuk demo/presentasi — SENGAJA terpisah dari `posisi`
   // (bukan Sesi Tugas sungguhan): tidak ikut dihitung di panel "Sedang
   // bertugas", tidak lewat Realtime, dan bergaya beda (cincin
@@ -768,6 +831,7 @@ export function PetaLangsung({
               <button type="button" onClick={() => peta.current?.zoomOut()} aria-label="Perkecil peta" title="Perkecil">−</button>
             </div>
             <button type="button" className={`peta-jejak-kontrol ${tampilkanJejak ? 'on' : ''}`} aria-pressed={tampilkanJejak} onClick={e => setTampilkanJejak(e.currentTarget.getAttribute('aria-pressed') !== 'true')} aria-label={tampilkanJejak ? 'Sembunyikan jejak perjalanan' : 'Tampilkan jejak perjalanan'} title={tampilkanJejak ? 'Sembunyikan jejak' : 'Tampilkan jejak'}><Ikon nama="riwayat" /></button>
+            <button type="button" className={`peta-jejak-kontrol ${tampilkanLaporan ? 'on' : ''}`} aria-pressed={tampilkanLaporan} onClick={() => setTampilkanLaporan(v => !v)} aria-label={tampilkanLaporan ? 'Sembunyikan titik laporan' : 'Tampilkan titik laporan'} title={tampilkanLaporan ? 'Sembunyikan titik laporan' : 'Tampilkan titik laporan'}><Ikon nama="berkas" /></button>
             <button type="button" onClick={lihatSemua} aria-label="Tampilkan semua petugas dan lokasi" title="Lihat semua"><Ikon nama="peta" /></button>
             <button type="button" className={petaMaksimal ? 'on' : ''} onClick={() => setPetaMaksimal(v => !v)} aria-label={petaMaksimal ? 'Keluar dari layar penuh' : 'Buka peta layar penuh'} title={petaMaksimal ? 'Tutup layar penuh' : 'Layar penuh'}><Ikon nama={petaMaksimal ? 'perkecil_layar' : 'perbesar_layar'} /></button>
           </div>

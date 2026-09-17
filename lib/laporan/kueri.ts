@@ -65,6 +65,57 @@ export async function daftarLaporan(opsi?: {
   return (data ?? []) as unknown as LaporanLengkap[]
 }
 
+export interface TitikLaporanPeta {
+  id: string
+  penugasan_id: string
+  nomor_spt: string | null
+  judul: string
+  jenis: string
+  uraian: string
+  pelapor: string
+  dikirim_pada: string
+  lat: number
+  lng: number
+}
+
+/** Titik tempat laporan harian pernah dikirim — layer terpisah di Peta
+ *  Lapangan (BUKAN posisi personel maupun lokasi tugas), untuk melihat
+ *  sebaran laporan yang pernah dibuat dan membukanya langsung. Lingkup
+ *  mengikuti RLS laporan_baca_sesuai_lingkup apa adanya, sama seperti
+ *  daftarLaporan() — tidak ada penyaring tambahan di sini. */
+export async function titikLaporanUntukPeta(): Promise<TitikLaporanPeta[]> {
+  const supabase = await klienServer()
+  const { data, error } = await supabase
+    .from('laporan_harian')
+    .select(`
+      id, penugasan_id, jenis, uraian, dikirim_pada, lokasi_lat, lokasi_lng,
+      penugasan:penugasan_id ( nomor_spt, judul ),
+      pelapor:pelapor_id ( nama )
+    `)
+    .not('lokasi_lat', 'is', null)
+    .not('lokasi_lng', 'is', null)
+    .order('dikirim_pada', { ascending: false })
+
+  if (error) throw new Error(`Gagal membaca titik laporan peta: ${error.message}`)
+  return (data ?? []).map(b => {
+    const r = b as unknown as Record<string, unknown>
+    const penugasan = r.penugasan as { nomor_spt: string | null; judul: string } | null
+    const pelapor = r.pelapor as { nama: string } | null
+    return {
+      id: r.id as string,
+      penugasan_id: r.penugasan_id as string,
+      nomor_spt: penugasan?.nomor_spt ?? null,
+      judul: penugasan?.judul ?? '',
+      jenis: r.jenis as string,
+      uraian: r.uraian as string,
+      pelapor: pelapor?.nama ?? '—',
+      dikirim_pada: r.dikirim_pada as string,
+      lat: Number(r.lokasi_lat),
+      lng: Number(r.lokasi_lng),
+    }
+  })
+}
+
 /** Riwayat milik satu orang (Anggota membuka Riwayat Laporan miliknya). */
 export async function riwayatLaporanSaya(userId: string): Promise<LaporanLengkap[]> {
   const supabase = await klienServer()

@@ -1,6 +1,7 @@
 import 'leaflet/dist/leaflet.css'
 import { wajibkanSudahSiap } from '@/lib/auth/pengguna'
 import { posisiPetaAwal, daftarSptUntukPeta, titikLokasiUntukPeta } from '@/lib/gps/kueri'
+import { titikLaporanUntukPeta } from '@/lib/laporan/kueri'
 import { PetaLangsung } from '@/components/sipantau/peta-langsung'
 import { idValid } from '@/lib/utils'
 
@@ -13,8 +14,8 @@ export default async function HalamanPeta({ searchParams }: { searchParams: Prom
   const lng = Number(cari.lng)
   const fokus = Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
     ? { lat, lng, laporanId: cari.laporan && idValid(cari.laporan) ? cari.laporan : undefined } : undefined
-  const [posisiAwal, daftarSpt, titikLokasi] = await Promise.all([
-    posisiPetaAwal(), daftarSptUntukPeta(), titikLokasiUntukPeta(),
+  const [posisiAwal, daftarSpt, titikLokasi, titikLaporan] = await Promise.all([
+    posisiPetaAwal(), daftarSptUntukPeta(), titikLokasiUntukPeta(), titikLaporanUntukPeta(),
   ])
 
   // Lima pin contoh untuk demo/presentasi — MURNI tampilan, tidak
@@ -60,7 +61,7 @@ export default async function HalamanPeta({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
-      <PetaLangsung posisiAwal={posisiAwal} daftarSpt={daftarSpt} titikLokasi={titikLokasi} fokus={fokus} contohDemo={contohDemo} />
+      <PetaLangsung posisiAwal={posisiAwal} daftarSpt={daftarSpt} titikLokasi={titikLokasi} titikLaporan={titikLaporan} fokus={fokus} contohDemo={contohDemo} />
     </>
   )
 }
