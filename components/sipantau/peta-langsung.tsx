@@ -703,6 +703,11 @@ export function PetaLangsung({
     peta.current?.setView(titikIkon ?? [lat, lng], 17, { animate: true })
   }, [])
 
+  const sorotContoh = useCallback((lat: number, lng: number) => {
+    setIkutiSesi(null)
+    peta.current?.setView([lat, lng], 17, { animate: true })
+  }, [])
+
   const lihatSemua = useCallback(async () => {
     const p = peta.current
     if (!p) return
@@ -815,6 +820,35 @@ export function PetaLangsung({
               </div>
             ))}
           </div>
+          {contohDemo && contohDemo.length > 0 && (
+            <>
+              <div className="kepala" style={{ marginTop: 4 }}>
+                <h4 style={{ color: 'var(--ink-3)' }}>Personel contoh (demo)</h4>
+                <span>{contohDemo.length}</span>
+              </div>
+              <div className="daftar">
+                {contohDemo.map((pin, i) => (
+                  <div
+                    key={i}
+                    className="peta-orang"
+                    style={{ opacity: .8 }}
+                    onClick={() => sorotContoh(pin.lat, pin.lng)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') sorotContoh(pin.lat, pin.lng) }}
+                  >
+                    <div className="av av-sm" style={{ background: '#94A3B8', color: '#fff', border: '2px dashed #fff' }}>
+                      {inisial(pin.nama)}
+                    </div>
+                    <div className="meta">
+                      <div className="nm">{pin.nama}</div>
+                      <div className="st" style={{ color: 'var(--ink-3)' }}>Contoh tampilan — bukan posisi sungguhan</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </>
