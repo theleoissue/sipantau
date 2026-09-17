@@ -17,18 +17,29 @@ export default async function HalamanPeta({ searchParams }: { searchParams: Prom
     posisiPetaAwal(), daftarSptUntukPeta(), titikLokasiUntukPeta(),
   ])
 
-  // Pin contoh untuk demo/presentasi — MURNI tampilan, tidak pernah
-  // menyentuh posisi_terkini atau tabel mana pun. Aktif hanya lewat
-  // ?contoh=1 di URL, ditempatkan dekat lokasi tugas SPT pertama yang
-  // punya titik lokasi. Selalu berlabel "Contoh" di peta (lihat
-  // PetaLangsung) supaya tidak pernah disalahartikan sebagai posisi
-  // GPS sungguhan.
+  // Lima pin contoh untuk demo/presentasi — MURNI tampilan, tidak
+  // pernah menyentuh posisi_terkini atau tabel mana pun. Aktif hanya
+  // lewat ?contoh=1 di URL, disebar di sekitar lokasi tugas SPT
+  // pertama yang punya titik lokasi. Nama generik ("Personel Contoh
+  // N"), dan keterangannya (lihat PetaLangsung) tetap menyatakan ini
+  // ilustrasi — hanya lebih halus, bukan peringatan mencolok.
   const contohDemo = cari.contoh === '1' && titikLokasi.length > 0
     ? (() => {
         const t = titikLokasi[0]
-        const dLat = 0.0009 // ~100 m ke utara
-        const dLng = 0.0009 / Math.cos((t.lat * Math.PI) / 180) // ~100 m ke timur
-        return { lat: t.lat + dLat, lng: t.lng + dLng, nama: 'Personel (contoh)' }
+        const meterKeDerajat = (meter: number) => meter / 111_320
+        const sebaran = [
+          { sudut: 20, jarak: 90 },
+          { sudut: 100, jarak: 130 },
+          { sudut: 190, jarak: 110 },
+          { sudut: 260, jarak: 150 },
+          { sudut: 330, jarak: 100 },
+        ]
+        return sebaran.map((s, i) => {
+          const rad = (s.sudut * Math.PI) / 180
+          const dLat = meterKeDerajat(s.jarak) * Math.cos(rad)
+          const dLng = (meterKeDerajat(s.jarak) * Math.sin(rad)) / Math.cos((t.lat * Math.PI) / 180)
+          return { lat: t.lat + dLat, lng: t.lng + dLng, nama: `Personel Contoh ${i + 1}` }
+        })
       })()
     : undefined
 

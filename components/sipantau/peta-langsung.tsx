@@ -68,7 +68,7 @@ export function PetaLangsung({
   titikLokasi?: TitikLokasiPeta[]
   fokus?: { lat: number; lng: number; laporanId?: string }
   /** Pin contoh untuk demo/presentasi — bukan data GPS sungguhan (lihat page.tsx). */
-  contohDemo?: { lat: number; lng: number; nama: string }
+  contohDemo?: { lat: number; lng: number; nama: string }[]
 }) {
   const [posisi, setPosisi] = useState<Map<string, PosisiPeta>>(
     () => new Map(posisiAwal.map(p => [p.sesi_tugas_id, p])),
@@ -92,7 +92,7 @@ export function PetaLangsung({
   const peta = useRef<import('leaflet').Map | null>(null)
   const penanda = useRef<Map<string, import('leaflet').Marker>>(new Map())
   const lokasiLayer = useRef<import('leaflet').LayerGroup | null>(null)
-  const pinContoh = useRef<import('leaflet').Marker | null>(null)
+  const pinContoh = useRef<import('leaflet').Marker[]>([])
 
   // Jejak yang tumbuh hidup selagi Sesi Tugas berjalan — beda dari
   // Rute (riwayat) di rincian SPT, yang cuma termuat sekali saat
@@ -669,24 +669,29 @@ export function PetaLangsung({
 
   // Pin contoh untuk demo/presentasi — SENGAJA terpisah dari `posisi`
   // (bukan Sesi Tugas sungguhan): tidak ikut dihitung di panel "Sedang
-  // bertugas", tidak lewat Realtime, dan bergaya beda (cincin putus-putus
-  // + keterangan tegas di balonnya) supaya tidak pernah terbaca sebagai
-  // posisi GPS sungguhan. contohDemo hanya terisi lewat ?contoh=1 (lihat
-  // page.tsx) — kosong di pemakaian sehari-hari.
+  // bertugas", tidak lewat Realtime, dan bergaya beda (cincin
+  // putus-putus abu-abu, bukan warna status hijau/kuning/merah).
+  // Keterangan di balonnya tetap menyatakan ini ilustrasi — hanya
+  // dibuat halus (teks kecil abu-abu, bukan peringatan merah), supaya
+  // tampilan tetap bersih untuk demo tapi tidak pernah berbohong kalau
+  // ada yang benar-benar memeriksanya. contohDemo hanya terisi lewat
+  // ?contoh=1 (lihat page.tsx) — kosong di pemakaian sehari-hari.
   useEffect(() => {
     if (!petaSiap || !peta.current) return
     import('leaflet').then(L => {
       const p = peta.current
       if (!p) return
-      pinContoh.current?.remove()
-      pinContoh.current = null
+      for (const m of pinContoh.current) m.remove()
+      pinContoh.current = []
       if (!contohDemo) return
-      const ikonHtml = `<div class="penanda-wadah"><div class="penanda" style="background:#94A3B8;border:2px dashed #fff;opacity:.9"><span>${inisial(contohDemo.nama)}</span></div></div>`
-      pinContoh.current = L.marker([contohDemo.lat, contohDemo.lng], {
-        icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }),
-      }).addTo(p).bindPopup(
-        `<b>${contohDemo.nama}</b><br><small style="color:#DC2626">Contoh tampilan untuk demonstrasi — bukan posisi GPS sungguhan.</small>`,
-      )
+      pinContoh.current = contohDemo.map(pin => {
+        const ikonHtml = `<div class="penanda-wadah"><div class="penanda" style="background:#94A3B8;border:2px dashed #fff;opacity:.9"><span>${inisial(pin.nama)}</span></div></div>`
+        return L.marker([pin.lat, pin.lng], {
+          icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 30], html: ikonHtml }),
+        }).addTo(p).bindPopup(
+          `<b>${pin.nama}</b><br><small style="color:var(--ink-3,#94A3B8)">Contoh tampilan — bukan posisi GPS sungguhan.</small>`,
+        )
+      })
     })
   }, [contohDemo, petaSiap])
 
